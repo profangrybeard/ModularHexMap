@@ -39,11 +39,11 @@ ModularHexMap/
 
 ## Prerequisites
 
-- **Unreal Engine 5.7.4** built from source. See Epic's
-  [Building Unreal Engine from Source](https://dev.epicgames.com/documentation/en-us/unreal-engine/downloading-unreal-engine-source-code)
-  guide.
-- **Visual Studio 2022** (17.8+) with the *Game development with C++* workload and
-  the *Unreal Engine installer* component.
+- **Unreal Engine 5.7.x** installed via the Epic Games Launcher
+  (`EngineAssociation: "5.7"` in the `.uproject` resolves to whatever 5.7.x is
+  installed).
+- **Visual Studio 2022** (17.8+) with the *Game development with C++* workload.
+  Install components by importing the committed `.vsconfig` in the VS Installer.
 - **Blender 4.x** with the MCP connector add-on enabled.
 - **Git LFS** installed system-wide (`git lfs install`).
 
@@ -54,18 +54,18 @@ ModularHexMap/
 git clone https://github.com/profangrybeard/ModularHexMap.git
 cd ModularHexMap
 
-# 2. Associate the .uproject with your source-built engine.
-#    Right-click ModularHexMap.uproject → "Switch Unreal Engine version"
-#    and pick your 5.7.4 source build. This stamps EngineAssociation in the file.
+# 2. Generate IDE project files.
+#    Right-click ModularHexMap.uproject → "Generate Visual Studio project files".
+#    EngineAssociation is "5.7" — the Epic Games Launcher install handler picks
+#    your installed 5.7.x automatically.
 
-# 3. Generate IDE project files.
-#    Right-click ModularHexMap.uproject → "Generate Visual Studio project files"
-#    (or invoke UnrealBuildTool's GenerateProjectFiles directly).
+# 3. Open ModularHexMap.sln in Visual Studio, set the solution config to
+#    "Development Editor" / "Win64", and Build. Or run from a shell:
+#       "C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" `
+#         ModularHexMapEditor Win64 Development `
+#         -Project="<abs path>\ModularHexMap.uproject" -WaitMutex
 
-# 4. Open ModularHexMap.sln in Visual Studio, set the solution config to
-#    "Development Editor" / "Win64", and Build.
-
-# 5. Launch the editor (F5 or the built UnrealEditor.exe with the .uproject).
+# 4. Launch by double-clicking ModularHexMap.uproject (or F5 from VS).
 ```
 
 ## The pipeline (high level)
@@ -82,9 +82,10 @@ See [Docs/Pipeline.md](Docs/Pipeline.md) for the detailed flow.
 
 ## Migrating to UE 5.8
 
-When 5.8 ships stable (Epic's window: **June–August 2026**):
+UE 5.8.0 is now available as a launcher install (`C:\Program Files\Epic Games\UE_5.8`).
+When ready to move:
 
-1. Bump `EngineAssociation` in `ModularHexMap.uproject` to the 5.8 source build.
+1. Change `EngineAssociation` in `ModularHexMap.uproject` from `"5.7"` to `"5.8"`.
 2. Regenerate project files.
 3. Fix any compile breaks (typically minimal across `.x` releases).
 4. Bump `EngineVersion` in `Plugins/HexMapGenerator/HexMapGenerator.uplugin`.

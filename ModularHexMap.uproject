@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "{94F2FE98-481F-6862-3A8E-7E8BE73B7432}",
+	"EngineAssociation": "5.7",
 	"Category": "",
 	"Description": "Modular hex map system. Claude -> Blender -> Unreal pipeline.",
 	"Modules": [
