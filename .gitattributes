@@ -1,0 +1,106 @@
+# ============================================================================
+# Line endings
+# ============================================================================
+# Default: let git pick, normalize to LF on commit.
+* text=auto eol=lf
+
+# Force LF for code (Unreal sources, build scripts, configs)
+*.cpp text eol=lf
+*.h   text eol=lf
+*.cs  text eol=lf
+*.ini text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.py   text eol=lf
+*.sh   text eol=lf
+
+# Force CRLF for Windows-specific scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Mark Unreal generated/manifest text files explicitly
+*.uproject text eol=lf
+*.uplugin  text eol=lf
+*.Target.cs text eol=lf
+*.Build.cs  text eol=lf
+
+# ============================================================================
+# Git LFS — binary asset tracking
+# ============================================================================
+# Unreal binary content
+*.uasset filter=lfs diff=lfs merge=lfs -text
+*.umap   filter=lfs diff=lfs merge=lfs -text
+
+# 3D source / exchange formats
+*.blend  filter=lfs diff=lfs merge=lfs -text
+*.fbx    filter=lfs diff=lfs merge=lfs -text
+*.obj    filter=lfs diff=lfs merge=lfs -text
+*.dae    filter=lfs diff=lfs merge=lfs -text
+*.gltf   filter=lfs diff=lfs merge=lfs -text
+*.glb    filter=lfs diff=lfs merge=lfs -text
+*.usd    filter=lfs diff=lfs merge=lfs -text
+*.usda   filter=lfs diff=lfs merge=lfs -text
+*.usdc   filter=lfs diff=lfs merge=lfs -text
+*.usdz   filter=lfs diff=lfs merge=lfs -text
+*.abc    filter=lfs diff=lfs merge=lfs -text
+*.ma     filter=lfs diff=lfs merge=lfs -text
+*.mb     filter=lfs diff=lfs merge=lfs -text
+*.max    filter=lfs diff=lfs merge=lfs -text
+*.c4d    filter=lfs diff=lfs merge=lfs -text
+*.ztl    filter=lfs diff=lfs merge=lfs -text
+*.zpr    filter=lfs diff=lfs merge=lfs -text
+
+# Textures
+*.png   filter=lfs diff=lfs merge=lfs -text
+*.jpg   filter=lfs diff=lfs merge=lfs -text
+*.jpeg  filter=lfs diff=lfs merge=lfs -text
+*.tga   filter=lfs diff=lfs merge=lfs -text
+*.tif   filter=lfs diff=lfs merge=lfs -text
+*.tiff  filter=lfs diff=lfs merge=lfs -text
+*.exr   filter=lfs diff=lfs merge=lfs -text
+*.hdr   filter=lfs diff=lfs merge=lfs -text
+*.psd   filter=lfs diff=lfs merge=lfs -text
+*.psb   filter=lfs diff=lfs merge=lfs -text
+*.dds   filter=lfs diff=lfs merge=lfs -text
+*.bmp   filter=lfs diff=lfs merge=lfs -text
+*.gif   filter=lfs diff=lfs merge=lfs -text
+*.webp  filter=lfs diff=lfs merge=lfs -text
+*.ico   filter=lfs diff=lfs merge=lfs -text
+*.icns  filter=lfs diff=lfs merge=lfs -text
+
+# Audio
+*.wav   filter=lfs diff=lfs merge=lfs -text
+*.mp3   filter=lfs diff=lfs merge=lfs -text
+*.ogg   filter=lfs diff=lfs merge=lfs -text
+*.flac  filter=lfs diff=lfs merge=lfs -text
+*.aiff  filter=lfs diff=lfs merge=lfs -text
+*.aif   filter=lfs diff=lfs merge=lfs -text
+
+# Video
+*.mp4   filter=lfs diff=lfs merge=lfs -text
+*.mov   filter=lfs diff=lfs merge=lfs -text
+*.webm  filter=lfs diff=lfs merge=lfs -text
+*.avi   filter=lfs diff=lfs merge=lfs -text
+*.mkv   filter=lfs diff=lfs merge=lfs -text
+
+# Fonts
+*.ttf   filter=lfs diff=lfs merge=lfs -text
+*.otf   filter=lfs diff=lfs merge=lfs -text
+*.woff  filter=lfs diff=lfs merge=lfs -text
+*.woff2 filter=lfs diff=lfs merge=lfs -text
+
+# Archives (when committed intentionally — they're gitignored by default)
+*.zip   filter=lfs diff=lfs merge=lfs -text
+*.7z    filter=lfs diff=lfs merge=lfs -text
+*.rar   filter=lfs diff=lfs merge=lfs -text
+*.tar   filter=lfs diff=lfs merge=lfs -text
+*.gz    filter=lfs diff=lfs merge=lfs -text
+
+# Substance / Quixel sources
+*.sbs    filter=lfs diff=lfs merge=lfs -text
+*.sbsar  filter=lfs diff=lfs merge=lfs -text
+*.spp    filter=lfs diff=lfs merge=lfs -text
+*.mra    filter=lfs diff=lfs merge=lfs -text

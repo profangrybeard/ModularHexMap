@@ -1,0 +1,44 @@
+# EditorConfig — https://editorconfig.org
+# Top-most config; stops parent-dir lookup.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+indent_size = 4
+
+# Unreal C++ — Epic's style uses tabs (tab width 4).
+[*.{cpp,h,inl}]
+indent_style = tab
+indent_size = 4
+
+# UnrealBuildTool C# files use tabs as well.
+[*.{cs,Build.cs,Target.cs}]
+indent_style = tab
+indent_size = 4
+
+# UE manifest / config files
+[*.{uproject,uplugin,json}]
+indent_style = tab
+indent_size = 4
+
+[*.ini]
+indent_style = space
+indent_size = 4
+
+# Web / docs / scripts — spaces, 2 wide
+[*.{md,yaml,yml}]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false   # markdown uses trailing spaces for line breaks
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+# Windows batch keeps CRLF.
+[*.{bat,cmd,ps1}]
+end_of_line = crlf

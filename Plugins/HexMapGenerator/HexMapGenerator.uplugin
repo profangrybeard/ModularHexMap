@@ -1,0 +1,29 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "HexMap Generator",
+	"Description": "Modular hex map generation tool. Pairs with Blender-authored tiles to assemble hex grids in the editor and at runtime.",
+	"Category": "Map Tools",
+	"CreatedBy": "ModularHexMap Project",
+	"CreatedByURL": "https://github.com/profangrybeard/ModularHexMap",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.7.0",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "HexMapGenerator",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "HexMapGeneratorEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
