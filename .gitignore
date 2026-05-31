@@ -29,6 +29,10 @@ Plugins/**/Binaries/
 Plugins/**/Intermediate/
 Plugins/**/Saved/
 
+# Plugins auto-installed by Visual Studio's Unreal Engine integration —
+# they ship with VS, not with our project, and re-appear on every install.
+Plugins/VisualStudioTools/
+
 # Crash dumps and logs
 *.dmp
 *.log
