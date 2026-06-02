@@ -102,3 +102,9 @@ $RECYCLE.BIN/
 # Archive files (case-by-case — uncomment if you ship distributables)
 # *.zip
 # *.7z
+
+# ============================================================================
+# Tile pipeline
+# ============================================================================
+# glTF staging — regenerable via Tools/blender/gen_street_tiles.py; not committed.
+/Content/HexTiles/Source/
