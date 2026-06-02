@@ -10,6 +10,6 @@ public class ModularHexMapTarget : TargetRules
 		Type = TargetType.Game;
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
-		ExtraModuleNames.Add("ModularHexMap");
+		ExtraModuleNames.AddRange(new string[] { "ModularHexMap", "TP_ThirdPerson" });
 	}
 }

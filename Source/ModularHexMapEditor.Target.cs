@@ -10,6 +10,6 @@ public class ModularHexMapEditorTarget : TargetRules
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.Latest;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
-		ExtraModuleNames.Add("ModularHexMap");
+		ExtraModuleNames.AddRange(new string[] { "ModularHexMap", "TP_ThirdPerson" });
 	}
 }
