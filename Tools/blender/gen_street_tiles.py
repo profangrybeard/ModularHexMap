@@ -30,13 +30,24 @@ HW      = WR / 2.0
 INR     = R * math.cos(math.radians(30))   # edge-midpoint distance
 EDGE_ANG = {0: 90, 1: 150, 2: 210, 3: 270, 4: 330, 5: 30}
 
+# The full canonical set of road-edge configs up to rotation (14 binary necklaces of
+# length 6). The in-engine generator applies rotation, so one tile per necklace covers
+# every orientation. Growth can produce any of these, so the kit must provide all of them.
 EDGE_SETS = {
-    "blank":    [],
-    "deadend":  [0],
-    "straight": [0, 3],
-    "curve":    [0, 2],
-    "tee":      [0, 2, 4],
-    "junction": [0, 1, 2, 3, 4, 5],
+    "blank":    [],                  # 0 roads — no-road backfill
+    "deadend":  [0],                 # 1 road  — street stub / endpoint
+    "bend":     [0, 1],              # 2 roads — 60° sharp turn (adjacent edges)
+    "curve":    [0, 2],              # 2 roads — 120° wide turn
+    "straight": [0, 3],              # 2 roads — through street (opposite edges)
+    "tee":      [0, 2, 4],           # 3 roads — symmetric Y / 3-way
+    "tee_a":    [0, 1, 2],           # 3 roads — three consecutive
+    "tee_b":    [0, 1, 3],           # 3 roads — T (straight + adjacent branch)
+    "tee_c":    [0, 1, 4],           # 3 roads — skewed 3-way
+    "quad":     [0, 1, 2, 3],        # 4 roads
+    "quad_b":   [0, 2, 3, 4],        # 4 roads
+    "quad_c":   [0, 1, 3, 4],        # 4 roads
+    "penta":    [0, 1, 2, 3, 4],     # 5 roads
+    "junction": [0, 1, 2, 3, 4, 5],  # 6 roads — full crossroads / square
 }
 
 CANON = {"Hex_Base", "Camera", "Light",
