@@ -28,6 +28,15 @@ is a visible trophy case of how far the player has come.
   neighbor and how the street network forms. This is the assembly grammar.
 - Each building tile fronts the street via a **door on a road edge**.
 
+## Population = rescued people
+
+The town's size *is* the rescue count: tiles house the people you save underground. Every
+tile type carries an **Occupancy** (housing capacity); a layout's total is its **rescue
+capacity / vacancies**. The `HexShuffleGenerator` sums it live and shows it, so layouts can
+be judged by how many they'd hold. Seed rule for the street kit: `Occupancy = (6 − roadEdges)
+× 2` (roads displace housing) — per-tile editable in the catalog. Building tiles will set
+their own capacities as they're authored.
+
 ## Interiors
 
 - Every building has a **simple interior** — deliberately minimal, in the spirit of a

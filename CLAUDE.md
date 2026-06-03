@@ -8,93 +8,118 @@
 ## What this is
 A modular **hex map town hub** for Unreal Engine 5.7 (C++). The surface counterpart to
 underground dungeon crawling: you come up to **tour, meet locals, shop**, then go back
-down. **Not** combat/parkour. The town is a **record of the player's achievements** — it
-fills in as they progress. Aesthetic: **dense turn-of-the-century London**. Tiles are
-flat-top hexes assembled into streets; roads on the edges govern how they connect.
+down. **Not** combat/parkour. The town is a **record of the player's achievements**, and its
+size *is* the rescue count (tiles house the people you save). Aesthetic: **dense
+turn-of-the-century London**. Flat-top hex tiles assembled into streets; roads on the edges
+govern how tiles connect.
 
-Tiles are authored in **Blender**, driven via the **Blender MCP** connector, exported to
-**glTF**, imported into UE. The custom **`HexMapGenerator`** plugin (currently empty stubs)
-is the intended tile catalog + placement/generation system.
+Tiles are authored in **Blender** (via the Blender MCP), exported to **glTF**, imported into
+UE. The **`HexMapGenerator`** plugin is a **working in-engine randomizer**: road-driven
+growth + geometry-validated tile rotation, dropping real tiles under real light, with a live
+population/vacancy metric. Reusable + runtime-callable (the same engine is the future
+autofill / brainstorm / act-2 "rearrange the town" beat).
 
-## Resume tomorrow — quickstart
-All commands from the repo root `C:\SCAD\_projects\ModularHexMap` unless noted. Engine:
-launcher **UE 5.7** at `C:\Program Files\Epic Games\UE_5.7`. Blender **5.1** at
-`C:\Program Files\Blender Foundation\Blender 5.1`.
+## Resume — quickstart
+Repo root `C:\SCAD\_projects\ModularHexMap`. Engine: launcher **UE 5.7** at
+`C:\Program Files\Epic Games\UE_5.7`. Blender **5.1** at `C:\Program Files\Blender Foundation\Blender 5.1`.
 
 ```powershell
-# Build the editor (after any C++ change; needs the editor CLOSED — DLL lock)
+# Build the editor target (after any C++ change; needs the editor CLOSED — DLL lock)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" `
   ModularHexMapEditor Win64 Development `
   -Project="C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject" -WaitMutex
 
-# Launch the editor (opens to /Game/Maps/TestMap; press Play to walk as Manny/Quinn)
+# Launch the editor (startup map = /Game/Maps/ShuffleLab)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
   "C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject"
 
-# Regenerate the whole street-tile set from the master base (idempotent; never saves master)
+# Regenerate the street-tile set from the master base (idempotent; never saves master)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
   "C:\SCAD\_projects\ModularHexMap\Source_Art\Blender\HexBase.blend" `
   --python "C:\SCAD\_projects\ModularHexMap\Tools\blender\gen_street_tiles.py"
 ```
 
-## Current status (what works end-to-end)
-- ✅ UE 5.7 C++ project **builds & opens**; `TestMap` is the startup map.
-- ✅ **Third-person character** (Manny/Quinn) works — full Epic Third Person template
-  ported as the `TP_ThirdPerson` game module. Play → walk/jump on tiles.
-- ✅ **Pipeline proven**: Blender → `.glb` → UE import, **walkable** (collision below).
-- ✅ **Hex base LOCKED**: flat-top, **R=5 / 10 m across**, 0.5 m slab, origin bottom-center,
-  6 `RoadAnchor` empties at edge midpoints (edge 0 = +Y, CCW).
-- ✅ **London street set** generated procedurally: `blank, deadend, straight, curve, tee,
-  junction` → `Content/HexTiles/Source/T_street_*.glb`. Cross-section = recessed cobble
-  carriageway (3 m) + raised flagstone pavements (1 m) + 0.15 m curb.
-- ✅ **Master `HexBase.blend` is clean**; the generator is the single source of truth for
-  road tiles. Bespoke building tiles (per-file `.blend` linking the master) = not started.
-- ⬜ `HexMapGenerator` plugin = empty module stubs (next big build).
-- ⬜ No auto-placement yet — tiles have only been placed/walked by hand.
+**Roll the randomizer:** open `ShuffleLab` → select **`HexShuffleGenerator`** in the Outliner →
+Details → **Randomize**. Tune under **Growth** (`NumArteries`, `RoadBudget`, `BranchChance`,
+`StraightBias`); read **`Estimated Vacancies`**. Shuffled tiles are **transient** (re-roll each
+session). **`Recalibrate`** if you re-import tiles.
+
+**Rebuild the lab from scratch** (re-import 14 tiles + catalog + lit level), in a GUI editor:
+`UnrealEditor.exe <uproject> -ExecutePythonScript="Tools\setup_shuffle_lab.py"`.
+
+## Current status (works end-to-end)
+- ✅ UE 5.7 C++ builds & opens. **Third-person Manny/Quinn** plays (ported `TP_ThirdPerson` module).
+- ✅ Pipeline: Blender → `.glb` → UE, walkable. **Hex base LOCKED**: flat-top R=5 / 10 m across,
+  origin bottom-center, edge 0 = +Y CCW.
+- ✅ **14-config street kit** (all road-edge necklaces: blank/deadend/bend/curve/straight/
+  tee[/_a/_b/_c]/quad[/_b/_c]/penta/junction), generated by `gen_street_tiles.py`. London
+  cross-section: cobble carriageway 3 m + raised flagstone pavements 1 m + 0.15 m curb.
+- ✅ **`HexMapGenerator` randomizer (in-engine, working):** road-driven **growth** (cube coords;
+  **cardinal arteries** run center→map-edge along each hex axis, then secondary streets branch
+  off) → connected by construction; **geometry-measured rotation** (reads each tile's real
+  `M_Road` verts so placement is immune to glTF orientation); ISM placement under real light in
+  `ShuffleLab`. Verified: 61 cells, 0 unresolved.
+- ✅ **Population metric:** per-tile `Occupancy` in the catalog (rule `(6 − roadEdges) × 2`),
+  summed live into **`Estimated Vacancies`** + a floating label. Baseline ~620; arteries → ~468;
+  tuning toward a target of ~200.
+- ⬜ Placement is **transient** (not yet baked to a saved level). Bespoke **building tiles** =
+  not started. The reusable generator isn't yet wired to gameplay (autofill / rearrange).
 
 ## Architecture & file map
 | Path | Role |
 | ---- | ---- |
 | `Source/ModularHexMap/` | primary game module (scaffold, ~empty) |
-| `Source/TP_ThirdPerson/` | **ported** Epic Third Person template module (character/controller/gamemode + Combat/Platforming/SideScrolling variants). Non-primary (`IMPLEMENT_GAME_MODULE`). |
-| `Plugins/HexMapGenerator/` | Runtime + Editor modules — **empty stubs**; the future catalog + placement system |
-| `Source_Art/Blender/HexBase.blend` | **master base** (Hex_Base + anchors + M_HexGround/M_Road/M_Pavement) |
-| `Tools/blender/gen_street_tiles.py` | **street generator** (edit `EDGE_SETS`, run it) |
-| `Tools/build_test_map.py` | UE headless map assembly (import + lights + PlayerStart) |
-| `Content/HexTiles/Source/` | glTF staging (**gitignored**, regenerable) |
-| `Docs/Design.md` `Docs/Pipeline.md` `Source_Art/README.md` | vision / pipeline / tile contract |
+| `Source/TP_ThirdPerson/` | **ported** Epic Third Person template module (non-primary) |
+| `Plugins/HexMapGenerator/Source/HexMapGenerator/` | the randomizer engine (runtime module): |
+| &nbsp;&nbsp;`Public/HexCoordinates.h` | cube/axial hex math; flat-top axial→world; mask rotate |
+| &nbsp;&nbsp;`Public/HexTileTypes.h` | `EHexEdgeSocket`, `FHexTileDef` (mesh + 6 edges + Occupancy) |
+| &nbsp;&nbsp;`HexTileSet.{h,cpp}` | `UHexTileSet` catalog + mask→tile/rotation lookup |
+| &nbsp;&nbsp;`HexMapGrowthLibrary.{h,cpp}` | pure seeded `GrowRoadNetwork` (arteries + branching) |
+| &nbsp;&nbsp;`HexShuffleGenerator.{h,cpp}` | `AHexShuffleGenerator` actor: measure-calibrate, grow, place, tally vacancies; `Randomize`/`Recalibrate`/`Clear` CallInEditor |
+| `Source_Art/Blender/HexBase.blend` | master base (Hex_Base + anchors + materials, fake-user) |
+| `Tools/blender/gen_street_tiles.py` | street tile generator (edit `EDGE_SETS`, run headless) |
+| `Tools/setup_shuffle_lab.py` | (GUI editor) import 14 tiles + build catalog + lit lab |
+| `Tools/save_occupancy.py` | (commandlet) seed catalog `Occupancy` + **force-save** |
+| `Tools/verify_shuffle.py` | (GUI editor) headless roll + log for self-checks |
+| `/Game/Data/DA_HexTileSet_Streets` | the tile catalog asset |
+| `/Game/Maps/ShuffleLab` | lit lab containing the generator actor (startup map) |
 
-## Records of resistance (gotchas that fought us — don't relearn these)
-1. **Headless glTF import crashes on Slate.** `UnrealEditor-Cmd -run=pythonscript` is a
-   commandlet with **no Slate**; the Interchange importer syncs the Content Browser and
-   asserts (`CurrentApplication.IsValid()`). → Import glTF **in the GUI editor**, or note the
-   asset still *saves to disk* before the crash. Level *assembly* (no import) is headless-safe.
-2. **Blender drops unused materials on save.** `M_Road`/`M_Pavement` vanished from the saved
-   master because nothing used them. → `material.use_fake_user = True` on shared materials.
-3. **Migrated BPs needed the FULL `TP_ThirdPerson` module (~30 classes)**, not the 3 vanilla
-   files first shared. The content came from Epic's modern Third Person template (Combat/
-   Platforming/SideScrolling variants). → Copied the engine template module
-   (`UE_5.7/Templates/TP_ThirdPerson/...`) **verbatim**, changed `IMPLEMENT_PRIMARY_GAME_MODULE`
-   → `IMPLEMENT_GAME_MODULE`, registered it in both `*.Target.cs` + the `.uproject`, and
-   enabled the **StateTree + GameplayStateTree** plugins. Class names match `/Script/TP_ThirdPerson.*`
-   so BPs resolve natively (no redirects).
-4. **New `UCLASS` types need a full editor restart + `Build.bat`.** Live Coding can't hot-add
-   classes; the editor holds the DLLs locked, so **close it first**.
-5. **Imported tile meshes aren't walkable until** Collision Complexity = **Use Complex
-   Collision As Simple** (Static Mesh editor). Then the curb/walls/floor all block.
-6. **glTF imports at true real-world scale** (1 m → 100 uu) via Interchange — no scale fudge.
-7. **Hexes carry a √3 between axes** — you can't round both. We keep **R=5** (edge 5 m,
-   width 10 m; flat-to-flat = 8.66 m) and let the generator/plugin place tiles, so 8.66 is
-   never hand-typed. Neighbor offsets are in `Source_Art/README.md`.
-8. **UE launch wrapper exits 0 instantly** because the editor reparents to its own process —
-   not a failure. Confirm with `Get-Process UnrealEditor`; real logs are in `Saved/Logs/`.
-9. **Blender close-range perspective makes flat tiles look like tall walls.** Verify with
-   vertex Z extents or an **orthographic** view before believing a screenshot.
+## Records of resistance (gotchas — don't relearn these)
+1. **Headless glTF import crashes on Slate** (`-run=pythonscript` commandlet, no Slate, asserts
+   in the Interchange→ContentBrowser sync). → Import in a **GUI editor** (`-ExecutePythonScript`).
+   Level *assembly* and *asset edits* (no import) are headless/commandlet-safe.
+2. **Blender drops unused materials on save** → `material.use_fake_user = True` on shared mats.
+3. **Migrated BPs needed the FULL `TP_ThirdPerson` module (~30 classes).** Copied the engine
+   template module verbatim, `IMPLEMENT_PRIMARY_GAME_MODULE`→`IMPLEMENT_GAME_MODULE`, registered
+   in both `*.Target.cs` + `.uproject`, enabled **StateTree + GameplayStateTree**. Names match
+   `/Script/TP_ThirdPerson.*` so BPs resolve natively.
+4. **New `UCLASS` types need a full editor restart + `Build.bat`** (Live Coding can't hot-add;
+   editor locks the DLLs — close it first).
+5. **Imported meshes aren't walkable until** Collision Complexity = **Use Complex As Simple**.
+6. **glTF imports at true scale** (1 m → 100 uu).
+7. **Hexes carry √3 between axes** — can't round both. Keep **R=5**; the generator places tiles,
+   so 8.66 m is never hand-typed. Neighbor offsets in `Source_Art/README.md`.
+8. **UE launch wrapper exits 0 instantly** (editor reparents). Confirm with `Get-Process UnrealEditor`; real logs in `Saved/Logs/`.
+9. **Blender close-range perspective fakes tall walls** — verify with vertex Z or **orthographic**.
+10. **glTF import re-orients meshes (handedness + offset).** Never trust the abstract Blender
+    edge layout for in-engine placement. The generator **measures** each tile's true road edges
+    from geometry (reads the `M_Road` section verts near each edge midpoint) and resolves
+    rotation against that. **Physics line-traces were useless** in the editor (the spawned body
+    isn't ready the same frame) — read **render-data vertices** instead.
+11. **UE-Python `set_editor_property` on a nested struct array does NOT dirty the package**, so
+    `EditorAssetLibrary.save_loaded_asset` silently no-ops (returns `True`, writes nothing). →
+    save with **`only_if_is_dirty=False`**, edit struct arrays by **index** (`a[i]=e`, not
+    mutating the loop var), and **verify the `.uasset` size/mtime actually changed**. Also: never
+    `Stop-Process -Force` the editor right after a save — it eats the flush. Use a clean
+    **commandlet** (`-run=pythonscript`) for asset edits/saves (exits cleanly, flushes).
+12. **UE yaw convention:** world_angle = local_angle + yaw (positive yaw = +1 edge / rotate mask
+    left). The generator's default is correct for our import; `bInvertYawShift` is the escape
+    hatch if a future kit imports mirrored.
 
 ## Next steps
-1. **`HexMapGenerator` plugin MVP** — a tile catalog (`UHexTileDataAsset`: type + connected
-   edges) + an **editor placement tool** so tiles auto-snap on the hex grid (no hand-placing).
-   Goal: get to *playing with placed streets* ASAP. (Planning this next — want a minimal,
-   metric-defined scope.)
-2. First **bespoke building tile** (`.blend` linking master; walk-in on-tile interior).
-3. Batch-import the street set into UE with collision (extend `Tools/build_test_map.py`).
+1. **Tune growth → ~200 vacancies** (`BranchChance`/`RoadBudget` up; or new rules: secondary
+   ring road, minimum block size, re-rate `Occupancy`).
+2. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
+3. First **bespoke building tile** (per-file `.blend` linking master; walk-in interior; real
+   `Occupancy`).
+4. Wire the reusable generator to **gameplay** (autofill, the act-2 rearrange).
