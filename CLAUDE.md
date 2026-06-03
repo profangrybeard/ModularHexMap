@@ -117,6 +117,9 @@ session). **`Recalibrate`** if you re-import tiles.
     hatch if a future kit imports mirrored.
 
 ## Next steps
+0. **Rivers & bridges** (the explicitly-flagged next challenge) — **water as a foundation
+   layer generated BEFORE roads**, not a reaction. Low-branch, edge-to-edge river that roads
+   must *bridge*; new water edge-socket + bridge tiles. See Docs/Design.md "Rivers & bridges".
 1. **Tune growth → ~200 vacancies** (`BranchChance`/`RoadBudget` up; or new rules: secondary
    ring road, minimum block size, re-rate `Occupancy`).
 2. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).

@@ -47,6 +47,25 @@ their own capacities as they're authored.
   separate scene, no load. Interiors are constrained to the ~5×6 m footprint and live in
   the same world as the streets.
 
+## Rivers & bridges (next challenge — design intent)
+
+**Water is foundation, not reaction.** The river is generated **first**, as the bedrock the
+city forms around — roads and tiles react to *it*, never the reverse. This flips the
+generation order: **water → roads → buildings**, with water as a first-class layer, not a
+post-process.
+
+River rules are almost the *inverse* of roads:
+- **Spans the map** edge-to-edge (loves crossing from one side to the other) — connection-like.
+- **Hates branching.** A single dominant channel; branches are rare. (Momentum/meander, very
+  low branch chance.)
+- Because it runs as a continuous, rarely-branching **barrier**, it forces **roads to struggle
+  to cross it** — crossings are **bridges**: scarce, special tiles (road-over-water).
+
+Generator implications: a **river growth pass before road growth**; a new edge socket type
+(**water** vs road vs pavement); roads grow with water as a constraint and **bridge only where
+needed**; bridge tiles carry both road and water sockets. (Resumes the rivers/bridges work
+from the prior prototype.)
+
 ## Scope guardrails
 
 - No combat. No platforming/parkour. No physics playground.
