@@ -8,6 +8,10 @@
 #include "Engine/StaticMesh.h"
 #include "StaticMeshResources.h"
 #include "Materials/MaterialInterface.h"
+#include "JsonObjectConverter.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/FileManager.h"
 
 AHexShuffleGenerator::AHexShuffleGenerator()
 {
@@ -199,13 +203,17 @@ void AHexShuffleGenerator::Randomize()
 	{
 		MeasureCalibration();
 	}
-	const FHexNetwork Net = UHexMapGrowthLibrary::GrowRoadNetwork(Growth, Seed);
+	// Placeholder fixed core (Pit + ring 1) until the authored core-layout asset exists; the
+	// frontier grows around it. Swap MakePlaceholderCore for the authored cells when ready.
+	const TArray<FHexCellResult> Core = UHexMapGrowthLibrary::MakePlaceholderCore(Growth);
+	const FHexNetwork Net = UHexMapGrowthLibrary::GrowRoadNetwork(Growth, Core, Seed);
 	Build(Net);
 }
 
 void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 {
 	Clear();
+	LastNetwork = Net; // remember what we placed, so SaveRoll can write it out
 
 	const bool bUseMeasured = bCalibrated && TileRealMask.Num() == TileSet->Tiles.Num();
 	int32 Unresolved = 0;
@@ -225,7 +233,12 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
 		if (!Mesh) { ++Unresolved; continue; }
 
-		Vacancies += TileSet->Tiles[TileIdx].Occupancy;
+		// The fixed core (Pit + story ring) follows a narrative restoration arc, not population,
+		// so it's excluded from the rescue-capacity tally — only frontier tiles count.
+		if (HexGrid::Distance(Cell.Axial) > Growth.CoreRadius)
+		{
+			Vacancies += TileSet->Tiles[TileIdx].Occupancy;
+		}
 
 		UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh);
 		if (!ISM) { continue; }
@@ -245,4 +258,93 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 
 	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), %d unresolved, vacancies=%d."),
 		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), Unresolved, Vacancies);
+}
+
+static FString RollsDir()
+{
+	return FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / TEXT("Design") / TEXT("Rolls"));
+}
+
+void AHexShuffleGenerator::SaveRoll()
+{
+	if (LastNetwork.Cells.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: nothing to save — Randomize (or Load) a roll first."));
+		return;
+	}
+
+	FHexRoll Roll;
+	Roll.Seed = Seed;
+	Roll.Vacancies = EstimatedVacancies;
+	Roll.Growth = Growth;
+	Roll.Network = LastNetwork;
+
+	FString Json;
+	if (!FJsonObjectConverter::UStructToJsonObjectString(Roll, Json))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: failed to serialize roll."));
+		return;
+	}
+
+	const FString Dir = RollsDir();
+	IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
+	const FString File = Dir / FString::Printf(TEXT("Roll_seed%d_vac%d.json"), Seed, EstimatedVacancies);
+
+	if (FFileHelper::SaveStringToFile(Json, *File))
+	{
+		UE_LOG(LogTemp, Display, TEXT("HexShuffle: saved roll -> %s"), *File);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: failed to write %s"), *File);
+	}
+}
+
+void AHexShuffleGenerator::LoadRoll()
+{
+	if (RollToLoad.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: set RollToLoad to a filename in Design/Rolls (or a full path)."));
+		return;
+	}
+
+	// Accept a bare filename (resolved under Design/Rolls, .json appended) or a full path.
+	FString Path = RollToLoad;
+	if (FPaths::GetPath(Path).IsEmpty())
+	{
+		if (!Path.EndsWith(TEXT(".json"))) { Path += TEXT(".json"); }
+		Path = RollsDir() / Path;
+	}
+
+	FString Json;
+	if (!FFileHelper::LoadFileToString(Json, *Path))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: cannot read roll '%s'."), *Path);
+		return;
+	}
+
+	FHexRoll Roll;
+	if (!FJsonObjectConverter::JsonObjectStringToUStruct(Json, &Roll, /*CheckFlags=*/0, /*SkipFlags=*/0))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: failed to parse roll '%s'."), *Path);
+		return;
+	}
+
+	if (!TileSet)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: no TileSet assigned — cannot rebuild roll."));
+		return;
+	}
+	if (bAutoCalibrate && !bCalibrated)
+	{
+		MeasureCalibration();
+	}
+
+	// Restore provenance, then rebuild the saved network verbatim (no re-growth).
+	Seed = Roll.Seed;
+	Growth = Roll.Growth;
+	Build(Roll.Network);
+
+	UE_LOG(LogTemp, Display, TEXT("HexShuffle: loaded roll '%s' (seed %d, %d cells)."),
+		*Path, Roll.Seed, Roll.Network.Cells.Num());
 }

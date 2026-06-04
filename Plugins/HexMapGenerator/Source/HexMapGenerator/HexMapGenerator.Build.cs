@@ -19,6 +19,8 @@ public class HexMapGenerator : ModuleRules
 		{
 			"Slate",
 			"SlateCore",
+			"Json",          // roll save/load (FJsonObjectConverter)
+			"JsonUtilities",
 		});
 	}
 }

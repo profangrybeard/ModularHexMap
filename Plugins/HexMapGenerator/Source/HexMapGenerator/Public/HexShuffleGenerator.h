@@ -67,6 +67,18 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle")
 	void Clear();
 
+	/** Filename (in Design/Rolls, .json optional) or a full path, to reload with Load Roll. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Rolls")
+	FString RollToLoad;
+
+	/** Save the current layout to Design/Rolls/Roll_seed<N>_vac<V>.json (the durable record). */
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Rolls")
+	void SaveRoll();
+
+	/** Reload the roll named by RollToLoad and rebuild it verbatim (no re-growth). */
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Rolls")
+	void LoadRoll();
+
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Hex Shuffle")
 	TObjectPtr<USceneComponent> Root;
@@ -81,6 +93,10 @@ private:
 	UPROPERTY(Transient)
 	TArray<int32> TileRealMask;
 	bool bCalibrated = false;
+
+	// The last network Build() placed — what SaveRoll writes out.
+	UPROPERTY(Transient)
+	FHexNetwork LastNetwork;
 
 	void MeasureCalibration();
 	int32 MeasureTileMask(UStaticMesh* Mesh) const;

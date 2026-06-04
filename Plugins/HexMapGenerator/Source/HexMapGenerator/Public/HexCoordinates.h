@@ -53,4 +53,28 @@ namespace HexGrid
 	{
 		return 90.f + 60.f * float(((Edge % 6) + 6) % 6);
 	}
+
+	// --- Diegetic addressing -------------------------------------------------------------
+	// The three hex axes through the Pit (0,0) are named streets. A cell lies "on" an artery
+	// when one cube coordinate is zero; the Pit is the shared junction (1st & Main).
+
+	/** Name of the artery a cell sits on, or "" if it's an off-artery (frontier) block. */
+	FORCEINLINE FString ArteryName(const FIntPoint& C)
+	{
+		if (C.X == 0 && C.Y == 0) { return TEXT(""); }     // the Pit itself
+		if (C.X == 0)             { return TEXT("Main"); }     // Q = 0 line  (N-S)
+		if (C.X + C.Y == 0)       { return TEXT("1st"); }      // y = 0 line  (NW-SE)
+		if (C.Y == 0)             { return TEXT("Arapahoe"); } // R = 0 line  (NE-SW)
+		return TEXT("");
+	}
+
+	/** A rough street address for on-artery cells: block = ring*100, "<block> <Street>".
+	 *  Off-artery cells return "" for now (nearest-cross-street approximation comes later). */
+	FORCEINLINE FString Address(const FIntPoint& C)
+	{
+		if (C.X == 0 && C.Y == 0) { return TEXT("The Pit (1st & Main)"); }
+		const FString Street = ArteryName(C);
+		if (Street.IsEmpty()) { return FString(); }
+		return FString::Printf(TEXT("%d %s"), Distance(C) * 100, *Street);
+	}
 }

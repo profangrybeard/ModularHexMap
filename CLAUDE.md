@@ -60,10 +60,23 @@ session). **`Recalibrate`** if you re-import tiles.
   `M_Road` verts so placement is immune to glTF orientation); ISM placement under real light in
   `ShuffleLab`. Verified: 61 cells, 0 unresolved.
 - ✅ **Population metric:** per-tile `Occupancy` in the catalog (rule `(6 − roadEdges) × 2`),
-  summed live into **`Estimated Vacancies`** + a floating label. Baseline ~620; arteries → ~468;
-  tuning toward a target of ~200.
-- ⬜ Placement is **transient** (not yet baked to a saved level). Bespoke **building tiles** =
-  not started. The reusable generator isn't yet wired to gameplay (autofill / rearrange).
+  summed live into **`Estimated Vacancies`** + a floating label. Core tiles (`Distance ≤
+  CoreRadius`) are **excluded** from the tally — only the frontier counts.
+- ✅ **Pit anchor in the generator:** `GrowRoadNetwork` grows the frontier *around* a pinned
+  fixed core (`CoreRadius`, default 1); arteries seed from the core boundary. Diegetic
+  addressing helper (Main / 1st / Arapahoe axes; ring = restoration ring).
+- ✅ **Roll save/load:** `HexShuffleGenerator` **Save Roll** / **Load Roll** → JSON in
+  `Design/Rolls/` (the durable record = the resolved cell masks; reloads verbatim regardless of
+  later generator edits). See `Design/Rolls/README.md`.
+- ✅ **Pit-core blockout (intact, pre-destruction):** `gen_pit_core.py` parametrically builds the
+  7 fixed-core tiles (hub + 6 ring) **+ 6 perimeter "valley" tiles** — a 6-way 3 m hub junction
+  (the portal all roads drain to), 3 m spokes, and a closed 2 m boundary alley loop. Correct
+  London cross-section (carriageway 0.5 / flagstone pavement 0.65 / 0.15 curb). Imported via
+  `setup_pit_core.py` (collision complex-as-simple) and **walkable in `/Game/Maps/PitCoreLab`**.
+- ⬜ **Boolean sinkhole carve = TODO (phase 2)** — the intact streets are signed off; carving the
+  zig-zag void + hardwiring the core into `HexShuffleGenerator` come next.
+- ⬜ Frontier placement is **transient** (not yet baked). Bespoke **building tiles** = not started.
+  The reusable generator isn't yet wired to gameplay (autofill / rearrange).
 
 ## Architecture & file map
 | Path | Role |
@@ -74,15 +87,21 @@ session). **`Recalibrate`** if you re-import tiles.
 | &nbsp;&nbsp;`Public/HexCoordinates.h` | cube/axial hex math; flat-top axial→world; mask rotate |
 | &nbsp;&nbsp;`Public/HexTileTypes.h` | `EHexEdgeSocket`, `FHexTileDef` (mesh + 6 edges + Occupancy) |
 | &nbsp;&nbsp;`HexTileSet.{h,cpp}` | `UHexTileSet` catalog + mask→tile/rotation lookup |
-| &nbsp;&nbsp;`HexMapGrowthLibrary.{h,cpp}` | pure seeded `GrowRoadNetwork` (arteries + branching) |
-| &nbsp;&nbsp;`HexShuffleGenerator.{h,cpp}` | `AHexShuffleGenerator` actor: measure-calibrate, grow, place, tally vacancies; `Randomize`/`Recalibrate`/`Clear` CallInEditor |
-| `Source_Art/Blender/HexBase.blend` | master base (Hex_Base + anchors + materials, fake-user) |
+| &nbsp;&nbsp;`HexCoordinates.h` | …also `ArteryName`/`Address` (Main/1st/Arapahoe diegetic addressing) |
+| &nbsp;&nbsp;`HexMapGrowthLibrary.{h,cpp}` | pure seeded `GrowRoadNetwork` (pinned core + arteries + branching); `MakePlaceholderCore`; `FHexGrowthParams.CoreRadius`; `FHexRoll` |
+| &nbsp;&nbsp;`HexShuffleGenerator.{h,cpp}` | `AHexShuffleGenerator` actor: measure-calibrate, grow, place, tally vacancies; `Randomize`/`Recalibrate`/`Clear`/`SaveRoll`/`LoadRoll` CallInEditor |
+| `Source_Art/Blender/HexBase.blend` | master base (Hex_Base + anchors + materials, fake-user) — **keep byte-identical; scripts never save it** |
 | `Tools/blender/gen_street_tiles.py` | street tile generator (edit `EDGE_SETS`, run headless) |
+| `Tools/blender/gen_pit_core.py` | **pit-core blockout generator** (7 core + 6 valley tiles; parametric streets; boolean carve = phase-2 TODO) |
 | `Tools/setup_shuffle_lab.py` | (GUI editor) import 14 tiles + build catalog + lit lab |
+| `Tools/setup_pit_core.py` | (GUI editor) import 13 core tiles + build walkable `PitCoreLab` (reads `core_layout.json`) |
 | `Tools/save_occupancy.py` | (commandlet) seed catalog `Occupancy` + **force-save** |
 | `Tools/verify_shuffle.py` | (GUI editor) headless roll + log for self-checks |
+| `Design/Rolls/` | saved roll JSONs — curated layout history (+ `README.md`) |
 | `/Game/Data/DA_HexTileSet_Streets` | the tile catalog asset |
+| `/Game/HexTiles/Core/` | imported pit-core blockout tile meshes (13) |
 | `/Game/Maps/ShuffleLab` | lit lab containing the generator actor (startup map) |
+| `/Game/Maps/PitCoreLab` | lit lab — the intact 13-tile core blockout, walkable |
 
 ## Records of resistance (gotchas — don't relearn these)
 1. **Headless glTF import crashes on Slate** (`-run=pythonscript` commandlet, no Slate, asserts
@@ -115,14 +134,39 @@ session). **`Recalibrate`** if you re-import tiles.
 12. **UE yaw convention:** world_angle = local_angle + yaw (positive yaw = +1 edge / rotate mask
     left). The generator's default is correct for our import; `bInvertYawShift` is the escape
     hatch if a future kit imports mirrored.
+13. **Export tiles CENTERED, or UE double-offsets them.** An object's world location bakes into
+    the glTF node transform, then UE bakes that into the mesh — so placing the actor at the same
+    coord doubles the offset (tiles spread at 2× spacing with gaps). Set `object.location = 0`
+    before export; position **only** via the actor/generator. (Mesh data stays bottom-center.)
+14. **Self-intersecting boolean cutter eats the WHOLE target.** Overlapping carriageway arms (a
+    junction cutter where arms meet at center) make the EXACT solver mis-evaluate and delete *all*
+    the pavement, not just the channel. Fix: `modifier.use_self = True` + `use_hole_tolerant =
+    True`. ⚠️ **This bug is also in `gen_street_tiles.py`** — the street kit's raised curbs have
+    been getting eaten on every generate. Fix + regenerate the 14-tile kit (pending).
+15. **`-ExecutePythonScript` is one-shot:** the GUI editor runs the script and **exits** (a build
+    step, like `setup_shuffle_lab.py`/`setup_pit_core.py`). The work persists; relaunch the editor
+    normally (optionally `UnrealEditor.exe <uproject> /Game/Maps/<Map>`) to use the result.
 
 ## Next steps
-0. **Rivers & bridges** (the explicitly-flagged next challenge) — **water as a foundation
-   layer generated BEFORE roads**, not a reaction. Low-branch, edge-to-edge river that roads
-   must *bridge*; new water edge-socket + bridge tiles. See Docs/Design.md "Rivers & bridges".
-1. **Tune growth → ~200 vacancies** (`BranchChance`/`RoadBudget` up; or new rules: secondary
+0. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator
+   side ✅ (`CoreRadius`, pinned core, boundary-seeded arteries, vacancy exclusion, addressing).
+   Intact **pre-destruction blockout** ✅ (`gen_pit_core.py` → `PitCoreLab`, walkable). **Still
+   TODO:**
+   - **(a) Boolean sinkhole carve** (phase 2 of `gen_pit_core.py`) — the zig-zag void down to
+     −3 m (the carve helpers + `ZZ_*`/`PIT_DEPTH` params are staged; re-fit to the validated
+     13-tile layout). The Pit is the dungeon level-transition (sinkhole *terminus*, asymmetric
+     collapsed-edge rim).
+   - **(b) Hardwire the core into `HexShuffleGenerator`** — authored core map (axial → bespoke
+     tile, placed verbatim, resolver bypassed). Deferred until the carved meshes are final.
+   - **(c) Level-transition gameplay** on the Pit (descend prompt → `OpenLevel`).
+   - **(d) Fix `gen_street_tiles.py` curb bug** (gotcha #14) + regenerate the 14-tile kit.
+   See Docs/Design.md "The Pit & the fixed core" + "Coordinate & address system".
+1. **Rivers & bridges** — **water as a foundation layer generated BEFORE roads**, not a
+   reaction. Low-branch, edge-to-edge river that roads must *bridge*; new water edge-socket +
+   bridge tiles. (Paused for the Pit anchor.) See Docs/Design.md "Rivers & bridges".
+2. **Tune growth → ~200 vacancies** (`BranchChance`/`RoadBudget` up; or new rules: secondary
    ring road, minimum block size, re-rate `Occupancy`).
-2. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
-3. First **bespoke building tile** (per-file `.blend` linking master; walk-in interior; real
+3. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
+4. First **bespoke building tile** (per-file `.blend` linking master; walk-in interior; real
    `Occupancy`).
-4. Wire the reusable generator to **gameplay** (autofill, the act-2 rearrange).
+5. Wire the reusable generator to **gameplay** (autofill, the act-2 rearrange).

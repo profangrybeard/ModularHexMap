@@ -16,6 +16,11 @@ struct FHexGrowthParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0"))
 	int32 Radius = 3;
 
+	/** Fixed-core radius: cells with Distance <= this are PINNED (the Pit + story ring) and the
+	 *  generator grows the frontier *around* them rather than through them. 0 = no core. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0"))
+	int32 CoreRadius = 1;
+
 	/** Lay a straight backbone road along each hex axis, center -> map edge. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth")
 	bool bCardinalArteries = true;
@@ -61,6 +66,23 @@ struct FHexNetwork
 };
 
 /**
+ * A saved roll — the durable record of a layout we liked. The `Network` (axial + road mask per
+ * cell) is the ground truth and reloads verbatim via Build(), immune to later generator edits;
+ * `Seed`/`Growth` are kept as provenance (re-tune from here). Serialized to JSON in Design/Rolls.
+ */
+USTRUCT(BlueprintType)
+struct FHexRoll
+{
+	GENERATED_BODY()
+
+	UPROPERTY() int32 SchemaVersion = 1;
+	UPROPERTY() int32 Seed = 0;
+	UPROPERTY() int32 Vacancies = 0;
+	UPROPERTY() FHexGrowthParams Growth;
+	UPROPERTY() FHexNetwork Network;
+};
+
+/**
  * Pure, seeded road-network growth — the reusable core (authoring shuffle now;
  * autofill / gameplay "rearrange" later). No engine-world dependencies.
  */
@@ -70,7 +92,21 @@ class HEXMAPGENERATOR_API UHexMapGrowthLibrary : public UBlueprintFunctionLibrar
 	GENERATED_BODY()
 
 public:
-	/** Grow a connected road network outward from the origin. Deterministic per Seed. */
+	/**
+	 * Grow a connected road network outward from the origin, around a fixed core.
+	 * Deterministic per Seed. `CoreCells` are PINNED — their masks are written verbatim and never
+	 * mutated; arteries seed from the core boundary (ring CoreRadius+1) so the frontier connects to
+	 * the core's exposed road stubs by construction. Pass an empty array to grow with no core
+	 * (legacy behavior when Params.CoreRadius == 0).
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Hex Map")
-	static FHexNetwork GrowRoadNetwork(const FHexGrowthParams& Params, int32 Seed);
+	static FHexNetwork GrowRoadNetwork(const FHexGrowthParams& Params, const TArray<FHexCellResult>& CoreCells, int32 Seed);
+
+	/**
+	 * Build a placeholder fixed core (Pit + ring 1) for testing before the authored layout asset
+	 * exists: the Pit (0,0) is blank (a terminus — roads dead-end at its rim); each ring-1 cell on
+	 * a chosen artery axis carries a straight road (inward toward the Pit + outward to the frontier).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Hex Map")
+	static TArray<FHexCellResult> MakePlaceholderCore(const FHexGrowthParams& Params);
 };

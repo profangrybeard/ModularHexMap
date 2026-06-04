@@ -3,7 +3,7 @@
 #include "HexMapGrowthLibrary.h"
 #include "HexCoordinates.h"
 
-FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, int32 Seed)
+FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, const TArray<FHexCellResult>& CoreCells, int32 Seed)
 {
 	using namespace HexGrid;
 	FRandomStream Rng(Seed);
@@ -26,20 +26,34 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, int
 
 	auto InR = [&](const FIntPoint& C) { return Region.Contains(C); };
 
+	// The fixed core: cells with Distance <= CoreRadius are PINNED. Their masks come from the
+	// authored CoreCells (the Pit + story ring); the growth never writes to them — it only
+	// reads their exposed stubs so the frontier connects to the core by construction.
+	const int32 CoreR = FMath::Max(0, P.CoreRadius);
+	auto InCore = [&](const FIntPoint& C) { return Distance(C) <= CoreR; };
+	for (const FHexCellResult& CC : CoreCells)
+	{
+		if (InR(CC.Axial) && InCore(CC.Axial)) { Mask[CC.Axial] = CC.RoadMask; }
+	}
+
 	// Mark a road on edge e of C, plus the mutual return edge on the neighbor if it is
 	// in-region. Returns true when the road continues into the map (neighbor in-region);
-	// false means it runs off the map edge (still drawn on C, just no neighbor).
+	// false means it runs off the map edge (still drawn on C, just no neighbor). Core cells
+	// are immutable: we never write their masks (they keep their authored values), though a
+	// frontier road may still abut and "dead-end into" the core (e.g. a street into the Pit).
 	auto MarkRoad = [&](const FIntPoint& C, int32 e) -> bool
 	{
-		if (!InR(C)) { return false; }
+		if (!InR(C) || InCore(C)) { return false; }
 		Mask[C] |= (1 << e);
 		const FIntPoint N = Neighbor(C, e);
-		if (InR(N)) { Mask[N] |= (1 << ((e + 3) % 6)); return true; }
+		if (InR(N)) { if (!InCore(N)) { Mask[N] |= (1 << ((e + 3) % 6)); } return true; }
 		return false;
 	};
 
-	// 1. Cardinal arteries: a straight road along each chosen axis, from the center out to
-	//    both map edges. Cells along the way become branch seeds (intersection seeds).
+	// 1. Cardinal arteries: a straight road along each chosen axis, running from the core
+	//    boundary (ring CoreRadius+1) out to both map edges. The first frontier cell also gets
+	//    an inward stub toward the core, so the artery connects to the Pit's story ring. Cells
+	//    along the way become branch seeds (intersection seeds).
 	TArray<FIntPoint> Seeds;
 	const int32 Axes = P.bCardinalArteries ? FMath::Clamp(P.NumArteries, 0, 3) : 0;
 	for (int32 a = 0; a < Axes; ++a)
@@ -47,7 +61,11 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, int
 		const int32 Dirs[2] = { a, (a + 3) % 6 };
 		for (int32 d : Dirs)
 		{
+			// Step out of the core to the first frontier cell along this axis.
 			FIntPoint C(0, 0);
+			for (int32 s = 0; s <= CoreR; ++s) { C = Neighbor(C, d); }
+			// Inward connector toward the core boundary (a street leading to the Pit's ring).
+			if (InR(C) && !InCore(C)) { Mask[C] |= (1 << ((d + 3) % 6)); }
 			int32 Guard = 1000;
 			while (InR(C) && --Guard > 0)
 			{
@@ -60,8 +78,8 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, int
 		}
 	}
 
-	// 2. Secondary branching: sprout side streets off the artery seeds (or from the origin
-	//    when there are no arteries), then random-walk them with the road budget.
+	// 2. Secondary branching: sprout side streets off the artery seeds (or from the core
+	//    boundary ring when there are no arteries), then random-walk them with the road budget.
 	struct FTip { FIntPoint Cell; int32 InEdge; };
 	TArray<FTip> Frontier;
 	int32 Budget = P.RoadBudget;
@@ -84,13 +102,21 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, int
 	}
 	else
 	{
-		const FIntPoint Start(0, 0);
-		const int32 e = Rng.RandRange(0, 5);
-		if (MarkRoad(Start, e)) { Frontier.Add({ Neighbor(Start, e), (e + 3) % 6 }); --Budget; }
-		if (Rng.FRand() < 0.7f)
+		// No arteries: branch outward from the core boundary instead of the (now pinned) Pit.
+		// Seed from each frontier cell just outside the core, growing away from it.
+		for (const FIntPoint& C : Region)
 		{
-			const int32 e2 = (e + 3) % 6;
-			if (MarkRoad(Start, e2)) { Frontier.Add({ Neighbor(Start, e2), (e2 + 3) % 6 }); --Budget; }
+			if (Budget <= 0) { break; }
+			if (InCore(C) || Distance(C) != CoreR + 1) { continue; }
+			if (Rng.FRand() >= P.BranchChance) { continue; }
+			const int32 e = Rng.RandRange(0, 5);
+			// Prefer an edge pointing away from the core (its neighbor is farther out).
+			const int32 Out = (Distance(Neighbor(C, e)) > Distance(C)) ? e : (e + 3) % 6;
+			if ((Mask[C] & (1 << Out)) == 0 && MarkRoad(C, Out))
+			{
+				Frontier.Add({ Neighbor(C, Out), (Out + 3) % 6 });
+				--Budget;
+			}
 		}
 	}
 
@@ -129,4 +155,48 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, int
 		Net.Cells.Add(R);
 	}
 	return Net;
+}
+
+TArray<FHexCellResult> UHexMapGrowthLibrary::MakePlaceholderCore(const FHexGrowthParams& P)
+{
+	using namespace HexGrid;
+	TArray<FHexCellResult> Core;
+	const int32 CoreR = FMath::Max(0, P.CoreRadius);
+
+	// Every cell within the core radius, blank by default (story tiles, no roads yet).
+	for (int32 q = -CoreR; q <= CoreR; ++q)
+	{
+		for (int32 r = -CoreR; r <= CoreR; ++r)
+		{
+			const FIntPoint C(q, r);
+			if (Distance(C) <= CoreR)
+			{
+				FHexCellResult Cell;
+				Cell.Axial = C;
+				Cell.RoadMask = 0; // Pit + blank ring; the Pit is a terminus (no through-road).
+				Core.Add(Cell);
+			}
+		}
+	}
+
+	// On each chosen artery axis, give the boundary core cell a straight road: inward toward the
+	// Pit (a street that dead-ends at the rim) + outward to meet the frontier artery.
+	const int32 Axes = P.bCardinalArteries ? FMath::Clamp(P.NumArteries, 0, 3) : 0;
+	for (int32 a = 0; a < Axes; ++a)
+	{
+		const int32 Dirs[2] = { a, (a + 3) % 6 };
+		for (int32 d : Dirs)
+		{
+			// Boundary core cell along this axis = CoreR steps out from the Pit.
+			FIntPoint C(0, 0);
+			for (int32 s = 0; s < CoreR; ++s) { C = Neighbor(C, d); }
+			const int32 StraightMask = (1 << d) | (1 << ((d + 3) % 6));
+			for (FHexCellResult& Cell : Core)
+			{
+				if (Cell.Axial == C) { Cell.RoadMask |= StraightMask; break; }
+			}
+		}
+	}
+
+	return Core;
 }
