@@ -203,9 +203,22 @@ void AHexShuffleGenerator::Randomize()
 	{
 		MeasureCalibration();
 	}
-	// Placeholder fixed core (Pit + ring 1) until the authored core-layout asset exists; the
-	// frontier grows around it. Swap MakePlaceholderCore for the authored cells when ready.
-	const TArray<FHexCellResult> Core = UHexMapGrowthLibrary::MakePlaceholderCore(Growth);
+	// Pinned core: the authored layout (bespoke Pit-core tiles) if assigned, else the placeholder.
+	TArray<FHexCellResult> Core;
+	if (CoreLayout && CoreLayout->Cells.Num() > 0)
+	{
+		for (const FHexCoreCell& CC : CoreLayout->Cells)
+		{
+			FHexCellResult R;
+			R.Axial = CC.Axial;
+			R.RoadMask = CC.RoadMask;
+			Core.Add(R);
+		}
+	}
+	else
+	{
+		Core = UHexMapGrowthLibrary::MakePlaceholderCore(Growth);
+	}
 	const FHexNetwork Net = UHexMapGrowthLibrary::GrowRoadNetwork(Growth, Core, Seed);
 	Build(Net);
 }
@@ -218,12 +231,41 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 	const bool bUseMeasured = bCalibrated && TileRealMask.Num() == TileSet->Tiles.Num();
 	int32 Unresolved = 0;
 	int32 Vacancies = 0;
+	int32 CorePlaced = 0;
+
+	// Hardwired core: map each pinned axial to its bespoke mesh (placed verbatim at yaw 0,
+	// resolver bypassed). The frontier grows around it and connects to its exposed road stubs.
+	TMap<FIntPoint, UStaticMesh*> CoreMesh;
+	if (CoreLayout)
+	{
+		for (const FHexCoreCell& CC : CoreLayout->Cells)
+		{
+			if (UStaticMesh* M = CC.Mesh.LoadSynchronous()) { CoreMesh.Add(CC.Axial, M); }
+		}
+	}
 
 	for (const FHexCellResult& Cell : Net.Cells)
 	{
+		const FVector2D XY = HexGrid::WorldXY(Cell.Axial, HexCircumradiusUU);
+
+		// Core cell: drop the bespoke mesh verbatim, skip the resolver and the vacancy tally
+		// (the core follows a narrative restoration arc, not population).
+		if (UStaticMesh* const* CoreM = CoreMesh.Find(Cell.Axial))
+		{
+			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(*CoreM))
+			{
+				FTransform X;
+				X.SetLocation(FVector(XY.X, XY.Y, 0.f));
+				X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg, 0.f)));
+				ISM->AddInstance(X, /*bWorldSpace=*/false);
+				++CorePlaced;
+			}
+			continue;
+		}
+
+		// Frontier cell: resolve the grown mask to a street tile + rotation and place it.
 		int32 TileIdx = INDEX_NONE;
 		int32 YawSteps = 0;
-
 		const bool bFound = bUseMeasured
 			? FindPlacement(Cell.RoadMask, TileIdx, YawSteps)
 			: TileSet->FindTileForMask(Cell.RoadMask, TileIdx, YawSteps);
@@ -233,17 +275,11 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
 		if (!Mesh) { ++Unresolved; continue; }
 
-		// The fixed core (Pit + story ring) follows a narrative restoration arc, not population,
-		// so it's excluded from the rescue-capacity tally — only frontier tiles count.
-		if (HexGrid::Distance(Cell.Axial) > Growth.CoreRadius)
-		{
-			Vacancies += TileSet->Tiles[TileIdx].Occupancy;
-		}
+		Vacancies += TileSet->Tiles[TileIdx].Occupancy;
 
 		UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh);
 		if (!ISM) { continue; }
 
-		const FVector2D XY = HexGrid::WorldXY(Cell.Axial, HexCircumradiusUU);
 		FTransform X;
 		X.SetLocation(FVector(XY.X, XY.Y, 0.f));
 		X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg + 60.f * YawSteps, 0.f)));
@@ -256,8 +292,8 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		PopLabel->SetText(FText::FromString(FString::Printf(TEXT("Vacancies: %d"), Vacancies)));
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), %d unresolved, vacancies=%d."),
-		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), Unresolved, Vacancies);
+	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), core=%d, %d unresolved, vacancies=%d."),
+		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), CorePlaced, Unresolved, Vacancies);
 }
 
 static FString RollsDir()

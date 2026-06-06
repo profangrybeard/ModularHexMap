@@ -11,6 +11,10 @@ street cross-section (recessed cobble carriageway between raised flagstone
 pavements with a curb), joins, and exports a glb to Content/HexTiles/Source/.
 It NEVER saves the master. Re-running is idempotent.
 
+NOTE: this is the STREETS + WALKS kit. Building footprints were prototyped and then
+removed (see Docs/BuildingFootprints.md for the research + how to re-add them); the
+walk-in building layer lives in Tools/blender/_wip_building_blockout.py.
+
 To add a tile type, add a name -> edge-index list to EDGE_SETS. Edge indices:
 0=+Y(forward), then counter-clockwise 1..5 (see Source_Art/README.md).
 """
@@ -137,6 +141,8 @@ def make_tile(name, edges):
         md.operation = 'DIFFERENCE'
         md.object = cutter
         md.solver = 'EXACT'
+        md.use_self = True            # gotcha #14: arms meet at centre -> self-intersecting
+        md.use_hole_tolerant = True   # cutter; without these the EXACT solver eats the curbs
         bpy.ops.object.select_all(action='DESELECT')
         pave.select_set(True)
         bpy.context.view_layer.objects.active = pave

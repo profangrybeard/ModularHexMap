@@ -156,17 +156,30 @@ session). **`Recalibrate`** if you re-import tiles.
      −3 m (the carve helpers + `ZZ_*`/`PIT_DEPTH` params are staged; re-fit to the validated
      13-tile layout). The Pit is the dungeon level-transition (sinkhole *terminus*, asymmetric
      collapsed-edge rim).
-   - **(b) Hardwire the core into `HexShuffleGenerator`** — authored core map (axial → bespoke
-     tile, placed verbatim, resolver bypassed). Deferred until the carved meshes are final.
+   - **(b) Hardwire the core into `HexShuffleGenerator`** ✅ — `UHexCoreLayout` DataAsset
+     (`DA_HexCoreLayout`, built by `setup_core_generator.py`), placed verbatim with the resolver
+     bypassed; **validated in `CoreGenLab`** (core=13, 0 unresolved, Save/Load roll round-trips).
+     Re-import/rebuild when the carved meshes land.
    - **(c) Level-transition gameplay** on the Pit (descend prompt → `OpenLevel`).
    - **(d) Fix `gen_street_tiles.py` curb bug** (gotcha #14) + regenerate the 14-tile kit.
    See Docs/Design.md "The Pit & the fixed core" + "Coordinate & address system".
-1. **Rivers & bridges** — **water as a foundation layer generated BEFORE roads**, not a
-   reaction. Low-branch, edge-to-edge river that roads must *bridge*; new water edge-socket +
-   bridge tiles. (Paused for the Pit anchor.) See Docs/Design.md "Rivers & bridges".
-2. **Tune growth → ~200 vacancies** (`BranchChance`/`RoadBudget` up; or new rules: secondary
-   ring road, minimum block size, re-rate `Occupancy`).
-3. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
-4. First **bespoke building tile** (per-file `.blend` linking master; walk-in interior; real
+1. **Splined streets & sidewalks (smoothing) — NEXT FOCUS.** Replace the hard hex-edge road
+   angles with **spline-based curved streets**, and make the **sidewalks/pavements spline-based
+   and curved** too, so the prototype reads smooth rather than faceted. (Spline meshes run along
+   the resolved road graph; curved curbs.) Topology/growth stays as-is — this is the
+   geometry/render layer on top of the existing road network.
+2. **Open up building real estate.** Current growth chokes blocks with road (the dense web in
+   testing). Rule tweaks landed this session — **artery kink/fork** (`ArteryStraightRadius`/
+   `ArteryKinkChance`/`ArteryForkChance`) + **side-street straight-decay** (`StraightDecay`/
+   `MaxStraightRun`) — but density is still too high. Tune `RoadBudget`/`BranchChance`/
+   `ArteryForkChance` DOWN for parkable blocks, and/or add a **minimum-block-size rule** (refuse
+   a road that shrinks a block below N tiles). Re-rate `Occupancy` / vacancy target after.
+3. **Rivers & bridges** — **water as a foundation layer generated BEFORE roads**. Low-branch,
+   edge-to-edge river that roads must *bridge*; new water edge-socket + bridge tiles. See
+   Docs/Design.md "Rivers & bridges".
+4. **Boolean sinkhole carve** of the Pit core (next-steps 0a) once the street geometry direction
+   is settled.
+5. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
+6. First **bespoke building tile** (per-file `.blend` linking master; walk-in interior; real
    `Occupancy`).
-5. Wire the reusable generator to **gameplay** (autofill, the act-2 rearrange).
+7. Wire the reusable generator to **gameplay** (autofill, the act-2 rearrange).

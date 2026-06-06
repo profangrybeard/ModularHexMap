@@ -12,9 +12,10 @@ struct FHexGrowthParams
 {
 	GENERATED_BODY()
 
-	/** Region size in hex rings around the origin. */
+	/** Region size in hex rings around the origin. Needs headroom past the core (~ring 2) for
+	 *  the arteries to bend through — keep it well above ArteryStraightRadius. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0"))
-	int32 Radius = 3;
+	int32 Radius = 6;
 
 	/** Fixed-core radius: cells with Distance <= this are PINNED (the Pit + story ring) and the
 	 *  generator grows the frontier *around* them rather than through them. 0 = no core. */
@@ -37,9 +38,33 @@ struct FHexGrowthParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
 	float BranchChance = 0.25f;
 
-	/** Bias toward continuing straight through a cell. */
+	/** Base bias toward continuing straight through a cell (before run-length decay). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
 	float StraightBias = 0.6f;
+
+	/** Stacking turn pressure: each consecutive straight segment multiplies the straight-continue
+	 *  chance by this, so long straight runs grow increasingly likely to kink — built-in
+	 *  visibility blocking. 1 = no decay (constant straightness); lower = turns sooner. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
+	float StraightDecay = 0.6f;
+
+	/** Hard cap on consecutive straight segments before a turn is forced (0 = no cap, rely on
+	 *  decay only). A guaranteed sightline limit for level design. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0"))
+	int32 MaxStraightRun = 0;
+
+	/** Cardinal arteries run dead-straight out to this ring (a legible spine off the core), then
+	 *  begin to bend and divide so the avenue reads as intentional, not a straight ray. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|Arteries", meta = (ClampMin = "0"))
+	int32 ArteryStraightRadius = 3;
+
+	/** Past ArteryStraightRadius, per-step chance an artery KINKS (turns +/-1) instead of running on. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|Arteries", meta = (ClampMin = "0", ClampMax = "1"))
+	float ArteryKinkChance = 0.35f;
+
+	/** Past ArteryStraightRadius, per-step chance an artery DIVIDES (spawns a diverging branch). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|Arteries", meta = (ClampMin = "0", ClampMax = "1"))
+	float ArteryForkChance = 0.2f;
 };
 
 /** One resolved cell: its axial coordinate and 6-bit road mask. */

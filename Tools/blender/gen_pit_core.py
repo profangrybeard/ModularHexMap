@@ -182,10 +182,12 @@ def core_specs():
     specs = {}
     # Hub: 3 m road to every edge — the grand crossing; all spokes drain to this portal.
     specs["T_core_pit"] = ({e: HW_ART for e in range(6)}, (0, 0))
-    # Ring tile e: 3 m spoke inward (edge e+3) + 2 m boundary alley on its two OUTER shoulder
-    # edges (e+1, e-1), which reach the valley cells on either side.
+    # Ring tile e: a 3 m ARTERY straight through it — inward to the hub (edge e+3) and outward to
+    # the frontier (edge e, the radial-out edge) so the generator's center->map-edge arteries pass
+    # through and the frontier connects. Plus a 2 m boundary alley on its two OUTER shoulder edges
+    # (e+1, e-1), which reach the valley cells on either side.
     for e in range(6):
-        road = {(e + 3) % 6: HW_ART, (e + 1) % 6: HW_ALY, (e + 5) % 6: HW_ALY}
+        road = {(e + 3) % 6: HW_ART, e: HW_ART, (e + 1) % 6: HW_ALY, (e + 5) % 6: HW_ALY}
         specs["T_core_ring_%d" % e] = (road, AXDIR[e])
     # Valley tile e (frontier, distance 2, sits in the outer notch between ring e and ring e+1):
     # a 2 m alley bend joining the two — the six valleys chain the boundary loop closed.
@@ -239,7 +241,11 @@ def export_core(tiles):
         bpy.context.view_layer.objects.active = t
         bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True,
                                   export_apply=True, export_yup=True, export_materials='EXPORT')
-        layout[name] = list(specs[name][1])
+        road, (q, r) = specs[name]
+        mask = 0
+        for e in road:
+            mask |= (1 << e)
+        layout[name] = {"q": q, "r": r, "mask": mask}
         results.append((name, os.path.getsize(path)))
     with open(os.path.join(out_dir(), "core_layout.json"), "w") as f:
         json.dump({"hex_radius_m": R, "tiles": layout}, f, indent=2)
@@ -247,8 +253,11 @@ def export_core(tiles):
 
 
 def main():
-    build_core()
-    print("=== gen_pit_core PHASE 1: intact 7-tile core assembled (no pit, no export) ===")
+    tiles = build_core()
+    results = export_core(tiles)
+    for fn, sz in results:
+        print("  %-22s %7d bytes" % (fn, sz))
+    print("=== gen_pit_core: built + exported %d core/valley tiles (intact; no boolean) ===" % len(results))
 
 
 if __name__ == "__main__":

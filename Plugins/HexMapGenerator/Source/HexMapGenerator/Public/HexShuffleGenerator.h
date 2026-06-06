@@ -8,6 +8,7 @@
 #include "HexShuffleGenerator.generated.h"
 
 class UHexTileSet;
+class UHexCoreLayout;
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
 class UTextRenderComponent;
@@ -28,6 +29,11 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	TObjectPtr<UHexTileSet> TileSet;
+
+	/** Hardwired fixed core (The Pit's town center): bespoke tiles placed verbatim at their axial
+	 *  coords; the procedural frontier grows around them. Leave null to use the placeholder core. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
+	TObjectPtr<UHexCoreLayout> CoreLayout;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	int32 Seed = 0;

@@ -26,14 +26,15 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 
 	auto InR = [&](const FIntPoint& C) { return Region.Contains(C); };
 
-	// The fixed core: cells with Distance <= CoreRadius are PINNED. Their masks come from the
-	// authored CoreCells (the Pit + story ring); the growth never writes to them — it only
-	// reads their exposed stubs so the frontier connects to the core by construction.
-	const int32 CoreR = FMath::Max(0, P.CoreRadius);
-	auto InCore = [&](const FIntPoint& C) { return Distance(C) <= CoreR; };
+	// The fixed core is the EXPLICIT set of authored cells (membership, not a radius — the core
+	// can be irregular, e.g. hub + ring + off-axis valley tiles). Their masks are written verbatim
+	// and never mutated; the growth only reads their exposed stubs so the frontier connects.
+	TSet<FIntPoint> Pinned;
+	for (const FHexCellResult& CC : CoreCells) { Pinned.Add(CC.Axial); }
+	auto InCore = [&](const FIntPoint& C) { return Pinned.Contains(C); };
 	for (const FHexCellResult& CC : CoreCells)
 	{
-		if (InR(CC.Axial) && InCore(CC.Axial)) { Mask[CC.Axial] = CC.RoadMask; }
+		if (InR(CC.Axial)) { Mask[CC.Axial] = CC.RoadMask; }
 	}
 
 	// Mark a road on edge e of C, plus the mutual return edge on the neighbor if it is
@@ -50,10 +51,13 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		return false;
 	};
 
-	// 1. Cardinal arteries: a straight road along each chosen axis, running from the core
-	//    boundary (ring CoreRadius+1) out to both map edges. The first frontier cell also gets
-	//    an inward stub toward the core, so the artery connects to the Pit's story ring. Cells
-	//    along the way become branch seeds (intersection seeds).
+	// Frontier-walk state is declared up here so an artery can fork a branch straight into it.
+	struct FTip { FIntPoint Cell; int32 InEdge; int32 StraightRun = 0; };
+	TArray<FTip> Frontier;
+	int32 Budget = P.RoadBudget;
+
+	// 1. Cardinal arteries: a straight spine off the core along each chosen axis, then bend/divide
+	//    past ArteryStraightRadius out to the map edge. Cells along the way become branch seeds.
 	TArray<FIntPoint> Seeds;
 	const int32 Axes = P.bCardinalArteries ? FMath::Clamp(P.NumArteries, 0, 3) : 0;
 	for (int32 a = 0; a < Axes; ++a)
@@ -61,17 +65,39 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		const int32 Dirs[2] = { a, (a + 3) % 6 };
 		for (int32 d : Dirs)
 		{
-			// Step out of the core to the first frontier cell along this axis.
+			// Advance along this axis THROUGH the pinned core to the first frontier cell.
 			FIntPoint C(0, 0);
-			for (int32 s = 0; s <= CoreR; ++s) { C = Neighbor(C, d); }
-			// Inward connector toward the core boundary (a street leading to the Pit's ring).
-			if (InR(C) && !InCore(C)) { Mask[C] |= (1 << ((d + 3) % 6)); }
+			int32 Adv = 100;
+			while (InR(C) && InCore(C) && --Adv > 0) { C = Neighbor(C, d); }
+			if (!InR(C)) { continue; } // axis runs off the map while still inside the core
+			// Inward connector toward the core (the artery continues out of the core's stub).
+			Mask[C] |= (1 << ((d + 3) % 6));
+			int32 CurDir = d;
 			int32 Guard = 1000;
 			while (InR(C) && --Guard > 0)
 			{
-				MarkRoad(C, d);             // runs off the edge at the boundary cell
+				int32 StepDir = CurDir;
+				// Past the straight spine the artery bends/divides so the avenue feels intentional.
+				if (Distance(C) >= P.ArteryStraightRadius)
+				{
+					if (Budget > 0 && Rng.FRand() < P.ArteryForkChance)
+					{
+						const int32 Branch = (Rng.FRand() < 0.5f) ? (CurDir + 1) % 6 : (CurDir + 5) % 6;
+						if ((Mask[C] & (1 << Branch)) == 0 && MarkRoad(C, Branch))
+						{
+							Frontier.Add({ Neighbor(C, Branch), (Branch + 3) % 6, 0 });
+							--Budget;
+						}
+					}
+					if (Rng.FRand() < P.ArteryKinkChance)
+					{
+						StepDir = (Rng.FRand() < 0.5f) ? (CurDir + 1) % 6 : (CurDir + 5) % 6;
+					}
+				}
+				MarkRoad(C, StepDir);        // runs off the edge at the boundary cell
 				Seeds.AddUnique(C);
-				const FIntPoint Nxt = Neighbor(C, d);
+				CurDir = StepDir;
+				const FIntPoint Nxt = Neighbor(C, StepDir);
 				if (!InR(Nxt)) { break; }
 				C = Nxt;
 			}
@@ -80,10 +106,6 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 
 	// 2. Secondary branching: sprout side streets off the artery seeds (or from the core
 	//    boundary ring when there are no arteries), then random-walk them with the road budget.
-	struct FTip { FIntPoint Cell; int32 InEdge; };
-	TArray<FTip> Frontier;
-	int32 Budget = P.RoadBudget;
-
 	if (Seeds.Num() > 0)
 	{
 		for (const FIntPoint& C : Seeds)
@@ -102,15 +124,17 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 	}
 	else
 	{
-		// No arteries: branch outward from the core boundary instead of the (now pinned) Pit.
-		// Seed from each frontier cell just outside the core, growing away from it.
+		// No arteries: branch outward from frontier cells that touch the core, growing away.
 		for (const FIntPoint& C : Region)
 		{
 			if (Budget <= 0) { break; }
-			if (InCore(C) || Distance(C) != CoreR + 1) { continue; }
+			if (InCore(C)) { continue; }
+			bool bTouchesCore = false;
+			for (int32 e = 0; e < 6; ++e) { if (InCore(Neighbor(C, e))) { bTouchesCore = true; break; } }
+			if (!bTouchesCore) { continue; }
 			if (Rng.FRand() >= P.BranchChance) { continue; }
 			const int32 e = Rng.RandRange(0, 5);
-			// Prefer an edge pointing away from the core (its neighbor is farther out).
+			// Prefer an edge pointing away from the origin (its neighbor is farther out).
 			const int32 Out = (Distance(Neighbor(C, e)) > Distance(C)) ? e : (e + 3) % 6;
 			if ((Mask[C] & (1 << Out)) == 0 && MarkRoad(C, Out))
 			{
@@ -128,20 +152,42 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		Frontier.RemoveAtSwap(Idx);
 
 		const int32 Straight = (T.InEdge + 3) % 6;
+		const int32 Left = (Straight + 1) % 6;
+		const int32 Right = (Straight + 5) % 6;
+
+		// Stacking turn pressure: each consecutive straight segment decays the straight-continue
+		// chance, so long straights grow likely to kink (built-in visibility blocking). A hard
+		// MaxStraightRun cap forces the turn outright.
+		const bool bForceTurn = (P.MaxStraightRun > 0 && T.StraightRun >= P.MaxStraightRun);
+		const float StraightProb = bForceTurn
+			? 0.f
+			: P.StraightBias * FMath::Pow(P.StraightDecay, float(T.StraightRun));
+
 		TArray<int32, TInlineAllocator<4>> Exits;
 		auto Consider = [&](int32 e, float Prob)
 		{
 			if (e != T.InEdge && Rng.FRand() < Prob) { Exits.AddUnique(e); }
 		};
-		Consider(Straight, P.StraightBias);
-		Consider((Straight + 1) % 6, P.BranchChance);
-		Consider((Straight + 5) % 6, P.BranchChance);
-		if (Exits.Num() == 0 && Rng.FRand() < P.StraightBias) { Exits.Add(Straight); }
+		Consider(Straight, StraightProb);
+		Consider(Left, P.BranchChance);
+		Consider(Right, P.BranchChance);
+		if (Exits.Num() == 0)
+		{
+			// Nothing chosen: a forced turn still kinks (pick a side); otherwise maybe continue
+			// straight at the decayed odds, else let the street terminate.
+			if (bForceTurn) { Exits.Add(Rng.FRand() < 0.5f ? Left : Right); }
+			else if (Rng.FRand() < StraightProb) { Exits.Add(Straight); }
+		}
 
 		for (int32 e : Exits)
 		{
 			if (Budget <= 0) { break; }
-			if (MarkRoad(T.Cell, e)) { Frontier.Add({ Neighbor(T.Cell, e), (e + 3) % 6 }); --Budget; }
+			if (MarkRoad(T.Cell, e))
+			{
+				const int32 NextRun = (e == Straight) ? (T.StraightRun + 1) : 0;
+				Frontier.Add({ Neighbor(T.Cell, e), (e + 3) % 6, NextRun });
+				--Budget;
+			}
 		}
 	}
 
