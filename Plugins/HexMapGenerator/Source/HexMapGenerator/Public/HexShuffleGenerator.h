@@ -12,6 +12,7 @@ class UHexCoreLayout;
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
 class UTextRenderComponent;
+class ASplineRoad;
 
 /**
  * Grows a road network and drops the real tiles into the level (one ISM per mesh),
@@ -85,6 +86,18 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Rolls")
 	void LoadRoll();
 
+	/** Module mesh extruded along the road splines (assign SM_RoadSeg). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
+	TObjectPtr<UStaticMesh> RoadSegmentMesh;
+
+	/** Z (uu) the road splines sit at — match the tile carriageway top (TOP = 0.5 m = 50). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
+	float SplineRoadZ = 50.f;
+
+	/** Trace the last grown network into chains and spawn one curved ASplineRoad per chain. */
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Spline Roads")
+	void BuildSplineRoads();
+
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Hex Shuffle")
 	TObjectPtr<USceneComponent> Root;
@@ -103,6 +116,11 @@ private:
 	// The last network Build() placed — what SaveRoll writes out.
 	UPROPERTY(Transient)
 	FHexNetwork LastNetwork;
+
+	// Spawned curved-road actors (one per traced chain); destroyed on Clear / rebuild.
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<ASplineRoad>> SplineRoads;
+	void ClearSplineRoads();
 
 	void MeasureCalibration();
 	int32 MeasureTileMask(UStaticMesh* Mesh) const;
