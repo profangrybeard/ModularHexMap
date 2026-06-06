@@ -6,7 +6,7 @@
 A single London road cross-section (3 m carriageway + 1 m raised walks + curb) extruded
 1 m along +X as a CLOSED solid (has a bottom, 1 m deep) but with OPEN ends along X — so
 consecutive pieces tiled by ASplineRoad flow into one continuous mesh and the open-end edge
-loops control the bend. Forward axis = +X. Exports centred to Content/HexTiles/Source/.
+loops control the bend. Forward axis = +X. Exports centred to Content/_project/HexTiles/Source/.
 
 Materials: carriageway top = M_Road, everything else (walks, curbs, sides, bottom) = M_Pavement.
 """
@@ -58,7 +58,7 @@ def main():
     bpy.context.scene.collection.objects.link(seg)
 
     repo = os.path.dirname(os.path.dirname(os.path.dirname(bpy.data.filepath)))
-    out = os.path.join(repo, "Content", "HexTiles", "Source")
+    out = os.path.join(repo, "Content", "_project", "HexTiles", "Source")
     os.makedirs(out, exist_ok=True)
     path = os.path.join(out, "SM_RoadSeg.glb")
     bpy.ops.object.select_all(action='DESELECT')

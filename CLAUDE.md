@@ -29,15 +29,34 @@ Repo root `C:\SCAD\_projects\ModularHexMap`. Engine: launcher **UE 5.7** at
   ModularHexMapEditor Win64 Development `
   -Project="C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject" -WaitMutex
 
-# Launch the editor (startup map = /Game/Maps/ShuffleLab)
+# Launch the editor (startup map = /Game/_project/Maps/ShuffleLab)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
   "C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject"
 
-# Regenerate the street-tile set from the master base (idempotent; never saves master)
+# Regenerate the curved street kit + pit core from the master (idempotent; never saves master)
+# Both generators are now MANIFEST-AWARE: they skip tiles marked `bespoke` in
+# Tools/blender/tile_manifest.json so a headless run can't clobber hand-authored tiles.
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
   "C:\SCAD\_projects\ModularHexMap\Source_Art\Blender\HexBase.blend" `
-  --python "C:\SCAD\_projects\ModularHexMap\Tools\blender\gen_street_tiles.py"
+  --python "C:\SCAD\_projects\ModularHexMap\Tools\blender\gen_curved_tiles.py"   # 14 street tiles
+& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
+  "C:\SCAD\_projects\ModularHexMap\Source_Art\Blender\HexBase.blend" `
+  --python "C:\SCAD\_projects\ModularHexMap\Tools\blender\gen_pit_core.py"       # 7 core tiles
 ```
+
+**Tile authoring pipeline (canonical — the "Hex Tiles" Blender addon).** Day-to-day tile work
+runs through **`Tools/blender/tile_pipeline.py`** (install via Preferences ▸ Add-ons, or Run it
+from the Text Editor). Open `HexBase.blend`, find the **Hex Tiles** sidebar tab:
+- **Build Enabled → Preview & Export** lays the enabled *procedural* tiles out in a grid (transient
+  preview, never saves the master) and writes their `.glb`.
+- Each tile has an **export ☑** (persists to `tile_manifest.json`, git-tracked).
+- **Promote to Bespoke** spins a tile into its own editable `.blend` under `Source_Art/Blender/Tiles/`
+  (materials + a reference hex **linked** from the master; mesh is local), toggles it OFF for
+  procedural export, and opens it. **Open Bespoke** reopens it; **Export This Tile** / **Return to
+  Master** are the in-bespoke buttons. Leaving the master **never auto-saves** it (gotcha #2/#18).
+- The registry (`tile_registry.py`) pulls the tile list straight from the generators, so there's no
+  second list to maintain. `T_core_pit` is the **first bespoke tile** (`Source_Art/Blender/Tiles/
+  T_core_pit.blend`).
 
 **Roll the randomizer:** open `ShuffleLab` → select **`HexShuffleGenerator`** in the Outliner →
 Details → **Randomize**. Tune under **Growth** (`NumArteries`, `RoadBudget`, `BranchChance`,
@@ -65,16 +84,37 @@ session). **`Recalibrate`** if you re-import tiles.
 > - **Core rotation fix:** core tiles now **measure-and-rotate** like the frontier (they were
 >   placed at a fixed yaw and came out mirrored — see gotcha #16).
 >
+> **Tile pipeline landed (2026-06-06, later):** the **"Hex Tiles" Blender addon**
+> (`tile_pipeline.py` + `tile_registry`/`tile_common`/`tile_manifest.json`) now drives tile
+> authoring — per-tile export toggles, Build-Enabled preview/export, and **Promote to Bespoke**
+> (a tile graduates to its own `.blend` linking the master). `gen_curved_tiles.py` is now the
+> **canonical** street generator and both generators are **manifest-aware** (skip bespoke). The
+> **Pit is the first bespoke tile** (`Source_Art/Blender/Tiles/T_core_pit.blend`, with a 30°
+> descent ramp + fixed floor normal). See the quickstart's *Tile authoring pipeline* + gotcha #18.
+>
+> **Content reorg + material masters (2026-06-06, later still):** our work now lives under
+> **`/Game/_project/`** (`HexTiles/`, `Data/`, `Maps/`) so it no longer comingles with the imported
+> Epic template; Python tooling moved to **`Content/_project/Python/`** (registered via
+> `PythonScriptPlugin.AdditionalPaths`). Materials consolidated to **4 shared masters** in
+> `/Game/_project/HexTiles/Materials/` (gotcha #19). ⚠️ **The asset move itself is an in-editor
+> step that still needs running once:** in the GUI editor run
+> `Content/_project/Python/reorg_to_project.py`, then **right-click `/Game/_project` → Fix Up
+> Redirectors → Save All**. All code/config/docs already point at the `_project` paths; the `.uasset`s
+> relocate when that script runs. Build an **opaque master `Material`** at
+> `…/Materials/M_HexTile_Master` and reparent the 4 MICs to it (path-neutral; consolidation skips
+> the `Materials/` folder, so it's safe).
+>
 > **Pending propagation (deferred, not yet done):** scale R=10 into the master `HexBase.blend` +
-> `Source_Art/README.md` contract; fold `gen_curved_tiles.py` in as canonical; delete orphaned
-> `T_valley_*` meshes; asymmetric Pit rim + descent. See Next steps.
+> `Source_Art/README.md` contract; delete orphaned `T_valley_*` meshes; asymmetric Pit rim
+> (irregular slumped edges) + the deeper descent geometry. See Next steps.
 
 - ✅ UE 5.7 C++ builds & opens. **Third-person Manny/Quinn** plays (ported `TP_ThirdPerson` module).
 - ✅ Pipeline: Blender → `.glb` → UE, walkable. **Hex base LOCKED**: flat-top R=5 / 10 m across,
   origin bottom-center, edge 0 = +Y CCW.
 - ✅ **14-config street kit** (all road-edge necklaces: blank/deadend/bend/curve/straight/
-  tee[/_a/_b/_c]/quad[/_b/_c]/penta/junction), generated by `gen_street_tiles.py`. London
-  cross-section: cobble carriageway 3 m + raised flagstone pavements 1 m + 0.15 m curb.
+  tee[/_a/_b/_c]/quad[/_b/_c]/penta/junction), generated by `gen_curved_tiles.py` (canonical;
+  `gen_street_tiles.py` superseded). London cross-section: cobble carriageway 3 m + raised
+  flagstone pavements 1 m + 0.15 m curb.
 - ✅ **`HexMapGenerator` randomizer (in-engine, working):** road-driven **growth** (cube coords;
   **cardinal arteries** run center→map-edge along each hex axis, then secondary streets branch
   off) → connected by construction; **geometry-measured rotation** (reads each tile's real
@@ -93,7 +133,7 @@ session). **`Recalibrate`** if you re-import tiles.
   7 fixed-core tiles (hub + 6 ring) **+ 6 perimeter "valley" tiles** — a 6-way 3 m hub junction
   (the portal all roads drain to), 3 m spokes, and a closed 2 m boundary alley loop. Correct
   London cross-section (carriageway 0.5 / flagstone pavement 0.65 / 0.15 curb). Imported via
-  `setup_pit_core.py` (collision complex-as-simple) and **walkable in `/Game/Maps/PitCoreLab`**.
+  `setup_pit_core.py` (collision complex-as-simple) and **walkable in `/Game/_project/Maps/PitCoreLab`**.
 - ⬜ **Boolean sinkhole carve = TODO (phase 2)** — the intact streets are signed off; carving the
   zig-zag void + hardwiring the core into `HexShuffleGenerator` come next.
 - ⬜ Frontier placement is **transient** (not yet baked). Bespoke **building tiles** = not started.
@@ -112,17 +152,29 @@ session). **`Recalibrate`** if you re-import tiles.
 | &nbsp;&nbsp;`HexMapGrowthLibrary.{h,cpp}` | pure seeded `GrowRoadNetwork` (pinned core + arteries + branching); `MakePlaceholderCore`; `FHexGrowthParams.CoreRadius`; `FHexRoll` |
 | &nbsp;&nbsp;`HexShuffleGenerator.{h,cpp}` | `AHexShuffleGenerator` actor: measure-calibrate, grow, place, tally vacancies; `Randomize`/`Recalibrate`/`Clear`/`SaveRoll`/`LoadRoll` CallInEditor |
 | `Source_Art/Blender/HexBase.blend` | master base (Hex_Base + anchors + materials, fake-user) — **keep byte-identical; scripts never save it** |
-| `Tools/blender/gen_street_tiles.py` | street tile generator (edit `EDGE_SETS`, run headless) |
-| `Tools/blender/gen_pit_core.py` | **pit-core blockout generator** (7 core + 6 valley tiles; parametric streets; boolean carve = phase-2 TODO) |
+| `Tools/blender/gen_curved_tiles.py` | **canonical** street-kit generator (spline-curved roads; edit `EDGE_SETS`; `build_tile_obj` = build-only entry; **manifest-aware** — skips bespoke) |
+| `Tools/blender/gen_street_tiles.py` | superseded faceted street generator (kept for reference; don't regenerate from it) |
+| `Tools/blender/gen_pit_core.py` | pit-core generator (7-tile radial star; 30° descent ramp; **manifest-aware**; keeps every tile in `core_layout.json` but skips bespoke `.glb`) |
+| `Tools/blender/tile_pipeline.py` | **the "Hex Tiles" Blender addon** — per-tile export toggles, Build-Enabled preview/export, Promote/Open bespoke, save-prompts |
+| `Tools/blender/tile_registry.py` | unified tile list (name → build-callable) pulled from both generators — single source of "what tiles exist" |
+| `Tools/blender/tile_common.py` | shared plumbing: paths, the ONE canonical glTF export, manifest I/O, `bespoke_tile_names`, preview layout |
+| `Tools/blender/_make_bespoke.py` | headless creator of a bespoke per-tile `.blend` (linked master mats + reference hex + local mesh; spawned by Promote) |
+| `Tools/blender/tile_manifest.json` | git-tracked per-tile state: `enabled` (export on/off) + `bespoke` (owned by a `.blend`) + `blend` path |
+| `Source_Art/Blender/Tiles/` | **bespoke per-tile `.blend`s** (hand-owned; link the master). `T_core_pit.blend` = the first |
+| `Content/_project/Python/hextile_materials.py` | `consolidate_to_masters()` — fold per-mesh material dupes into the 4 shared masters (gotcha #19) |
+| `Content/_project/Python/reimport_hextiles.py` | one-click **Tools ▸ Reimport Hex Tiles** — reimport all `/Game/_project/HexTiles` from `.glb`, re-assert Complex-As-Simple, self-heal materials |
+| `Content/_project/Python/init_unreal.py` | startup hook: registers the Reimport Hex Tiles menu entry |
+| `Content/_project/Python/_run_consolidate.py` | explicit commandlet entry for the one-time material consolidation |
 | `Tools/setup_shuffle_lab.py` | (GUI editor) import 14 tiles + build catalog + lit lab |
 | `Tools/setup_pit_core.py` | (GUI editor) import 13 core tiles + build walkable `PitCoreLab` (reads `core_layout.json`) |
 | `Tools/save_occupancy.py` | (commandlet) seed catalog `Occupancy` + **force-save** |
 | `Tools/verify_shuffle.py` | (GUI editor) headless roll + log for self-checks |
 | `Design/Rolls/` | saved roll JSONs — curated layout history (+ `README.md`) |
-| `/Game/Data/DA_HexTileSet_Streets` | the tile catalog asset |
-| `/Game/HexTiles/Core/` | imported pit-core blockout tile meshes (13) |
-| `/Game/Maps/ShuffleLab` | lit lab containing the generator actor (startup map) |
-| `/Game/Maps/PitCoreLab` | lit lab — the intact 13-tile core blockout, walkable |
+| `/Game/_project/Data/DA_HexTileSet_Streets` | the tile catalog asset |
+| `/Game/_project/HexTiles/Core/` | imported pit-core blockout tile meshes (13) |
+| `/Game/_project/HexTiles/Materials/` | the **4 shared master materials** (every tile mesh slot points here — gotcha #19) |
+| `/Game/_project/Maps/ShuffleLab` | lit lab containing the generator actor (startup map) |
+| `/Game/_project/Maps/PitCoreLab` | lit lab — the intact 13-tile core blockout, walkable |
 
 ## Records of resistance (gotchas — don't relearn these)
 1. **Headless glTF import crashes on Slate** (`-run=pythonscript` commandlet, no Slate, asserts
@@ -180,6 +232,28 @@ session). **`Recalibrate`** if you re-import tiles.
     `MaterialEditingLibrary.set_material_instance_vector_parameter_value(MIC, "baseColorFactor", …)`
     (glTF mats import as `MaterialInstanceConstant`; param is `baseColorFactor`). See
     `Tools/fix_and_roll.py` / `wire_core_into_shufflelab.py`.
+18. **Procedural vs bespoke is FILE ownership, enforced by the manifest.** A tile is either
+    generator-owned (rebuilt from code) or hand-owned (a `.blend` under `Source_Art/Blender/Tiles/`)
+    — never both, or a regenerate clobbers hand work. `tile_manifest.json` is the contract; the
+    generators skip `bespoke` tiles (verified: `gen_pit_core.py` skips `T_core_pit`, keeps it in
+    `core_layout.json`, leaves its `.glb` untouched). ⚠️ **Don't hand-edit a tile inside the master
+    `HexBase.blend` and Ctrl+S** — that bakes it into the master (we hit this: `PitProto` polluted
+    the master; fix was capture-to-bespoke then `git checkout HexBase.blend`). Use the **Hex Tiles**
+    panel's **Promote to Bespoke** instead; leaving the master via the panel never auto-saves it.
+19. **glTF import mints per-mesh material dupes — consolidate to shared masters.** Each `.glb`
+    import gives every tile its own `Materials/` folder, so ~30 tiles scattered **~130 copies** of
+    really **4** materials (`M_Road`/`M_Pavement`/`M_HexGround`/`M_TileBorder`). Canonical masters
+    live in **`/Game/_project/HexTiles/Materials/`**; `Content/_project/Python/hextile_materials.py` consolidates.
+    Headless quirks learned the hard way: `EditorAssetLibrary.consolidate_assets` **replaces
+    references but leaves the copies as `ObjectRedirector`s**; `delete_asset` **does not remove
+    redirectors** headless and `AssetTools.fixup_referencers` **doesn't exist in 5.7 Python**. The
+    working recipe: **force-rebind every static-mesh slot to the master path + save** (so no mesh
+    depends on a redirector), then **delete the redirector `.uasset` files on disk** (editor
+    closed; UE rescans on launch). `reimport_hextiles.py` calls `consolidate_to_masters()` after
+    every reimport so the sprawl never comes back. Run the one-time cleanup headless:
+    `UnrealEditor-Cmd.exe <uproject> -run=pythonscript -script="Content/_project/Python/_run_consolidate.py"`
+    (⚠️ UE's pythonscript commandlet does **not** reliably run a file's `if __name__=="__main__"`
+    block — use an explicit entry script that calls the function at top level).
 
 ## Next steps
 0. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator

@@ -22,7 +22,7 @@ channel + a cobble carriageway surface), but the channel CENTRELINE is now smoot
     needed smoothing; junctions stay as a per-tile intersection.
 
 See Docs/PerTileSplineRoads.md (the pivot) and Source_Art/README.md (the contract).
-NEVER saves the master. Re-running is idempotent. Exports T_street_*.glb to Content/HexTiles/Source/.
+NEVER saves the master. Re-running is idempotent. Exports T_street_*.glb to Content/_project/HexTiles/Source/.
 """
 
 import os
@@ -46,6 +46,13 @@ EDGE_ANG = {0: 90, 1: 150, 2: 210, 3: 270, 4: 330, 5: 30}
 CUT_EXT  = 0.9   # cutter overshoot past each edge (clean carve to the boundary)
 CUT_Z0, CUT_Z1 = 0.45, 0.80   # cutter spans the full pavement raise
 RD_Z0, RD_Z1   = TOP - 0.02, TOP + 0.01   # thin cobble carriageway surface
+
+# Junctions (3+ roads): a central road HUB merges the arms (no centre sliver — they "come
+# together"), and each arm is a SPLINE bowing toward the road-mouth centroid -> a smooth fanned
+# interchange instead of faceted radial spikes. Curves are the rule here (these are old streets).
+JUNCTION_HUB_R = HW * 1.5     # central hub radius (m)
+JUNCTION_BOW   = 0.90         # 0 = straight radial arms; 1 = full bow toward the mouth centroid
+JUNCTION_SWIRL = 0.25         # tangential sweep so even SYMMETRIC junctions (tee/junction) curve
 
 # Per-tile boundary lip (metric/debug aid): a grey band hugging the hex perimeter so each
 # tile reads as its own cell in the assembled map. Its own material (NOT "Road") so the
@@ -122,6 +129,41 @@ def arc_centerline(e0, e1, ext, seg_per_deg=1.0 / 6.0):
     return pts
 
 
+def _bezier3(p0, p1, p2, p3, segs):
+    pts = []
+    for i in range(segs + 1):
+        t = i / segs; u = 1.0 - t
+        b0, b1, b2, b3 = u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t
+        pts.append((b0 * p0[0] + b1 * p1[0] + b2 * p2[0] + b3 * p3[0],
+                    b0 * p0[1] + b1 * p1[1] + b2 * p2[1] + b3 * p3[1]))
+    return pts
+
+
+def junction_centerlines(edges, ext):
+    """Spline arms for a 3+ road junction. Each arm is a cubic that leaves its edge midpoint
+    PERPENDICULAR to the edge (the modular anchor — neighbours still meet flush), then bows toward
+    the centroid of all road mouths before converging at the centre hub -> a smooth fanned
+    interchange. Symmetric junctions (centroid ~ centre) stay near-radial; asymmetric clusters
+    (e.g. tee_a's three adjacent edges) fan and merge instead of spiking."""
+    mids = [edge_mid(e) for e in edges]
+    cx = sum(m[0] for m in mids) / len(mids)
+    cy = sum(m[1] for m in mids) / len(mids)
+    out = []
+    for e in edges:
+        p, n = edge_mid(e), edge_normal(e)
+        nin = (-n[0], -n[1])
+        tang = (-n[1], n[0])                               # tangential (perp to the radial), CCW
+        sw = INR * JUNCTION_SWIRL
+        p0 = (p[0] + n[0] * ext, p[1] + n[1] * ext)        # outer end (past the edge for the cutter)
+        p1 = (p[0] + nin[0] * INR * 0.45,                  # control 1 -> perpendicular start tangent
+              p[1] + nin[1] * INR * 0.45)
+        p2 = (cx * JUNCTION_BOW + tang[0] * sw,            # control 2 -> centroid bow + tangential swirl
+              cy * JUNCTION_BOW + tang[1] * sw)
+        p3 = (0.0, 0.0)                                     # converge into the centre hub
+        out.append(_bezier3(p0, p1, p2, p3, 14))
+    return out
+
+
 def centerlines(edges, ext):
     """Return a list of polylines (each a list of (x,y)) for this config's road centre(s).
     ext = overshoot past each edge midpoint (CUT_EXT for the cutter, 0.0 for the surface)."""
@@ -135,12 +177,11 @@ def centerlines(edges, ext):
         na, nb = edge_normal(a), edge_normal(b)
         return [[(pa[0] + na[0] * ext, pa[1] + na[1] * ext),
                  (pb[0] + nb[0] * ext, pb[1] + nb[1] * ext)]]
-    # deadend / tee / quad / penta / junction -> radial arms centre -> each edge
-    out = []
-    for e in edges:
-        m, n = edge_mid(e), edge_normal(e)
-        out.append([(0.0, 0.0), (m[0] + n[0] * ext, m[1] + n[1] * ext)])
-    return out
+    if len(edges) == 1:                      # deadend -> single radial stub to the centre
+        e = edges[0]; m, n = edge_mid(e), edge_normal(e)
+        return [[(0.0, 0.0), (m[0] + n[0] * ext, m[1] + n[1] * ext)]]
+    # tee / quad / penta / junction -> fanned spline arms + a centre hub (added in build_tile_obj)
+    return junction_centerlines(edges, ext)
 
 
 # ---- mesh building ----
@@ -233,7 +274,23 @@ def sweep_into(bm, pts, half, z0, z1):
     bm.faces.new(rings[-1])
 
 
-def make_tile(name, edges):
+def add_hub(bm, r, z0, z1, segs=24):
+    """A solid road-hub cylinder at the tile centre so junction arms merge cleanly (no centre
+    sliver). Used for both the carve cutter and the cobble surface (different z spans)."""
+    ang = [2.0 * math.pi * k / segs for k in range(segs)]
+    bot = [bm.verts.new((r * math.cos(a), r * math.sin(a), z0)) for a in ang]
+    top = [bm.verts.new((r * math.cos(a), r * math.sin(a), z1)) for a in ang]
+    bm.faces.new(list(reversed(bot)))
+    bm.faces.new(top)
+    for i in range(segs):
+        j = (i + 1) % segs
+        bm.faces.new([bot[i], bot[j], top[j], top[i]])
+
+
+def build_tile_obj(name, edges):
+    """Build one street tile and return the joined object (no export, no cleanup).
+    The registry / pipeline addon calls this to lay tiles out for preview; make_tile()
+    wraps it with the headless export+remove so standalone runs are unchanged."""
     m_road = bpy.data.materials["M_Road"]
     m_pave = bpy.data.materials["M_Pavement"]
     m_grnd = bpy.data.materials["M_HexGround"]
@@ -252,6 +309,8 @@ def make_tile(name, edges):
         bm = bmesh.new()
         for poly in centerlines(edges, CUT_EXT):
             sweep_into(bm, poly, HW, CUT_Z0, CUT_Z1)
+        if len(edges) >= 3:                       # carve the central hub too
+            add_hub(bm, JUNCTION_HUB_R, CUT_Z0, CUT_Z1)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         bm.to_mesh(cm)
         bm.free()
@@ -274,6 +333,8 @@ def make_tile(name, edges):
         bm = bmesh.new()
         for poly in centerlines(edges, 0.0):
             sweep_into(bm, poly, HW, RD_Z0, RD_Z1)
+        if len(edges) >= 3:                       # fill the central hub surface
+            add_hub(bm, JUNCTION_HUB_R, RD_Z0, RD_Z1)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         bm.to_mesh(rm)
         bm.free()
@@ -292,7 +353,12 @@ def make_tile(name, edges):
         if base.material_slots[i].material is None:
             base.active_material_index = i
             bpy.ops.object.material_slot_remove()
+    return base
 
+
+def make_tile(name, edges):
+    """Standalone (headless) path: build + export + remove. Behaviour unchanged."""
+    base = build_tile_obj(name, edges)
     path = os.path.join(out_dir(), "T_street_%s.glb" % name)
     bpy.ops.object.select_all(action='DESELECT')
     base.select_set(True)
@@ -306,7 +372,7 @@ def make_tile(name, edges):
 
 def out_dir():
     repo = os.path.dirname(os.path.dirname(os.path.dirname(bpy.data.filepath)))
-    d = os.path.join(repo, "Content", "HexTiles", "Source")
+    d = os.path.join(repo, "Content", "_project", "HexTiles", "Source")
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -320,13 +386,33 @@ def reset():
             bpy.data.meshes.remove(me)
 
 
+def _bespoke_names():
+    """Tiles the pipeline manifest marks bespoke -> skip them so we never clobber hand work.
+    Defensive: if tile_common isn't importable, regenerate everything (old behaviour)."""
+    try:
+        import sys
+        here = os.path.dirname(os.path.abspath(__file__))
+        if here not in sys.path:
+            sys.path.append(here)
+        import tile_common
+        return tile_common.bespoke_tile_names()
+    except Exception as exc:
+        print("  (bespoke skip-list unavailable: %s)" % exc)
+        return set()
+
+
 def main():
     reset()
+    bespoke = _bespoke_names()
     print("=== gen_curved_tiles: writing to %s ===" % out_dir())
     for name, edges in EDGE_SETS.items():
+        tile = "T_street_%s" % name
+        if tile in bespoke:
+            print("  %-28s SKIPPED (bespoke)" % tile)
+            continue
         fn, sz = make_tile(name, edges)
         print("  %-28s %6d bytes  edges=%s" % (fn, sz, edges))
-    print("=== gen_curved_tiles: done (%d tiles) ===" % len(EDGE_SETS))
+    print("=== gen_curved_tiles: done ===")
 
 
 if __name__ == "__main__":

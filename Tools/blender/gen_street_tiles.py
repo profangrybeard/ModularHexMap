@@ -8,7 +8,7 @@ Run against the master base file so the canonical Hex_Base + shared materials
 
 For each entry in EDGE_SETS it duplicates the master Hex_Base, lays the London
 street cross-section (recessed cobble carriageway between raised flagstone
-pavements with a curb), joins, and exports a glb to Content/HexTiles/Source/.
+pavements with a curb), joins, and exports a glb to Content/_project/HexTiles/Source/.
 It NEVER saves the master. Re-running is idempotent.
 
 NOTE: this is the STREETS + WALKS kit. Building footprints were prototyped and then
@@ -61,7 +61,7 @@ CANON = {"Hex_Base", "Camera", "Light",
 
 def out_dir():
     repo = os.path.dirname(os.path.dirname(os.path.dirname(bpy.data.filepath)))
-    d = os.path.join(repo, "Content", "HexTiles", "Source")
+    d = os.path.join(repo, "Content", "_project", "HexTiles", "Source")
     os.makedirs(d, exist_ok=True)
     return d
 

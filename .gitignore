@@ -106,5 +106,9 @@ $RECYCLE.BIN/
 # ============================================================================
 # Tile pipeline
 # ============================================================================
-# glTF staging — regenerable via Tools/blender/gen_street_tiles.py; not committed.
-/Content/HexTiles/Source/
+# glTF staging — regenerable via the Hex Tiles pipeline (gen_curved_tiles.py / gen_pit_core.py); not committed.
+/Content/_project/HexTiles/Source/
+
+# Python bytecode
+__pycache__/
+*.pyc

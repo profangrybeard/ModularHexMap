@@ -11,9 +11,11 @@ artery into the frontier). No rim/alley ring (it zigzagged through distance-2 va
 cogwheel — dropped 2026-06-06).
 
 Run against the master base (for the shared materials). NEVER saves the master; idempotent.
-Exports T_core_*.glb + core_layout.json (7 tiles) to Content/HexTiles/Source/.
-NOTE: the asymmetric collapsed-building rim + descent geometry is the explicit NEXT pass; this is
-the clean blockout representation.
+Exports T_core_*.glb + core_layout.json (7 tiles) to Content/_project/HexTiles/Source/.
+The Pit now carries a solid ~30deg descent ramp (corner-to-corner down one wall) so the player
+can walk in/out and test the level transition; the void floor faces up (+Z) so it collides.
+NOTE: the asymmetric collapsed-building rim (irregular slumped edges) is still the NEXT pass; this
+is the clean blockout representation + a traversable ramp.
 """
 import os
 import math
@@ -36,6 +38,8 @@ ARM_OUT = INR + 0.9          # arm overshoot past the edge (clean carve to the b
 # ---- the Pit (center tile) ----
 RIM_R     = 4.5              # pit rim radius (roads break here)
 PIT_FLOOR = -2.0            # recessed void floor (m)
+RAMP_W     = 2.0             # walkable descent-ramp width (m)
+RAMP_THICK = 0.25           # ramp slab thickness (m) — solid so it collides reliably
 
 # ---- tile-border lip (metric/debug aid; own material so the resolver ignores it) ----
 BORDER_W = 0.12
@@ -49,7 +53,7 @@ CANON = {"Hex_Base", "Camera", "Light",
 
 def out_dir():
     repo = os.path.dirname(os.path.dirname(os.path.dirname(bpy.data.filepath)))
-    d = os.path.join(repo, "Content", "HexTiles", "Source")
+    d = os.path.join(repo, "Content", "_project", "HexTiles", "Source")
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -142,8 +146,33 @@ def pit_void(r, z_top, z_floor, mat, name):
     for i in range(6):
         j = (i + 1) % 6
         bm.faces.new([top[i], bot[i], bot[j], top[j]])   # wall, inward-facing
-    bm.faces.new(bot[::-1])                               # floor, up-facing
+    bm.faces.new(bot)                                    # floor, up-facing (+Z) — CCW from above
     bm.normal_update(); bm.to_mesh(me); bm.free()
+    for p in me.polygons: p.use_smooth = False
+    o = bpy.data.objects.new(name, me); o.data.materials.append(mat)
+    bpy.context.scene.collection.objects.link(o); return o
+
+
+def pit_ramp(mat, name):
+    """Solid ~30deg descent ramp hugging one rim wall (corner 0 -> corner 60), rim top to floor.
+    A hex rim edge is ~R long and the drop is PAVE_TOP-PIT_FLOOR, so a single corner-to-corner
+    span lands on the floor at ~30deg. Built as a thick slab (normals out) so it collides as
+    Complex-As-Simple. NOTE: import mirrors the tile (gotcha #16) so the ramp appears on the
+    mirrored edge in UE — fine for traversal; the asymmetric-rim pass authors open/closed edges."""
+    aA, aB = 0.0, math.radians(60)
+    r_out, r_in = RIM_R, RIM_R - RAMP_W
+    C = lambda ang, rad, z: (rad * math.cos(ang), rad * math.sin(ang), z)
+    top = [C(aA, r_out, PAVE_TOP), C(aB, r_out, PIT_FLOOR),
+           C(aB, r_in, PIT_FLOOR), C(aA, r_in, PAVE_TOP)]
+    bot = [(x, y, z - RAMP_THICK) for (x, y, z) in top]
+    me = bpy.data.meshes.new(name + "_m"); bm = bmesh.new()
+    vt = [bm.verts.new(p) for p in top]; vb = [bm.verts.new(p) for p in bot]
+    bm.faces.new(vt); bm.faces.new(list(reversed(vb)))   # top (walk surface) + bottom
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new([vt[i], vt[j], vb[j], vb[i]])        # 4 sides
+    bm.normal_update(); bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me); bm.free()
     for p in me.polygons: p.use_smooth = False
     o = bpy.data.objects.new(name, me); o.data.materials.append(mat)
     bpy.context.scene.collection.objects.link(o); return o
@@ -174,7 +203,8 @@ def build_tile(name, road_edges, is_pit=False):
     if is_pit:
         base = hex_annulus(0.0, TOP, RIM_R, m_grnd, name)
         pave = hex_annulus(TOP, PAVE_TOP, RIM_R, m_pave, name + "_pave")
-        objs = [base, pave, pit_void(RIM_R, PAVE_TOP, PIT_FLOOR, m_grnd, name + "_void")]
+        objs = [base, pave, pit_void(RIM_R, PAVE_TOP, PIT_FLOOR, m_grnd, name + "_void"),
+                pit_ramp(m_road, name + "_ramp")]
     else:
         base = hex_prism(0.0, TOP, m_grnd, name)
         pave = hex_prism(TOP, PAVE_TOP, m_pave, name + "_pave")
@@ -243,10 +273,30 @@ def core_specs():
     return specs
 
 
+def _bespoke_names():
+    """Tiles the pipeline manifest marks bespoke -> skip building/exporting their .glb so we
+    never clobber hand work (they stay in core_layout.json so placement is unaffected).
+    Defensive: if tile_common isn't importable, build everything (old behaviour)."""
+    try:
+        import sys
+        here = os.path.dirname(os.path.abspath(__file__))
+        if here not in sys.path:
+            sys.path.append(here)
+        import tile_common
+        return tile_common.bespoke_tile_names()
+    except Exception as exc:
+        print("  (bespoke skip-list unavailable: %s)" % exc)
+        return set()
+
+
 def build_core():
     reset()
+    bespoke = _bespoke_names()
     tiles = {}
     for name, (road, (q, r), is_pit) in core_specs().items():
+        if name in bespoke:
+            print("  %-22s SKIPPED (bespoke)" % name)
+            continue
         t = build_tile(name, road, is_pit)
         wx, wy = axial_to_world(q, r)
         t.location = (wx, wy, 0.0)
@@ -259,17 +309,21 @@ def export_core(tiles):
     import json
     specs = core_specs()
     layout = {}; results = []
-    for name, t in tiles.items():
+    # core_layout.json lists EVERY core tile (incl. bespoke) so placement/masks are intact;
+    # only tiles that were actually built (non-bespoke) get their .glb (re)exported.
+    for name, (road, (q, r), _is_pit) in specs.items():
+        mask = 0
+        for e in road: mask |= (1 << e)
+        layout[name] = {"q": q, "r": r, "mask": mask}
+        t = tiles.get(name)
+        if t is None:
+            continue   # bespoke / not built -> keep in layout, don't touch its .glb
         t.location = (0.0, 0.0, 0.0)   # export centered (else UE double-offsets — gotcha #13)
         path = os.path.join(out_dir(), name + ".glb")
         bpy.ops.object.select_all(action='DESELECT')
         t.select_set(True); bpy.context.view_layer.objects.active = t
         bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True,
                                   export_apply=True, export_yup=True, export_materials='EXPORT')
-        road, (q, r), _ = specs[name]
-        mask = 0
-        for e in road: mask |= (1 << e)
-        layout[name] = {"q": q, "r": r, "mask": mask}
         results.append((name, os.path.getsize(path)))
     with open(os.path.join(out_dir(), "core_layout.json"), "w") as f:
         json.dump({"hex_radius_m": R, "tiles": layout}, f, indent=2)

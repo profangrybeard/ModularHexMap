@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "tiles": {
+    "T_street_blank": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_deadend": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_bend": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_curve": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_straight": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_tee": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_tee_a": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_tee_b": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_tee_c": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_quad": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_quad_b": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_quad_c": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_penta": { "enabled": true, "bespoke": false, "blend": null },
+    "T_street_junction": { "enabled": true, "bespoke": false, "blend": null },
+    "T_core_pit": { "enabled": false, "bespoke": true, "blend": "Source_Art/Blender/Tiles/T_core_pit.blend" },
+    "T_core_ring_0": { "enabled": true, "bespoke": false, "blend": null },
+    "T_core_ring_1": { "enabled": true, "bespoke": false, "blend": null },
+    "T_core_ring_2": { "enabled": true, "bespoke": false, "blend": null },
+    "T_core_ring_3": { "enabled": true, "bespoke": false, "blend": null },
+    "T_core_ring_4": { "enabled": true, "bespoke": false, "blend": null },
+    "T_core_ring_5": { "enabled": true, "bespoke": false, "blend": null }
+  }
+}

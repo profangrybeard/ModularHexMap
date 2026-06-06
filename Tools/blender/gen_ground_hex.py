@@ -47,7 +47,7 @@ def main():
     bpy.context.scene.collection.objects.link(seg)
 
     repo = os.path.dirname(os.path.dirname(os.path.dirname(bpy.data.filepath)))
-    out = os.path.join(repo, "Content", "HexTiles", "Source")
+    out = os.path.join(repo, "Content", "_project", "HexTiles", "Source")
     os.makedirs(out, exist_ok=True)
     path = os.path.join(out, "SM_GroundHex.glb")
     bpy.ops.object.select_all(action='DESELECT')
