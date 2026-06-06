@@ -191,6 +191,27 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		}
 	}
 
+	// 3. Prune dangling road ends so the grown network reads clean. A frontier road edge is kept
+	//    ONLY if its in-region neighbour carries the matching return road; otherwise it runs off the
+	//    map or butts a block / blank core face -> a confusing stray stub, so erase it. Legit
+	//    cul-de-sacs survive (their single edge connects to a real neighbour); the pinned core is
+	//    never mutated. Decided against a snapshot so removals don't interact within the pass.
+	{
+		const TMap<FIntPoint, int32> Snap = Mask;
+		for (const FIntPoint& C : Region)
+		{
+			if (InCore(C)) { continue; }
+			const int32 M = Snap[C];
+			for (int32 e = 0; e < 6; ++e)
+			{
+				if ((M & (1 << e)) == 0) { continue; }
+				const FIntPoint N = Neighbor(C, e);
+				const bool bKeep = InR(N) && (Snap[N] & (1 << ((e + 3) % 6))) != 0;
+				if (!bKeep) { Mask[C] &= ~(1 << e); }
+			}
+		}
+	}
+
 	FHexNetwork Net;
 	Net.Cells.Reserve(Region.Num());
 	for (const FIntPoint& C : Region)

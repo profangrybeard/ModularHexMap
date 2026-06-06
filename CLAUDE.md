@@ -48,6 +48,27 @@ session). **`Recalibrate`** if you re-import tiles.
 `UnrealEditor.exe <uproject> -ExecutePythonScript="Tools\setup_shuffle_lab.py"`.
 
 ## Current status (works end-to-end)
+> **Session 2026-06-06 — curved roads + 2× scale + Pit center, all landed.** The whole map now
+> reads as one consistent system, validated in `ShuffleLab` (127 cells, core=7, 0 unresolved):
+> - **Per-tile spline-smoothed roads** (the [PerTileSplineRoads.md](Docs/PerTileSplineRoads.md)
+>   pivot): `bend`/`curve` are now circular arcs anchored at the edge midpoints (C1-smooth across
+>   tiles); junctions stay radial. New generator **`Tools/blender/gen_curved_tiles.py`** (the
+>   faceted `gen_street_tiles.py` is superseded but kept). All 14 configs, drop-in to the resolver.
+> - **2× tile scale** (R=5→**R=10**) holding the street/walk cross-section absolute (3 m road, ~1 m
+>   walk) → parkable block depth. Engine side: `HexCircumradiusUU = 1000` on the generator.
+> - **Tile-border lips** (`M_TileBorder`, near-black) outline every cell — a metric/debug aid.
+> - **The Pit center caught up** — `gen_pit_core.py` → 7-tile **radial star** (Pit void + 6 spokes),
+>   hardwired via `DA_HexCoreLayout`. Roads **break at the Pit rim**. (Dropped the cogwheel alley
+>   ring + valley tiles.)
+> - **Growth cleanup:** a **dangling-stub prune** in `GrowRoadNetwork` (a road edge survives only
+>   if its neighbour carries the return road) → no more off-map cut-offs or block-butting stubs.
+> - **Core rotation fix:** core tiles now **measure-and-rotate** like the frontier (they were
+>   placed at a fixed yaw and came out mirrored — see gotcha #16).
+>
+> **Pending propagation (deferred, not yet done):** scale R=10 into the master `HexBase.blend` +
+> `Source_Art/README.md` contract; fold `gen_curved_tiles.py` in as canonical; delete orphaned
+> `T_valley_*` meshes; asymmetric Pit rim + descent. See Next steps.
+
 - ✅ UE 5.7 C++ builds & opens. **Third-person Manny/Quinn** plays (ported `TP_ThirdPerson` module).
 - ✅ Pipeline: Blender → `.glb` → UE, walkable. **Hex base LOCKED**: flat-top R=5 / 10 m across,
   origin bottom-center, edge 0 = +Y CCW.
@@ -116,8 +137,9 @@ session). **`Recalibrate`** if you re-import tiles.
    editor locks the DLLs — close it first).
 5. **Imported meshes aren't walkable until** Collision Complexity = **Use Complex As Simple**.
 6. **glTF imports at true scale** (1 m → 100 uu).
-7. **Hexes carry √3 between axes** — can't round both. Keep **R=5**; the generator places tiles,
-   so 8.66 m is never hand-typed. Neighbor offsets in `Source_Art/README.md`.
+7. **Hexes carry √3 between axes** — can't round both. **R=10** now (was 5; 2× scale 2026-06-06);
+   the generator places tiles so 17.3 m is never hand-typed. `HexCircumradiusUU` must match
+   (=`R×100`=1000). Neighbor offsets in `Source_Art/README.md` (still listed at the old R=5).
 8. **UE launch wrapper exits 0 instantly** (editor reparents). Confirm with `Get-Process UnrealEditor`; real logs in `Saved/Logs/`.
 9. **Blender close-range perspective fakes tall walls** — verify with vertex Z or **orthographic**.
 10. **glTF import re-orients meshes (handedness + offset).** Never trust the abstract Blender
@@ -146,28 +168,41 @@ session). **`Recalibrate`** if you re-import tiles.
 15. **`-ExecutePythonScript` is one-shot:** the GUI editor runs the script and **exits** (a build
     step, like `setup_shuffle_lab.py`/`setup_pit_core.py`). The work persists; relaunch the editor
     normally (optionally `UnrealEditor.exe <uproject> /Game/Maps/<Map>`) to use the result.
+16. **glTF import MIRRORS each tile across the X-axis** (edges 0↔3, 1↔2, 4↔5) — the concrete form
+    of gotcha #10's "re-orientation." The frontier resolver absorbs it (matches measured→target
+    mask by rotation; road geometry is per-edge symmetric). **Anything placed verbatim must do the
+    same** — the Pit-core tiles were placed at a fixed yaw and came out mis-rotated (rings off the
+    mirror axis wrong, *every roll*). Fix: `Build()` measures each core mesh's real mask and rotates
+    it onto the authored `CC.RoadMask`. ⇒ **Never place an imported tile at a hardcoded yaw; always
+    measure-and-rotate.** (Chiral *art* would also need authoring that accounts for the mirror.)
+17. **glTF reimport (`replace_existing`) doesn't reliably update MATERIAL factors** — a colour/param
+    change baked in Blender may not take on reimport. Force it in UE after import via
+    `MaterialEditingLibrary.set_material_instance_vector_parameter_value(MIC, "baseColorFactor", …)`
+    (glTF mats import as `MaterialInstanceConstant`; param is `baseColorFactor`). See
+    `Tools/fix_and_roll.py` / `wire_core_into_shufflelab.py`.
 
 ## Next steps
 0. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator
    side ✅ (`CoreRadius`, pinned core, boundary-seeded arteries, vacancy exclusion, addressing).
    Intact **pre-destruction blockout** ✅ (`gen_pit_core.py` → `PitCoreLab`, walkable). **Still
    TODO:**
-   - **(a) Boolean sinkhole carve** (phase 2 of `gen_pit_core.py`) — the zig-zag void down to
-     −3 m (the carve helpers + `ZZ_*`/`PIT_DEPTH` params are staged; re-fit to the validated
-     13-tile layout). The Pit is the dungeon level-transition (sinkhole *terminus*, asymmetric
-     collapsed-edge rim).
-   - **(b) Hardwire the core into `HexShuffleGenerator`** ✅ — `UHexCoreLayout` DataAsset
-     (`DA_HexCoreLayout`, built by `setup_core_generator.py`), placed verbatim with the resolver
-     bypassed; **validated in `CoreGenLab`** (core=13, 0 unresolved, Save/Load roll round-trips).
-     Re-import/rebuild when the carved meshes land.
+   - **(a) Hardwire the core into `HexShuffleGenerator`** ✅✅ — `DA_HexCoreLayout` assigned to the
+     **live `ShuffleLab` generator** (was `CoreGenLab` only); **radial star** (`gen_pit_core.py`,
+     7 tiles, 2× scale), placed with **measured rotation** (gotcha #16). 127 cells, core=7, 0
+     unresolved. Rebuild via `Tools/wire_core_into_shufflelab.py`.
+   - **(b) Pit void + roads-break-at-rim** ✅ — clean recessed hex void representation. **Still
+     TODO:** the **asymmetric collapsed-building rim** (irregular slumped edges, not a clean hex)
+     and the deeper zig-zag −3 m carve (`ZZ_*`/`PIT_DEPTH` staged in `gen_pit_core.py`).
    - **(c) Level-transition gameplay** on the Pit (descend prompt → `OpenLevel`).
-   - **(d) Fix `gen_street_tiles.py` curb bug** (gotcha #14) + regenerate the 14-tile kit.
+   - **(d)** `gen_curved_tiles.py` uses the curb-bug fix (gotcha #14); `gen_street_tiles.py` is
+     superseded (don't regenerate from it). Delete orphaned `T_valley_*` meshes.
    See Docs/Design.md "The Pit & the fixed core" + "Coordinate & address system".
-1. **Splined streets & sidewalks (smoothing) — NEXT FOCUS.** Replace the hard hex-edge road
-   angles with **spline-based curved streets**, and make the **sidewalks/pavements spline-based
-   and curved** too, so the prototype reads smooth rather than faceted. (Spline meshes run along
-   the resolved road graph; curved curbs.) Topology/growth stays as-is — this is the
-   geometry/render layer on top of the existing road network.
+1. **Splined streets & sidewalks (smoothing)** ✅ **DONE this session** — per-tile circular-arc
+   `bend`/`curve` baked into the modular tiles (`gen_curved_tiles.py`), C1-smooth across edges via
+   the midpoint anchor. **Pending:** propagate the 2× scale (`R=10`) into the master
+   `HexBase.blend` + `Source_Art/README.md` contract, and fold `gen_curved_tiles.py` in as the
+   canonical generator (retire/replace `gen_street_tiles.py`). Walks/curbs curve as the channel
+   boundary; an explicit raised-walk strip can come with building tiles.
 2. **Open up building real estate.** Current growth chokes blocks with road (the dense web in
    testing). Rule tweaks landed this session — **artery kink/fork** (`ArteryStraightRadius`/
    `ArteryKinkChance`/`ArteryForkChance`) + **side-street straight-decay** (`StraightDecay`/

@@ -14,7 +14,16 @@ Source_Art/
 
 ## Conventions for hex tiles
 
-> **Scale is LOCKED at 5 m radius / 10 m across** — playtested as the sweet spot for a
+> ⚠️ **SCALE REVISED 2026-06-06 → R = 10 m (2×).** The live generators (`gen_curved_tiles.py`,
+> `gen_pit_core.py`) now build at **R = 10 m / ~17.3 m across**, with the street/walk cross-section
+> held **absolute** (3 m carriageway, ~1 m walk) so a bigger hex just gains buildable block depth.
+> Engine side: `HexCircumradiusUU = 1000`. **The R=5 numbers below are NOT yet propagated** to this
+> contract or the master `HexBase.blend` (the generators build the base parametrically and only
+> pull *materials* from the master). Full propagation — rewrite these tables to R=10, scale the
+> master + its road anchors — is pending. Until then, read the values below as the *old* R=5 spec
+> and multiply spatial figures by 2.
+>
+> _(historical, R=5)_ **Scale was 5 m radius / 10 m across** — playtested as the sweet spot for a
 > dense turn-of-the-century London hub town (room to move, small enough to pack a city).
 > See [../Docs/Design.md](../Docs/Design.md) for the design vision driving tile content.
 

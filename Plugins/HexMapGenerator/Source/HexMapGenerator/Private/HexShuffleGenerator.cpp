@@ -435,12 +435,15 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 
 	// Hardwired core: map each pinned axial to its bespoke mesh (placed verbatim at yaw 0,
 	// resolver bypassed). The frontier grows around it and connects to its exposed road stubs.
-	TMap<FIntPoint, UStaticMesh*> CoreMesh;
+	TMap<FIntPoint, TPair<UStaticMesh*, int32>> CoreMesh;
 	if (CoreLayout)
 	{
 		for (const FHexCoreCell& CC : CoreLayout->Cells)
 		{
-			if (UStaticMesh* M = CC.Mesh.LoadSynchronous()) { CoreMesh.Add(CC.Axial, M); }
+			if (UStaticMesh* M = CC.Mesh.LoadSynchronous())
+			{
+				CoreMesh.Add(CC.Axial, TPair<UStaticMesh*, int32>(M, CC.RoadMask));
+			}
 		}
 	}
 
@@ -463,13 +466,24 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 
 		// Core cell: drop the bespoke mesh verbatim, skip the resolver and the vacancy tally
 		// (the core follows a narrative restoration arc, not population).
-		if (UStaticMesh* const* CoreM = CoreMesh.Find(Cell.Axial))
+		if (const TPair<UStaticMesh*, int32>* CoreE = CoreMesh.Find(Cell.Axial))
 		{
-			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(*CoreM))
+			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(CoreE->Key))
 			{
+				// Correct for glTF import re-orientation (the importer mirrors+rotates the mesh):
+				// measure the mesh's real road mask and rotate it onto the AUTHORED mask, exactly
+				// as the frontier resolver does. Without this the core places at a fixed yaw and
+				// comes out mis-rotated (rings off the mirror axis are visibly wrong every roll).
+				int32 CoreYaw = 0;
+				const int32 Real = MeasureTileMask(CoreE->Key);
+				for (int32 k = 0; k < 6; ++k)
+				{
+					const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
+					if (HexGrid::RotateMask6(Real, Rot) == CoreE->Value) { CoreYaw = k; break; }
+				}
 				FTransform X;
 				X.SetLocation(FVector(XY.X, XY.Y, 0.f));
-				X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg, 0.f)));
+				X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg + 60.f * CoreYaw, 0.f)));
 				ISM->AddInstance(X, /*bWorldSpace=*/false);
 				++CorePlaced;
 			}

@@ -1,0 +1,1041 @@
+{
+	"schemaVersion": 1,
+	"seed": 60,
+	"vacancies": 0,
+	"growth":
+	{
+		"radius": 6,
+		"coreRadius": 1,
+		"bCardinalArteries": true,
+		"numArteries": 3,
+		"roadBudget": 50,
+		"branchChance": 0.20933400094509125,
+		"straightBias": 0.72000002861022949,
+		"straightDecay": 0.80000001192092896,
+		"maxStraightRun": 0,
+		"arteryStraightRadius": 3,
+		"arteryKinkChance": 0.34999999403953552,
+		"arteryForkChance": 0.11999999731779099
+	},
+	"network":
+	{
+		"cells": [
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 0
+				},
+				"roadMask": 32
+			},
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 1
+				},
+				"roadMask": 16
+			},
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 2
+				},
+				"roadMask": 48
+			},
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 3
+				},
+				"roadMask": 48
+			},
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 4
+				},
+				"roadMask": 16
+			},
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -6,
+					"y": 6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 0
+				},
+				"roadMask": 54
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 1
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 2
+				},
+				"roadMask": 54
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 3
+				},
+				"roadMask": 54
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -5,
+					"y": 6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": -2
+				},
+				"roadMask": 16
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": -1
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 0
+				},
+				"roadMask": 55
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 1
+				},
+				"roadMask": 11
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 2
+				},
+				"roadMask": 47
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 3
+				},
+				"roadMask": 45
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 4
+				},
+				"roadMask": 8
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -4,
+					"y": 6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": -3
+				},
+				"roadMask": 34
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": -2
+				},
+				"roadMask": 19
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": -1
+				},
+				"roadMask": 11
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 0
+				},
+				"roadMask": 45
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 1
+				},
+				"roadMask": 25
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 2
+				},
+				"roadMask": 13
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 3
+				},
+				"roadMask": 61
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 4
+				},
+				"roadMask": 25
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 5
+				},
+				"roadMask": 9
+			},
+			{
+				"axial":
+				{
+					"x": -3,
+					"y": 6
+				},
+				"roadMask": 8
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": -4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": -3
+				},
+				"roadMask": 38
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 0
+				},
+				"roadMask": 54
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 2
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 3
+				},
+				"roadMask": 54
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -2,
+					"y": 6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": -5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": -4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": -3
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": -1
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 0
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 1
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 2
+				},
+				"roadMask": 34
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 3
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": -1,
+					"y": 6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": -6
+				},
+				"roadMask": 1
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": -5
+				},
+				"roadMask": 9
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": -4
+				},
+				"roadMask": 9
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": -3
+				},
+				"roadMask": 13
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": -2
+				},
+				"roadMask": 27
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": -1
+				},
+				"roadMask": 9
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 0
+				},
+				"roadMask": 63
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 1
+				},
+				"roadMask": 9
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 2
+				},
+				"roadMask": 45
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 3
+				},
+				"roadMask": 45
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 4
+				},
+				"roadMask": 40
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 0,
+					"y": 6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": -6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": -5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": -4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": -3
+				},
+				"roadMask": 50
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": -1
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": 0
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": 1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": 2
+				},
+				"roadMask": 4
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": 3
+				},
+				"roadMask": 20
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": 4
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": 1,
+					"y": 5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": -6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": -5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": -4
+				},
+				"roadMask": 34
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": -3
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": -2
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": 0
+				},
+				"roadMask": 36
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": 1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": 2
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": 3
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 2,
+					"y": 4
+				},
+				"roadMask": 4
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": -6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": -5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": -4
+				},
+				"roadMask": 20
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": -3
+				},
+				"roadMask": 22
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": 0
+				},
+				"roadMask": 5
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": 1
+				},
+				"roadMask": 10
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": 2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 3,
+					"y": 3
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": -6
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": -5
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": -4
+				},
+				"roadMask": 18
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": -3
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": 0
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": 1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 4,
+					"y": 2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": -6
+				},
+				"roadMask": 35
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": -5
+				},
+				"roadMask": 10
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": -4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": -3
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": 0
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 5,
+					"y": 1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": -6
+				},
+				"roadMask": 4
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": -5
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": -4
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": -3
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": -2
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": -1
+				},
+				"roadMask": 0
+			},
+			{
+				"axial":
+				{
+					"x": 6,
+					"y": 0
+				},
+				"roadMask": 0
+			}
+		]
+	}
+}

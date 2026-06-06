@@ -23,6 +23,12 @@ is a visible trophy case of how far the player has come.
   CO** (historic brick Main Streets, old mining-town character, foothills). A light seasoning
   on the London base, *not* a replacement — it surfaces in naming (e.g. the **Arapahoe**
   artery) and tile detailing rather than wholesale architecture.
+- **Style, not fidelity.** The visual target is a **coherent stylized look driven by a modular
+  material / lighting pipeline** — **trim sheets, lighting tricks, reused modular meshes** — *not*
+  an AAA per-asset fidelity pass. This is the lens for the whole build: 120 walk-in interiors are
+  only reachable as a *style* (shared trim-sheet materials + lighting + per-soul dressing,
+  organized by the handful of road-edge configs), never 120 bespoke from scratch. The pipeline is
+  what makes breadth cheap; the art direction is consistency over polish.
 
 ## Tiles
 
@@ -39,7 +45,37 @@ tile type carries an **Occupancy** (housing capacity); a layout's total is its *
 capacity / vacancies**. The `HexShuffleGenerator` sums it live and shows it, so layouts can
 be judged by how many they'd hold. Seed rule for the street kit: `Occupancy = (6 − roadEdges)
 × 2` (roads displace housing) — per-tile editable in the catalog. Building tiles will set
-their own capacities as they're authored.
+their own capacities as they're authored. **Evolving toward 1 tile = 1 soul — see "Pop One".**
+
+## "Pop One" — the spine (1 → 121)
+
+**Title & win-number.** The game is **Pop One**: you begin as the *one* — the last of the
+town's population — and end at **Pop 121**. The number isn't picked, it's the map's geometry:
+a **radius-6** hex town is the centered hexagonal number `3·6·7 + 1 = 127` tiles. The center
+**7 collapse** into the Pit (the inciting wound), leaving **120 frontier tiles**. Each frontier
+tile is **one soul** you recover from the dungeon and bring home. `120 rescued + you = 121`
+(= 11²). You are the **alpha and the omega** — Pop 1 at the start, Pop 121 at completion. The
+readout is already on screen (the live population / vacancy metric).
+
+**The 7 are never rebuilt.** The collapsed core is a **permanent scar** — the dead whose loss
+began the story, and the mouth of the dungeon. The heart stays a wound; the **ring of life
+around it** is what you bring back. You (Pop One) are the **survivor / player, not a tile** —
+you don't occupy a frontier cell, you restore them.
+
+**1 tile = 1 soul (the model the game commits to).** This resolves the population question in
+favor of a **count, not a sum**. The interim metric (`Occupancy = (6 − roadEdges) × 2`, summed)
+was a *road-cells-vs-block-cells* model; the spine instead makes **every frontier tile a soul's
+home that also carries its share of street**. This is exactly what the **per-tile spline roads**
+(pivot 2026-06-06, see [PerTileSplineRoads.md](PerTileSplineRoads.md)) enable: each tile is
+self-contained — its road is baked along its own edges (anchored at the midpoints, C1-smooth to
+neighbors), and the rest is that soul's block / interior. So roads stop being separate cells;
+**growth decides which *edges* carry road**, and a cell's road-edge config selects **which
+building-variant** fits it (corner home, through-street home, dead-end home…). 120 tiles ⇒ 120
+souls, 1:1.
+
+**Souls aren't only people.** A recovered "soul / shadow" can be **another living creature**, not
+just a person — the 120 are the town's whole living population, broadly read. Variety of
+inhabitant = variety of tile / interior.
 
 ## Interiors
 
@@ -84,20 +120,22 @@ moves**: the one fixed landmark for saves, quests, and the act-2 "rearrange the 
   and grow outward. The Pit emits no roads — it *receives* them. Connectivity stays guaranteed
   because the frontier reads the core's exposed road stubs.
 
-**Build status — intact "pre-destruction" blockout (validated).** Before carving the sinkhole we
-built and walked the *intact* street network (`gen_pit_core.py` → `PitCoreLab`). The town-center
-streets read as a **wheel**:
-- **Hub** = the center tile, a 6-way **3 m** junction — the grand crossing every road drains to
-  (and where the sinkhole will open: *all roads lead down into the dungeon*).
-- **Spokes** = each ring tile carries a **3 m** road inward to the hub.
-- **Boundary alley** = a closed **2 m** loop around the *outer* perimeter. Hex reality: the six
-  petals only touch near the hub, so the outer loop can't close on the 7 core tiles alone — it
-  threads through **6 "valley" tiles** (the distance-2 cells in the notches between petals). Those
-  valleys are *frontier*, not core; they're shown to close the loop. Cross-section throughout:
-  carriageway 0.5 m / raised flagstone pavement 0.65 m / 0.15 m curb.
+**Build status — the center, caught up (2026-06-06).** `gen_pit_core.py` builds the **7-tile fixed
+core** at the current scale/style (**2× R=10**, the curved-frontier kit, tile-border lips) and it's
+**hardwired into the live `HexShuffleGenerator`** (`DA_HexCoreLayout`, placed verbatim with a
+*measured* rotation — see gotchas). The center reads as a **radial star**:
+- **The Pit** = the center tile (0,0): a recessed hexagonal **void** (~2 m, dirt walls + floor)
+  with all six carriageways **breaking at the rim** — roads drain in and dead-end (the sink). Its
+  edges still present road so neighbours connect; the break is *internal* geometry.
+- **6 spokes** = each ring tile is a straight **3 m** road, Pit→frontier (the cardinal arteries
+  pass through it). A clean radial star draining to the Pit.
+- **No rim/alley ring.** The earlier "boundary alley" threaded a 2 m loop out through 6 distance-2
+  *valley* tiles, which hex-geometrically zigzagged into a **cogwheel**, not a ring — **dropped**.
+  Those cells are ordinary frontier now.
 
-The **boolean sinkhole carve is the next pass** (phase 2): a zig-zag void through the core down to
-−3 m, leaving the chaotic collapsed-building rim, then hardwiring the core into the generator.
+**Still the next pass:** the **asymmetric collapsed-building rim + descent geometry** (stairs /
+ladders / the "Ready to descend?" prompt) and, eventually, a deeper zig-zag −3 m carve. The clean
+hex void is the *representation*; the irregular slumped rim is the art pass on top.
 
 ## Coordinate & address system
 
@@ -160,6 +198,9 @@ from the prior prototype.)
    at *1st & Main* (the Pit); ring index = restoration ring.
 5. **Regional flavor** — subtle Golden / Louisville, CO seasoning over the London base.
 6. **Core occupancy is excluded** from the vacancy tally (frontier-only count).
+7. **"Pop One" spine** — radius-6 town = 127 tiles; 7-tile core collapses (permanent scar) →
+   **120 frontier souls**; **1 tile = 1 soul** (count, not occupancy-sum); `120 + you = Pop 121`
+   (alpha & omega). Souls may be people *or* other creatures. Enabled by per-tile spline roads.
 
 ## Open
 
