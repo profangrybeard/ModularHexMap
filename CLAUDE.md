@@ -65,14 +65,17 @@ session). **`Recalibrate`** if you re-import tiles.
 
 **Rebuild the lab from scratch** (re-import 14 tiles + catalog + lit level), in a GUI editor:
 `UnrealEditor.exe <uproject> -ExecutePythonScript="Tools\setup_shuffle_lab.py"`.
+⚠️ **`setup_shuffle_lab.py` / `setup_pit_core.py` predate the `_project` reorg** — they import to the
+old `/Game/HexTiles` paths. Update their destination paths to `/Game/_project/...` before re-running,
+or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 
 ## Current status (works end-to-end)
 > **Session 2026-06-06 — curved roads + 2× scale + Pit center, all landed.** The whole map now
 > reads as one consistent system, validated in `ShuffleLab` (127 cells, core=7, 0 unresolved):
 > - **Per-tile spline-smoothed roads** (the [PerTileSplineRoads.md](Docs/PerTileSplineRoads.md)
 >   pivot): `bend`/`curve` are now circular arcs anchored at the edge midpoints (C1-smooth across
->   tiles); junctions stay radial. New generator **`Tools/blender/gen_curved_tiles.py`** (the
->   faceted `gen_street_tiles.py` is superseded but kept). All 14 configs, drop-in to the resolver.
+>   tiles); junctions were radial *then* — **later splined too** (see Latest below). New generator
+>   **`Tools/blender/gen_curved_tiles.py`** (faceted `gen_street_tiles.py` superseded). All 14 configs.
 > - **2× tile scale** (R=5→**R=10**) holding the street/walk cross-section absolute (3 m road, ~1 m
 >   walk) → parkable block depth. Engine side: `HexCircumradiusUU = 1000` on the generator.
 > - **Tile-border lips** (`M_TileBorder`, near-black) outline every cell — a metric/debug aid.
@@ -84,25 +87,25 @@ session). **`Recalibrate`** if you re-import tiles.
 > - **Core rotation fix:** core tiles now **measure-and-rotate** like the frontier (they were
 >   placed at a fixed yaw and came out mirrored — see gotcha #16).
 >
-> **Tile pipeline landed (2026-06-06, later):** the **"Hex Tiles" Blender addon**
-> (`tile_pipeline.py` + `tile_registry`/`tile_common`/`tile_manifest.json`) now drives tile
-> authoring — per-tile export toggles, Build-Enabled preview/export, and **Promote to Bespoke**
-> (a tile graduates to its own `.blend` linking the master). `gen_curved_tiles.py` is now the
-> **canonical** street generator and both generators are **manifest-aware** (skip bespoke). The
-> **Pit is the first bespoke tile** (`Source_Art/Blender/Tiles/T_core_pit.blend`, with a 30°
-> descent ramp + fixed floor normal). See the quickstart's *Tile authoring pipeline* + gotcha #18.
->
-> **Content reorg + material masters (2026-06-06, later still):** our work now lives under
-> **`/Game/_project/`** (`HexTiles/`, `Data/`, `Maps/`) so it no longer comingles with the imported
-> Epic template; Python tooling moved to **`Content/_project/Python/`** (registered via
-> `PythonScriptPlugin.AdditionalPaths`). Materials consolidated to **4 shared masters** in
-> `/Game/_project/HexTiles/Materials/` (gotcha #19). ⚠️ **The asset move itself is an in-editor
-> step that still needs running once:** in the GUI editor run
-> `Content/_project/Python/reorg_to_project.py`, then **right-click `/Game/_project` → Fix Up
-> Redirectors → Save All**. All code/config/docs already point at the `_project` paths; the `.uasset`s
-> relocate when that script runs. Build an **opaque master `Material`** at
-> `…/Materials/M_HexTile_Master` and reparent the 4 MICs to it (path-neutral; consolidation skips
-> the `Materials/` folder, so it's safe).
+> **★ LATEST — LANDED + LKG** (2026-06-06, tag **`lkg`** @ `6b746a3`, pushed to `origin/main`;
+> the `tile-pipeline-reorg` branch is kept as a safety net). All validated in-engine — `ShuffleLab`
+> generates and renders against the shared masters:
+> - **Iterative tile pipeline** — the **"Hex Tiles" Blender addon** (`tile_pipeline.py` +
+>   `tile_registry`/`tile_common`/`tile_manifest.json`): per-tile export toggles, Build-Enabled
+>   preview/export, **Promote to Bespoke** (a tile graduates to its own `.blend` linking the master).
+>   Both generators are **manifest-aware** (skip bespoke). **Pit = first bespoke tile**
+>   (`Source_Art/Blender/Tiles/T_core_pit.blend`) with a **30° descent ramp + floor-normal fix**.
+> - **Spline-fanned junctions** — `gen_curved_tiles.py` junctions are no longer radial spikes: a
+>   central road **hub** + cubic-bezier arms bowing toward the road-mouth centroid + a tangential
+>   **swirl** so even symmetric junctions curve (knobs `JUNCTION_HUB_R`/`JUNCTION_BOW`/
+>   `JUNCTION_SWIRL`). Perpendicular-at-edge anchor preserved → tiles still tile.
+> - **Material masters** — collapsed ~130 per-mesh glTF dupes into **4 shared masters** in
+>   `/Game/_project/HexTiles/Materials/`, now parented to an opaque **`M_HexTile_Master`**; reimport
+>   self-heals the sprawl (gotcha #19). UE reimport tooling: **Tools ▸ Reimport Hex Tiles** + prompted
+>   auto-reimport on the tile `.glb`s.
+> - **Content reorg DONE** — our work lives under **`/Game/_project/`** (`HexTiles`/`Data`/`Maps`),
+>   Python tooling under `Content/_project/Python/` (`PythonScriptPlugin.AdditionalPaths`). Config
+>   startup/default maps + auto-reimport wildcard + all script path constants repointed.
 >
 > **Pending propagation (deferred, not yet done):** scale R=10 into the master `HexBase.blend` +
 > `Source_Art/README.md` contract; delete orphaned `T_valley_*` meshes; asymmetric Pit rim
@@ -254,6 +257,19 @@ session). **`Recalibrate`** if you re-import tiles.
     `UnrealEditor-Cmd.exe <uproject> -run=pythonscript -script="Content/_project/Python/_run_consolidate.py"`
     (⚠️ UE's pythonscript commandlet does **not** reliably run a file's `if __name__=="__main__"`
     block — use an explicit entry script that calls the function at top level).
+20. **Close the UE editor before any git op that MOVES/DELETES `.uasset` files** (branch switch,
+    merge, `checkout -f`, reset). The open editor **locks** the package files, so git can't unlink
+    them → "unable to unlink … Invalid argument" and a **half-completed branch switch** (tracked
+    text files flip to the target branch while locked assets stay behind). Recovery is clean once
+    closed: `git checkout -f <branch>` restores the tree, then merge. (Same family as gotcha #4's
+    DLL lock for C++ builds.) The work is never lost — it's in the commits; only the working tree
+    gets stuck. *(Hit during the `_project` reorg merge to `main`; recovered, then merged + tagged.)*
+21. **A live Blender session caches imported pipeline modules.** After editing `tile_common.py` /
+    the generators / the addon on disk, the **open** session keeps the OLD code (e.g. a stale
+    `source_glb_dir`), so "Export This Tile" can silently write to the **pre-edit path**. Fix:
+    reload (`importlib.reload(tile_common)` …) or just **restart Blender** (it re-reads fresh).
+    *(Hit right after the reorg: the pit re-exported to the old `Content/HexTiles/Source` and UE,
+    now pointing at `_project`, didn't see it.)*
 
 ## Next steps
 0. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator
@@ -271,12 +287,13 @@ session). **`Recalibrate`** if you re-import tiles.
    - **(d)** `gen_curved_tiles.py` uses the curb-bug fix (gotcha #14); `gen_street_tiles.py` is
      superseded (don't regenerate from it). Delete orphaned `T_valley_*` meshes.
    See Docs/Design.md "The Pit & the fixed core" + "Coordinate & address system".
-1. **Splined streets & sidewalks (smoothing)** ✅ **DONE this session** — per-tile circular-arc
-   `bend`/`curve` baked into the modular tiles (`gen_curved_tiles.py`), C1-smooth across edges via
-   the midpoint anchor. **Pending:** propagate the 2× scale (`R=10`) into the master
-   `HexBase.blend` + `Source_Art/README.md` contract, and fold `gen_curved_tiles.py` in as the
-   canonical generator (retire/replace `gen_street_tiles.py`). Walks/curbs curve as the channel
-   boundary; an explicit raised-walk strip can come with building tiles.
+1. **Splined streets, junctions, pipeline, materials, reorg** ✅ **DONE (LKG `6b746a3`)** —
+   `bend`/`curve` circular arcs **and** fanned spline junctions (hub + bezier + swirl) in the
+   canonical `gen_curved_tiles.py`; the Hex Tiles pipeline + manifest; 4 material masters under
+   `M_HexTile_Master`; content under `/Game/_project`. **Still pending:** propagate `R=10` into the
+   master `HexBase.blend` + `Source_Art/README.md` contract (the generators build at R=10 already;
+   only the master base + the written contract still say R=5). An explicit raised-walk strip can
+   come with building tiles.
 2. **Open up building real estate.** Current growth chokes blocks with road (the dense web in
    testing). Rule tweaks landed this session — **artery kink/fork** (`ArteryStraightRadius`/
    `ArteryKinkChance`/`ArteryForkChance`) + **side-street straight-decay** (`StraightDecay`/
