@@ -90,6 +90,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
 	TObjectPtr<UStaticMesh> RoadSegmentMesh;
 
+	/** Review mode: Randomize drops a plain hex (GroundMesh) per cell instead of the road
+	 *  tiles, so the curved spline roads read clean and the empty hexes show the blocks. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
+	bool bGroundOnly = false;
+
+	/** Plain hex placed per cell when bGroundOnly (assign SM_GroundHex). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
+	TObjectPtr<UStaticMesh> GroundMesh;
+
 	/** Z (uu) the road splines sit at — match the tile carriageway top (TOP = 0.5 m = 50). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
 	float SplineRoadZ = 50.f;

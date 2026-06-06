@@ -448,6 +448,19 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 	{
 		const FVector2D XY = HexGrid::WorldXY(Cell.Axial, HexCircumradiusUU);
 
+		// Ground-only review mode: a plain hex per cell; the streets come from the spline layer.
+		if (bGroundOnly && GroundMesh)
+		{
+			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(GroundMesh))
+			{
+				FTransform X;
+				X.SetLocation(FVector(XY.X, XY.Y, 0.f));
+				X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg, 0.f)));
+				ISM->AddInstance(X, /*bWorldSpace=*/false);
+			}
+			continue;
+		}
+
 		// Core cell: drop the bespoke mesh verbatim, skip the resolver and the vacancy tally
 		// (the core follows a narrative restoration arc, not population).
 		if (UStaticMesh* const* CoreM = CoreMesh.Find(Cell.Axial))
@@ -494,6 +507,9 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 
 	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), core=%d, %d unresolved, vacancies=%d."),
 		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), CorePlaced, Unresolved, Vacancies);
+
+	// One-click: draw the curved roads in the same pass so a roll is fully visible immediately.
+	if (RoadSegmentMesh) { BuildSplineRoads(); }
 }
 
 static FString RollsDir()
