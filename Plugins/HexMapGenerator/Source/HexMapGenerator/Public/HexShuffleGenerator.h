@@ -42,7 +42,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	FHexGrowthParams Growth;
 
-	/** Hex circumradius in UE units (R = 5 m -> 500). */
+	/** Hex circumradius in UE units. Project scale is R = 10 m -> 1000 (set on the
+	 *  ShuffleLab actor instance); the header default is left at 500 so any newly-placed
+	 *  generator actor announces itself with an obviously-wrong size rather than silently
+	 *  picking a number that may or may not match the project's current scale. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	float HexCircumradiusUU = 500.f;
 
@@ -122,8 +125,10 @@ private:
 	TArray<int32> TileRealMask;
 	bool bCalibrated = false;
 
-	// The last network Build() placed — what SaveRoll writes out.
-	UPROPERTY(Transient)
+	// The last network Build() placed — what SaveRoll writes out. BlueprintReadOnly
+	// so Python diagnostics can read the actually-placed cells (including after a
+	// LoadRoll, which sets LastNetwork from JSON and isn't reproducible by re-growing).
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug")
 	FHexNetwork LastNetwork;
 
 	// Spawned curved-road actors (one per traced chain); destroyed on Clear / rebuild.

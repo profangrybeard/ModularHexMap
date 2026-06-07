@@ -1,7 +1,8 @@
-# Per-Tile Spline Roads — design pivot & session handoff (2026-06-06)
+# Per-Tile Spline Roads — design pivot, now LANDED (2026-06-06)
 
-> **Read this first to resume.** This supersedes the map-wide spline-road direction. Written at a
-> context-limit handoff: everything a fresh session needs to pick up the redesign is here.
+> **Read this first to resume.** This supersedes the map-wide spline-road direction. Originally
+> written at a context-limit handoff; the redesign has since shipped — the open questions below
+> are now resolved with the recipe used.
 
 ## The pivot (why we changed course)
 - **REJECTED:** the map-wide *runtime* spline-road system built this session (`ASplineRoad` chains
@@ -67,36 +68,44 @@
 4. **Existing generator places the (now curved) tiles** — unchanged flow. Roads flow smoothly
    across tile boundaries via the anchor contract.
 
-## Open design questions for the new session
-- **Junction treatment** inside multi-road tiles: how the arms blend at centre (smooth merge /
-  small plaza / designed intersection). Bounded per tile.
-- **Curve variants:** one curve per config, or gentle/sharp variants for variety while staying
-  anchored (all still snap, since anchors are fixed)?
-- **Bake mechanism:** all-Blender (sweep the cross-section along a bmesh/curve in
-  `gen_street_tiles.py`) is the established tile-authoring path and most likely home. Alternative:
-  bake `ASplineRoad` output to a static mesh in-engine. Prefer Blender.
-- **Walk/curb on curves:** continuity of the raised curb around the inside of a bend; carriageway
-  width must stay 3 m at the edge so tiles connect (the anchor).
-- Does the **growth/config resolver** need any change? Probably not — same 14 configs, same
-  placement; only the meshes are curved now.
+## Resolutions (open questions, now landed)
+- **Bend / curve treatment** — **circular arcs** between the two edge midpoints, centre =
+  intersection of the two edge supporting-lines (`arc_centerline` in `gen_curved_tiles.py`).
+  Anchored midpoint + perpendicular tangent → **C1-smooth across tile boundaries** (adjacent tiles
+  share both the midpoint and the tangent by construction). Parallel-edge case (opposite edges) →
+  straight line, same anchors.
+- **Junction treatment** — **spline-fanned**, not radial. Recipe (`junction_centerlines` +
+  `add_hub`):
+  1. A **central road hub** (radius `JUNCTION_HUB_R = HW * 1.5`, i.e. ~2.25 m) merges all arms so
+     there's no centre sliver — they "come together."
+  2. Each arm is a **cubic Bézier** leaving its edge midpoint **perpendicular** to the edge (the
+     modular anchor — neighbours still meet flush), then bowing toward the **centroid of all road
+     mouths** (`JUNCTION_BOW = 0.90`) before converging at the hub.
+  3. A tangential **swirl** offset (`JUNCTION_SWIRL = 0.25` × INR) is added to the second control
+     point so even **symmetric** junctions (tee / 6-way junction, whose centroid sits ~on the
+     centre) still curve — no faceted radial spikes.
+- **Bake mechanism** — **all-Blender.** The generator sweeps the London cross-section along each
+  per-tile spline and bakes the result into the tile `.glb`. (`ASplineRoad`-to-static-mesh was
+  considered and dropped.)
+- **Walk/curb on curves** — handled by the cross-section extrusion: carriageway + raised walks +
+  curb all follow the same per-tile spline path, so walks/curbs curve with the road. Edge anchors
+  hold the 3 m carriageway perpendicular to the edge → tiles still snap.
+- **Curve variants** — **one variant per config** (single bend, single curve, etc.). Open for
+  revisit if blocks read too uniform — anchors are fixed, so gentle/sharp variants would still
+  snap.
+- **Growth / config resolver** — unchanged. Same 14 configs, same placement; only the meshes are
+  curved now.
 
-## State at handoff (where the repo is)
-- **Spline tech (committed):** `SM_RoadSeg` (`gen_road_segment.py`), `ASplineRoad`
-  (`SplineRoad.{h,cpp}`), `SplineLab`. Commits: `667a5bb` (render proven + walkable),
-  `2e010fb` (map-wide junctions), plus the one-click / ground-only checkpoint commit.
-- **Tile kit:** `Tools/blender/gen_street_tiles.py` — streets+walks, **faceted** roads, curb-bug
-  fix (gotcha #14). **This is the file that gets the curved-bake upgrade.**
-- **Building footprints:** parked — `Docs/BuildingFootprints.md` (resume after roads/blocks).
-- **Generator:** `Plugins/HexMapGenerator/.../HexShuffleGenerator` (topology, placement, tuning) +
-  `HexMapGrowthLibrary` (pure growth). Params: see `FHexGrowthParams`.
+## What shipped (the full 14-tile kit)
+- **Canonical generator:** `Tools/blender/gen_curved_tiles.py` — supersedes
+  `gen_street_tiles.py` (faceted; kept as reference, don't regenerate from it).
+- **All 14 configs at LKG:** `blank` / `deadend` / `bend` / `curve` / `straight` /
+  `tee[/_a/_b/_c]` / `quad[/_b/_c]` / `penta` / `junction`. Imported and validated in
+  `ShuffleLab` (127 cells, core=7, 0 unresolved).
+- **Knobs (in `gen_curved_tiles.py`):** `JUNCTION_HUB_R` (~`HW * 1.5`), `JUNCTION_BOW` (0.90),
+  `JUNCTION_SWIRL` (0.25 × INR). Plus `CUT_EXT` for cutter overshoot past each edge.
+- **Generator (unchanged role):** `Plugins/HexMapGenerator/.../HexShuffleGenerator` (topology,
+  placement, tuning) + `HexMapGrowthLibrary` (pure growth). Same `FHexGrowthParams`. Only the
+  tile meshes are curved now.
+- **Building footprints:** parked — `Docs/BuildingFootprints.md` (resume after blocks).
 - **Contract:** `Source_Art/README.md` (hex base, edge midpoints/anchors, neighbour offsets).
-
-## First moves for the new session
-1. Re-read this doc + `Source_Art/README.md` (the anchor contract).
-2. **Prototype ONE curved tile — the `bend` (edges 0,1) — in Blender:** spline from edge-0 midpoint
-   to edge-1 midpoint with perpendicular-into-tile tangents; sweep the London cross-section along
-   it; bake; export. Place **2–3 bend tiles together** and confirm the roads flow **smoothly across
-   the shared edges** — this validates the whole anchor principle in one shot.
-3. Then `straight` / `curve` / `deadend`. Then tackle the junction configs.
-4. Fold the sweep into `gen_street_tiles.py` as the road-geometry generator, replacing the faceted
-   center→edge arms. Regenerate the 14-tile kit; re-import; the generator places curved tiles.

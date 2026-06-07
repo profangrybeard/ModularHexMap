@@ -14,23 +14,22 @@ Source_Art/
 
 ## Conventions for hex tiles
 
-> ⚠️ **SCALE REVISED 2026-06-06 → R = 10 m (2×).** The live generators (`gen_curved_tiles.py`,
-> `gen_pit_core.py`) now build at **R = 10 m / ~17.3 m across**, with the street/walk cross-section
-> held **absolute** (3 m carriageway, ~1 m walk) so a bigger hex just gains buildable block depth.
-> Engine side: `HexCircumradiusUU = 1000`. **The R=5 numbers below are NOT yet propagated** to this
-> contract or the master `HexBase.blend` (the generators build the base parametrically and only
-> pull *materials* from the master). Full propagation — rewrite these tables to R=10, scale the
-> master + its road anchors — is pending. Until then, read the values below as the *old* R=5 spec
-> and multiply spatial figures by 2.
+> **Scale is 10 m radius / ~17.32 m across** (revised 2026-06-06 from the original R=5). The
+> street/walk cross-section is held **absolute** (3 m carriageway, ~1 m walk) so a bigger hex just
+> gains buildable block depth — room to park real buildings inside a single tile. Engine side:
+> `HexCircumradiusUU = 1000`. See [../Docs/Design.md](../Docs/Design.md) for the design vision
+> driving tile content.
 >
-> _(historical, R=5)_ **Scale was 5 m radius / 10 m across** — playtested as the sweet spot for a
-> dense turn-of-the-century London hub town (room to move, small enough to pack a city).
-> See [../Docs/Design.md](../Docs/Design.md) for the design vision driving tile content.
+> _Note — master propagation pending._ The live generators (`gen_curved_tiles.py`, `gen_pit_core.py`)
+> build at R=10 and the figures below describe what they emit. The master `HexBase.blend` itself
+> still carries the old R=5 base + anchors; the generators build their own base parametrically and
+> only pull *materials* from the master, so this hasn't blocked anything. Rescaling the master + its
+> road anchors to R=10 is a tracked follow-up (see CLAUDE.md).
 
 | Property        | Value                                                                 |
 | --------------- | --------------------------------------------------------------------- |
 | Orientation     | **Flat-top** — flat edges at top/bottom (+Y/−Y), vertices left/right   |
-| Hex radius      | **5.0 m** circumradius (center→vertex); flat-to-flat ≈ 8.66 m — LOCKED |
+| Hex radius      | **10.0 m** circumradius (center→vertex); flat-to-flat ≈ 17.32 m; edge = 10 m |
 | Base thickness  | 0.5 m slab (ground plate; buildable surface at Z = +0.5)              |
 | Pivot           | World origin (0, 0, 0), at the **bottom-center** of the base          |
 | Up axis         | +Z                                                                    |
@@ -38,12 +37,12 @@ Source_Art/
 | Units           | Blender meters; UE scales on import                                   |
 | Naming          | `T_<category>_<variant>.blend` e.g. `T_road_straight_a.blend`         |
 | Export format   | glTF 2.0 (`.glb`) — preserves transforms, materials                   |
-| Export path     | `Content/HexTiles/Source/` (staged, not committed)                    |
+| Export path     | `Content/_project/HexTiles/Source/` (staged, not committed)           |
 
 ### Road-connection anchors
 
 The base carries six empties, `RoadAnchor_0`..`RoadAnchor_5`, parented to
-`Hex_Base` at the top-surface edge midpoints (radius = inradius ≈ 4.33 m, Z =
+`Hex_Base` at the top-surface edge midpoints (radius = inradius ≈ 8.66 m, Z =
 0.5). Index 0 is the +Y (forward) edge; indices increase counter-clockwise:
 
 ```
@@ -60,19 +59,19 @@ join cleanly because both place roads at the shared edge's anchor. Tile
 
 ### Neighbor spacing (placement)
 
-All six neighbors sit **8.660 m** (= R√3) center-to-center. A hex can't put both axes on
-round numbers (√3 is irrational), so we keep **R = 5** — which lands edge = 5 m and
-width = 10 m — and accept flat-to-flat = 8.66 m. **The HexMapGenerator computes exact
-placements, so 8.66 is never typed by hand.** Neighbor center offsets from a tile, by edge:
+All six neighbors sit **17.321 m** (= R√3) center-to-center. A hex can't put both axes on
+round numbers (√3 is irrational), so we keep **R = 10** — which lands edge = 10 m and
+width = 20 m — and accept flat-to-flat = 17.32 m. **The HexMapGenerator computes exact
+placements, so 17.32 is never typed by hand.** Neighbor center offsets from a tile, by edge:
 
-| Edge | Direction | Offset (x, y) m | Offset (x, y) UE uu |
-| ---- | --------- | --------------- | ------------------- |
-| 0    | +Y        | (0, +8.660)     | (0, +866)           |
-| 1    | upper-left| (−7.5, +4.330)  | (−750, +433)        |
-| 2    | lower-left| (−7.5, −4.330)  | (−750, −433)        |
-| 3    | −Y        | (0, −8.660)     | (0, −866)           |
-| 4    | lower-right| (+7.5, −4.330) | (+750, −433)        |
-| 5    | upper-right| (+7.5, +4.330) | (+750, +433)        |
+| Edge | Direction | Offset (x, y) m  | Offset (x, y) UE uu |
+| ---- | --------- | ---------------- | ------------------- |
+| 0    | +Y        | (0, +17.321)     | (0, +1732)          |
+| 1    | upper-left| (−15.0, +8.660)  | (−1500, +866)       |
+| 2    | lower-left| (−15.0, −8.660)  | (−1500, −866)       |
+| 3    | −Y        | (0, −17.321)     | (0, −1732)          |
+| 4    | lower-right| (+15.0, −8.660) | (+1500, −866)       |
+| 5    | upper-right| (+15.0, +8.660) | (+1500, +866)       |
 
 ### Shared base (the "exact same base" guarantee)
 
@@ -82,11 +81,14 @@ empties + the shared materials `M_HexGround` / `M_Road` / `M_Pavement` (kept wit
 
 Tiles consume it two ways (see [../Docs/Pipeline.md](../Docs/Pipeline.md)):
 
-- **Procedural road tiles** — generated by `Tools/blender/gen_street_tiles.py`, run
-  against this file:
-  `blender -b Source_Art/Blender/HexBase.blend -P Tools/blender/gen_street_tiles.py`
+- **Procedural road tiles** — generated by `Tools/blender/gen_curved_tiles.py` (canonical;
+  the older faceted `gen_street_tiles.py` is superseded), run against this file:
+  `blender -b Source_Art/Blender/HexBase.blend -P Tools/blender/gen_curved_tiles.py`.
+  The generator is **manifest-aware** — it skips any tile marked `bespoke` in
+  `Tools/blender/tile_manifest.json`, so it can never clobber hand-authored tiles.
 - **Bespoke building tiles** — per-file `.blend` under `Tiles/` that **link** the
-  `HexBase` collection.
+  `HexBase` collection. Graduate one via the "Hex Tiles" Blender addon's
+  **Promote to Bespoke** button (see `Docs/Pipeline.md`).
 
 Either way the base stays byte-identical and a change to the master propagates to all
 tiles on the next generate/reload.

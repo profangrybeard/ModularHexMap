@@ -103,9 +103,10 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 >   `/Game/_project/HexTiles/Materials/`, now parented to an opaque **`M_HexTile_Master`**; reimport
 >   self-heals the sprawl (gotcha #19). UE reimport tooling: **Tools ▸ Reimport Hex Tiles** + prompted
 >   auto-reimport on the tile `.glb`s.
-> - **Content reorg DONE** — our work lives under **`/Game/_project/`** (`HexTiles`/`Data`/`Maps`),
->   Python tooling under `Content/_project/Python/` (`PythonScriptPlugin.AdditionalPaths`). Config
->   startup/default maps + auto-reimport wildcard + all script path constants repointed.
+> - **Content reorg DONE** — our work lives under **`/Game/_project/`** (`HexTiles`/`Data`/`Maps`).
+>   **Python tooling lives at `Content/Python/`** (the UE-canonical location; on `sys.path` by default —
+>   see gotcha #22 for why `_project/Python/` doesn't work). Config startup/default maps + auto-reimport
+>   wildcard + all script path constants repointed.
 >
 > **Pending propagation (deferred, not yet done):** scale R=10 into the master `HexBase.blend` +
 > `Source_Art/README.md` contract; delete orphaned `T_valley_*` meshes; asymmetric Pit rim
@@ -164,10 +165,10 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 | `Tools/blender/_make_bespoke.py` | headless creator of a bespoke per-tile `.blend` (linked master mats + reference hex + local mesh; spawned by Promote) |
 | `Tools/blender/tile_manifest.json` | git-tracked per-tile state: `enabled` (export on/off) + `bespoke` (owned by a `.blend`) + `blend` path |
 | `Source_Art/Blender/Tiles/` | **bespoke per-tile `.blend`s** (hand-owned; link the master). `T_core_pit.blend` = the first |
-| `Content/_project/Python/hextile_materials.py` | `consolidate_to_masters()` — fold per-mesh material dupes into the 4 shared masters (gotcha #19) |
-| `Content/_project/Python/reimport_hextiles.py` | one-click **Tools ▸ Reimport Hex Tiles** — reimport all `/Game/_project/HexTiles` from `.glb`, re-assert Complex-As-Simple, self-heal materials |
-| `Content/_project/Python/init_unreal.py` | startup hook: registers the Reimport Hex Tiles menu entry |
-| `Content/_project/Python/_run_consolidate.py` | explicit commandlet entry for the one-time material consolidation |
+| `Content/Python/hextile_materials.py` | `consolidate_to_masters()` — fold per-mesh material dupes into the 4 shared masters (gotcha #19) |
+| `Content/Python/reimport_hextiles.py` | one-click **Tools ▸ Reimport Hex Tiles** — reimport all `/Game/_project/HexTiles` from `.glb`, re-assert Complex-As-Simple, self-heal materials |
+| `Content/Python/init_unreal.py` | startup hook: registers the Reimport Hex Tiles menu entry |
+| `Content/Python/_run_consolidate.py` | explicit commandlet entry for the one-time material consolidation |
 | `Tools/setup_shuffle_lab.py` | (GUI editor) import 14 tiles + build catalog + lit lab |
 | `Tools/setup_pit_core.py` | (GUI editor) import 13 core tiles + build walkable `PitCoreLab` (reads `core_layout.json`) |
 | `Tools/save_occupancy.py` | (commandlet) seed catalog `Occupancy` + **force-save** |
@@ -246,7 +247,7 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 19. **glTF import mints per-mesh material dupes — consolidate to shared masters.** Each `.glb`
     import gives every tile its own `Materials/` folder, so ~30 tiles scattered **~130 copies** of
     really **4** materials (`M_Road`/`M_Pavement`/`M_HexGround`/`M_TileBorder`). Canonical masters
-    live in **`/Game/_project/HexTiles/Materials/`**; `Content/_project/Python/hextile_materials.py` consolidates.
+    live in **`/Game/_project/HexTiles/Materials/`**; `Content/Python/hextile_materials.py` consolidates.
     Headless quirks learned the hard way: `EditorAssetLibrary.consolidate_assets` **replaces
     references but leaves the copies as `ObjectRedirector`s**; `delete_asset` **does not remove
     redirectors** headless and `AssetTools.fixup_referencers` **doesn't exist in 5.7 Python**. The
@@ -254,7 +255,7 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
     depends on a redirector), then **delete the redirector `.uasset` files on disk** (editor
     closed; UE rescans on launch). `reimport_hextiles.py` calls `consolidate_to_masters()` after
     every reimport so the sprawl never comes back. Run the one-time cleanup headless:
-    `UnrealEditor-Cmd.exe <uproject> -run=pythonscript -script="Content/_project/Python/_run_consolidate.py"`
+    `UnrealEditor-Cmd.exe <uproject> -run=pythonscript -script="Content/Python/_run_consolidate.py"`
     (⚠️ UE's pythonscript commandlet does **not** reliably run a file's `if __name__=="__main__"`
     block — use an explicit entry script that calls the function at top level).
 20. **Close the UE editor before any git op that MOVES/DELETES `.uasset` files** (branch switch,
@@ -270,6 +271,17 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
     reload (`importlib.reload(tile_common)` …) or just **restart Blender** (it re-reads fresh).
     *(Hit right after the reorg: the pit re-exported to the old `Content/HexTiles/Source` and UE,
     now pointing at `_project`, didn't see it.)*
+22. **`PythonScriptPlugin.AdditionalPaths` silently no-ops on relative paths.** A line like
+    `+AdditionalPaths=(Path="Content/_project/Python")` is resolved against
+    `Engine/Binaries/Win64/`, not the project root — so it points at a nonexistent dir, gets
+    dropped without warning, and the directory never lands on `sys.path`. Symptoms: any module
+    living there throws `ModuleNotFoundError`, and any `init_unreal.py` in there never runs (UE
+    only auto-runs init scripts in dirs already on `sys.path`, so this becomes a silent
+    chicken-and-egg). Fix: **keep editor Python under `Content/Python/`** — UE hard-codes that
+    onto `sys.path` for every project. (`Content/_project/HexTiles`, `/Game/_project/Maps`, etc.
+    are still fine; the `_project` convention applies to everything *except* Python tooling.)
+    *(Hit when the new Tools-menu entries didn't appear; turned out the old Reimport entry was
+    also silently broken since the `_project` reorg — nobody had clicked it to notice.)*
 
 ## Next steps
 0. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator
