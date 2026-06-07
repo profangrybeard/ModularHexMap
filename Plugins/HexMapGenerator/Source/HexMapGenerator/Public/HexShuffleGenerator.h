@@ -7,6 +7,7 @@
 #include "HexMapGrowthLibrary.h"
 #include "HexShuffleGenerator.generated.h"
 
+class UDataTable;
 class UHexTileSet;
 class UHexCoreLayout;
 class UInstancedStaticMeshComponent;
@@ -35,6 +36,14 @@ public:
 	 *  coords; the procedural frontier grows around them. Leave null to use the placeholder core. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	TObjectPtr<UHexCoreLayout> CoreLayout;
+
+	/** Optional roll-constraints DataTable (rows of FHexNecklaceConstraint, row name =
+	 *  necklace name). When assigned, roll_diagnostics.constrained_randomize() reads
+	 *  the rules from here instead of Design/RollConstraints/<name>.json. Leave null
+	 *  to use the JSON fallback. Designed to be cloned and swapped to experiment with
+	 *  different "town flavours" without touching Python. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Constraints")
+	TObjectPtr<UDataTable> RollConstraints;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	int32 Seed = 0;
@@ -128,7 +137,9 @@ private:
 	// The last network Build() placed — what SaveRoll writes out. BlueprintReadOnly
 	// so Python diagnostics can read the actually-placed cells (including after a
 	// LoadRoll, which sets LastNetwork from JSON and isn't reproducible by re-growing).
-	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug")
+	// AllowPrivateAccess opts past UE's "no BP on private members" rule — the field
+	// stays C++-private but reflection/BP/Python can read it.
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug", meta = (AllowPrivateAccess = "true"))
 	FHexNetwork LastNetwork;
 
 	// Spawned curved-road actors (one per traced chain); destroyed on Clear / rebuild.

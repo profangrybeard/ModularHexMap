@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "description": "Default constraints for constrained_randomize(). Numeric value = required minimum count of that necklace type per roll. Object value = {min, max, exact} for full control. Necklace types not listed are unconstrained. Empty constraints = unconstrained roll (passes immediately).",
+
+  "junction": 1,
+  "tee_c": 1
+}

@@ -32,6 +32,11 @@ _SWEEP_PY = (
     "import roll_diagnostics, importlib; "
     "importlib.reload(roll_diagnostics); roll_diagnostics.run_roll_sweep()"
 )
+_CONSTRAIN_PY = (
+    "import roll_diagnostics, importlib; "
+    "importlib.reload(roll_diagnostics); "
+    "roll_diagnostics.constrained_randomize('default')"
+)
 
 
 def _add_entry(tools_menu, name, label, tooltip, command):
@@ -43,7 +48,7 @@ def _add_entry(tools_menu, name, label, tooltip, command):
 
 
 def register():
-    """Register the three Tools menu entries. Returns True on success, False if the
+    """Register the four Tools menu entries. Returns True on success, False if the
     LevelEditor Tools menu isn't ready yet (caller can retry on tick)."""
     menus = unreal.ToolMenus.get()
     tools_menu = menus.find_menu("LevelEditor.MainMenu.Tools")
@@ -75,9 +80,22 @@ def register():
         "Output Log: roll_diagnostics.run_roll_sweep(n=500, base_seed=42)",
         _SWEEP_PY,
     )
+    _add_entry(
+        tools_menu,
+        "ConstrainedRandomize",
+        "Constrained Randomize",
+        "Find a seed whose grown roll satisfies the constraints on the live "
+        "HexShuffleGenerator, then set Seed + call Randomize(). Constraint source: "
+        "the actor's 'Roll Constraints' DataTable if assigned, else "
+        "Design/RollConstraints/default.json. Prints per-attempt failures so you "
+        "can see why rolls bounce. "
+        "Output Log: roll_diagnostics.constrained_randomize(max_attempts=500)",
+        _CONSTRAIN_PY,
+    )
 
     menus.refresh_all_widgets()
     unreal.log(
-        "[HexTiles] registered Tools > Reimport Hex Tiles / Diagnose Last Roll / Hex Roll Sweep"
+        "[HexTiles] registered Tools > Reimport Hex Tiles / Diagnose Last Roll / "
+        "Hex Roll Sweep / Constrained Randomize"
     )
     return True

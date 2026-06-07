@@ -87,6 +87,32 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 > - **Core rotation fix:** core tiles now **measure-and-rotate** like the frontier (they were
 >   placed at a fixed yaw and came out mirrored — see gotcha #16).
 >
+> **★ TODAY (2026-06-07) — roll diagnostics + constraints DataTable.** First analytical pass over
+> the rolls themselves, plus a way to bias them. All Python (no C++ rebuild for the diagnostics
+> themselves; the constraint *struct* is C++).
+> - **Tools ▸ Diagnose Last Roll** — per-necklace histogram of the *current* live roll (counts +
+>   %) so a single click answers "what did this roll actually contain?"
+> - **Tools ▸ Hex Roll Sweep** — **200 rolls** at the live settings → mean/std/p95 per necklace +
+>   a CSV at **`Design/Rolls/Sweep_*.csv`**. First sweep landed: **24 k cell samples, 0 unresolved
+>   across all 200 rolls**; **Σ(mean) = 120.0 exact** (matches the design target). Asset budget
+>   anchored at **~40 unique meshes** total — well under the 120-tile worry.
+> - **Volatility flag (acted on, not fixed):** `blank` has **σ/μ ≈ 0.43** → the open-ground share
+>   swings **8 %–72 %** between rolls. Tuneable later with growth knobs or rejection sampling.
+> - **Constraint system (the bias knob).** New C++ struct **`FHexNecklaceConstraint`** (USTRUCT,
+>   `TableRowBase`, in `HexTileTypes.h`) + new **`UDataTable* RollConstraints`** UPROPERTY on
+>   `AHexShuffleGenerator` (category *Hex Shuffle | Constraints*). **Tools ▸ Constrained Randomize**
+>   reads the assigned DataTable (preferred) and falls back to `Design/RollConstraints/<name>.json`
+>   when none is assigned. Two presets shipped: **`DT_RollConstraints_Default`** (`junction ≥ 1`,
+>   `tee_c ≥ 1` — auto-created by `roll_diagnostics.create_default_constraints_table()`) +
+>   **`DT_RollConstraints_reqJunction`**.
+> - **Retry-with-log failure mode** — on exhaustion the tool prints the **"biggest bouncer"** (the
+>   constraint that rejected the most attempts) and the **"closest miss"** (observed vs target),
+>   so a failure is actionable rather than just "no roll found".
+> - **Python path silent-failure fixed** — editor Python moved **`Content/_project/Python/` →
+>   `Content/Python/`** (UE-canonical; on `sys.path` by default). The broken
+>   `+AdditionalPaths=(Path="Content/_project/Python")` line in `DefaultEngine.ini` is gone. The
+>   previous Reimport menu entry had been a ghost since the `_project` reorg — see gotcha #22.
+>
 > **★ LATEST — LANDED + LKG** (2026-06-06, tag **`lkg`** @ `6b746a3`, pushed to `origin/main`;
 > the `tile-pipeline-reorg` branch is kept as a safety net). All validated in-engine — `ShuffleLab`
 > generates and renders against the shared masters:
@@ -150,11 +176,11 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 | `Source/TP_ThirdPerson/` | **ported** Epic Third Person template module (non-primary) |
 | `Plugins/HexMapGenerator/Source/HexMapGenerator/` | the randomizer engine (runtime module): |
 | &nbsp;&nbsp;`Public/HexCoordinates.h` | cube/axial hex math; flat-top axial→world; mask rotate |
-| &nbsp;&nbsp;`Public/HexTileTypes.h` | `EHexEdgeSocket`, `FHexTileDef` (mesh + 6 edges + Occupancy) |
+| &nbsp;&nbsp;`Public/HexTileTypes.h` | `EHexEdgeSocket`, `FHexTileDef` (mesh + 6 edges + Occupancy), **`FHexNecklaceConstraint`** (row struct for `RollConstraints` DataTable; min/max/exact) |
 | &nbsp;&nbsp;`HexTileSet.{h,cpp}` | `UHexTileSet` catalog + mask→tile/rotation lookup |
 | &nbsp;&nbsp;`HexCoordinates.h` | …also `ArteryName`/`Address` (Main/1st/Arapahoe diegetic addressing) |
 | &nbsp;&nbsp;`HexMapGrowthLibrary.{h,cpp}` | pure seeded `GrowRoadNetwork` (pinned core + arteries + branching); `MakePlaceholderCore`; `FHexGrowthParams.CoreRadius`; `FHexRoll` |
-| &nbsp;&nbsp;`HexShuffleGenerator.{h,cpp}` | `AHexShuffleGenerator` actor: measure-calibrate, grow, place, tally vacancies; `Randomize`/`Recalibrate`/`Clear`/`SaveRoll`/`LoadRoll` CallInEditor |
+| &nbsp;&nbsp;`HexShuffleGenerator.{h,cpp}` | `AHexShuffleGenerator` actor: measure-calibrate, grow, place, tally vacancies; `Randomize`/`Recalibrate`/`Clear`/`SaveRoll`/`LoadRoll` CallInEditor; **`RollConstraints` UPROPERTY** (`UDataTable*`, read by Python's `constrained_randomize`) |
 | `Source_Art/Blender/HexBase.blend` | master base (Hex_Base + anchors + materials, fake-user) — **keep byte-identical; scripts never save it** |
 | `Tools/blender/gen_curved_tiles.py` | **canonical** street-kit generator (spline-curved roads; edit `EDGE_SETS`; `build_tile_obj` = build-only entry; **manifest-aware** — skips bespoke) |
 | `Tools/blender/gen_street_tiles.py` | superseded faceted street generator (kept for reference; don't regenerate from it) |
@@ -168,6 +194,10 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 | `Content/Python/hextile_materials.py` | `consolidate_to_masters()` — fold per-mesh material dupes into the 4 shared masters (gotcha #19) |
 | `Content/Python/reimport_hextiles.py` | one-click **Tools ▸ Reimport Hex Tiles** — reimport all `/Game/_project/HexTiles` from `.glb`, re-assert Complex-As-Simple, self-heal materials |
 | `Content/Python/init_unreal.py` | startup hook: registers the Reimport Hex Tiles menu entry |
+| `Content/Python/roll_diagnostics.py` | **Tools ▸ Diagnose Last Roll / Hex Roll Sweep / Constrained Randomize** — per-necklace histograms, 200-roll empirical distribution + CSV, and seed-retry that finds a roll satisfying `RollConstraints` (DataTable preferred, JSON fallback) |
+| `Content/Python/hexmap_menus.py` | the four Tools-menu entries (kept in a separately-named module so `import init_unreal` collisions with other plugins can't break registration — gotcha #22) |
+| `Design/RollConstraints/` | JSON fallback presets when no DataTable assigned; see its `README.md` |
+| `/Game/_project/Data/DT_RollConstraints_*` | in-engine **roll-constraints DataTables** (rows of `FHexNecklaceConstraint`, keyed by necklace name). Clone for alternate town flavours; assign to the generator's `RollConstraints` property to swap |
 | `Content/Python/_run_consolidate.py` | explicit commandlet entry for the one-time material consolidation |
 | `Tools/setup_shuffle_lab.py` | (GUI editor) import 14 tiles + build catalog + lit lab |
 | `Tools/setup_pit_core.py` | (GUI editor) import 13 core tiles + build walkable `PitCoreLab` (reads `core_layout.json`) |
@@ -282,9 +312,35 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
     are still fine; the `_project` convention applies to everything *except* Python tooling.)
     *(Hit when the new Tools-menu entries didn't appear; turned out the old Reimport entry was
     also silently broken since the `_project` reorg — nobody had clicked it to notice.)*
+23. **`BlueprintReadOnly` / `BlueprintReadWrite` is REJECTED on `private` UPROPERTYs by default.**
+    Symptom: header compile fails with `BlueprintReadOnly should not be used on private members`
+    the moment you try to expose a private field to BP/Python. Fix: add **`meta =
+    (AllowPrivateAccess = "true")`** to the UPROPERTY — keeps the field C++-private but opts past
+    UE's BP-visibility gate. Example in-repo: `AHexShuffleGenerator::LastNetwork`, which Python's
+    roll diagnostics need to read. Without the meta even a syntactically clean header refuses to
+    compile. *(Hit while exposing `LastNetwork` for `Diagnose Last Roll`.)*
+24. **Live Coding (Ctrl+Alt+F11 / editor "Compile") CANNOT add new `UPROPERTY`/`UCLASS`/`USTRUCT`
+    reflection.** It hot-patches *function* bodies; new reflected members look like they compiled
+    but never reach the engine. Symptom: source has the new property, Live-Coding console says
+    succeeded, but the **Details panel never shows the field**, the UBT log is untouched, and only
+    `*.patch_*.dll/exe` files were written. **Diagnostic:** compare mtimes —
+    `Plugins/<plugin>/Binaries/Win64/UnrealEditor-<plugin>.dll` older than your `.h` edit ⇒ Live
+    Coding ran but didn't compile anything reflection-visible. **Fix:** close the editor (DLLs are
+    locked open — gotcha #4) and run the full build:
+    `Build.bat ModularHexMapEditor Win64 Development -Project="..." -WaitMutex`. (This is the
+    *Live-Coding-specific* tell for the same family as #4, which covers new UCLASS; #24 covers new
+    UPROPERTY/USTRUCT too.) *(Hit adding `RollConstraints` + `FHexNecklaceConstraint`.)*
 
 ## Next steps
-0. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator
+0. **Building footprints (pivot — the next big rock).** Roll diagnostics ✅ and the constraints
+   DataTable ✅ closed the loop on the *street* side: we can now measure a roll and bias it. The
+   open question is no longer "what tiles?" but **"what fits on the blocks the streets leave?"**
+   Per the auto-memory note, **per-hex buildings don't fit** the dense-London read — footprints
+   should be **multi-hex BLOCKS** authored on the blocks the road graph carves out. Shapely-based
+   inset/boolean pipeline already prototyped (and already taught us not to crash Blender at 32 GB
+   — see auto-memory). This subsumes the old standalone *"first bespoke building tile"* step:
+   the bespoke tile is a deliverable of the footprint phase, not a prerequisite to it.
+1. **Anchor the map on the Pit (0,0)** (current focus — supersedes rivers for now). Generator
    side ✅ (`CoreRadius`, pinned core, boundary-seeded arteries, vacancy exclusion, addressing).
    Intact **pre-destruction blockout** ✅ (`gen_pit_core.py` → `PitCoreLab`, walkable). **Still
    TODO:**
@@ -299,25 +355,24 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
    - **(d)** `gen_curved_tiles.py` uses the curb-bug fix (gotcha #14); `gen_street_tiles.py` is
      superseded (don't regenerate from it). Delete orphaned `T_valley_*` meshes.
    See Docs/Design.md "The Pit & the fixed core" + "Coordinate & address system".
-1. **Splined streets, junctions, pipeline, materials, reorg** ✅ **DONE (LKG `6b746a3`)** —
+2. **Splined streets, junctions, pipeline, materials, reorg** ✅ **DONE (LKG `6b746a3`)** —
    `bend`/`curve` circular arcs **and** fanned spline junctions (hub + bezier + swirl) in the
    canonical `gen_curved_tiles.py`; the Hex Tiles pipeline + manifest; 4 material masters under
    `M_HexTile_Master`; content under `/Game/_project`. **Still pending:** propagate `R=10` into the
    master `HexBase.blend` + `Source_Art/README.md` contract (the generators build at R=10 already;
    only the master base + the written contract still say R=5). An explicit raised-walk strip can
    come with building tiles.
-2. **Open up building real estate.** Current growth chokes blocks with road (the dense web in
-   testing). Rule tweaks landed this session — **artery kink/fork** (`ArteryStraightRadius`/
-   `ArteryKinkChance`/`ArteryForkChance`) + **side-street straight-decay** (`StraightDecay`/
-   `MaxStraightRun`) — but density is still too high. Tune `RoadBudget`/`BranchChance`/
-   `ArteryForkChance` DOWN for parkable blocks, and/or add a **minimum-block-size rule** (refuse
-   a road that shrinks a block below N tiles). Re-rate `Occupancy` / vacancy target after.
-3. **Rivers & bridges** — **water as a foundation layer generated BEFORE roads**. Low-branch,
+3. **Open up building real estate** — *feeder into #0.* Constraints DataTable ✅ landed today and
+   gives us a *bias knob* (e.g. force `junction ≥ 1`). Sweep showed density is *measurable* now
+   (Σ=120 exact, blank σ/μ ≈ 0.43). Rule tweaks already in: **artery kink/fork**
+   (`ArteryStraightRadius`/`ArteryKinkChance`/`ArteryForkChance`) + **side-street straight-decay**
+   (`StraightDecay`/`MaxStraightRun`). Still: tune `RoadBudget`/`BranchChance`/`ArteryForkChance`
+   DOWN, and/or add a **minimum-block-size rule** (refuse a road that shrinks a block below N
+   tiles) — both directly serve the footprint pivot, since footprints need predictable blocks.
+4. **Rivers & bridges** — **water as a foundation layer generated BEFORE roads**. Low-branch,
    edge-to-edge river that roads must *bridge*; new water edge-socket + bridge tiles. See
    Docs/Design.md "Rivers & bridges".
-4. **Boolean sinkhole carve** of the Pit core (next-steps 0a) once the street geometry direction
+5. **Boolean sinkhole carve** of the Pit core (next-steps 1a) once the street geometry direction
    is settled.
-5. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
-6. First **bespoke building tile** (per-file `.blend` linking master; walk-in interior; real
-   `Occupancy`).
+6. **Bake/persist** a chosen shuffle to a saved level (placement is currently transient).
 7. Wire the reusable generator to **gameplay** (autofill, the act-2 rearrange).
