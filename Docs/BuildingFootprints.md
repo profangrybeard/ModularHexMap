@@ -1,8 +1,19 @@
-# Building Footprints — research & process (PAUSED 2026-06-05)
+# Building Footprints — research & process (PAUSED 2026-06-05, RESUMED + SHIPPED 2026-06-07)
 
-> Status: **paused, removed from the kit.** The footprint *machinery* works end-to-end; what's
-> unsolved is the *placement design* (see "Why paused" + "Open problems"). This doc is the
-> resume point so we don't redo the research. Working reference implementation lives in
+> **Status update (2026-06-07):** the building system is **shipped in engine**. See
+> [Buildings.md](Buildings.md) for the production pipeline (gen_buildings.py + setup_buildings.py
+> + FHexTileDef::BuildingMesh + parallel ISM in HexShuffleGenerator). What follows below is the
+> original research history — kept for context on the OBB-gable approach we DIDN'T ship, the
+> Shapely-based footprint pipeline that we DID, and the crash gotchas. Do NOT use this doc to
+> drive new work; it predates the gable -> flat-roof, area -> topology classification, and
+> per-segment -> per-run door rule changes that landed in production.
+
+---
+
+> Original research-status text (preserved): **paused, removed from the kit.** The footprint
+> *machinery* works end-to-end; what's unsolved is the *placement design* (see "Why paused" +
+> "Open problems"). This doc is the resume point so we don't redo the research. Working
+> reference implementation lives in
 > [`Tools/blender/_wip_building_blockout.py`](../Tools/blender/_wip_building_blockout.py).
 
 ## Goal

@@ -70,6 +70,38 @@ old `/Game/HexTiles` paths. Update their destination paths to `/Game/_project/..
 or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 
 ## Current status (works end-to-end)
+> **★ TODAY (2026-06-07 late) — buildings SHIPPED in engine.** Single-story walk-in shop fronts
+> tracing the splined road centerlines, baked from `Tools/blender/gen_buildings.py`, placed by
+> a parallel ISM in `AHexShuffleGenerator::Build()` at every road-bearing frontier cell. Full
+> pipeline (Blender → glTF → UE → ShuffleLab) is documented in **[Docs/Buildings.md](Docs/Buildings.md)**
+> — read that first for any building work; this section is the high-level resume note.
+> - **`gen_buildings.py`** (production, manifest-aware) → 12 `T_bldg_*.glb` in
+>   `Content/_project/HexTiles/Source/`. Skips `blank` (user playground) and `junction`
+>   (no buildable area). Same Shapely `hex - corridor` footprints the WIP used, now with
+>   the production trimmings: orient(CCW) for normals, per-run arc-length door rule, interior
+>   walls, door frames + thresholds, angle-limited bevel, smooth shading.
+> - **5 material slots per tile**: `M_Building` / `M_BuildingBack` / `M_BuildingRoof` /
+>   `M_BuildingInterior` / `M_DoorFrame`. `M_BuildingBack` is the engine seam for the future
+>   per-edge "inset on blank-side" alley behaviour.
+> - **C++ `FHexTileDef::BuildingMesh`** (`TSoftObjectPtr<UStaticMesh>`) + parallel
+>   `BISM->AddInstance` in `AHexShuffleGenerator::Build()`'s frontier branch. Core (pit) cells
+>   skip building placement.
+> - **Door rule** is per-RUN arc length (per-segment was wrong — Shapely tessellates curves
+>   into many short sub-segments and per-segment fits failed): `<3m=0, <7m=1, <25m=2, >=25m=3`.
+>   Multi-frontage buildings get this per run, so every road frontage gets ≥1 door.
+> - **Corner gardens** are now classified by TOPOLOGY (piece contains a bend vertex) and
+>   emit ZERO geometry — that's the user's playground. The inner-bend disc subtraction grows
+>   each corner to ~9 m² so there's room to author.
+> - **Setup script** `Tools/setup_buildings.py` (one-shot, GUI editor) does first-time import +
+>   DA wiring + force-saves. **Subsequent rebakes** go through the existing **Tools ▸ Reimport
+>   Hex Tiles** menu (reimport_hextiles.py walks `/Game/_project/HexTiles` recursively, so
+>   `Buildings/` is picked up automatically).
+> - **Verified end-to-end**: 127 cells / 0 unresolved / building ISM count == road-bearing
+>   frontier cell count (1:1 pairing).
+> - **Bonus fix**: `Tools/save_occupancy.py` had a stale `/Game/Data/...` path from before the
+>   `_project` reorg, so `EstimatedVacancies` had silently been 0 for weeks. Repointed +
+>   re-seeded via commandlet — vacancies now flow through.
+>
 > **Session 2026-06-06 — curved roads + 2× scale + Pit center, all landed.** The whole map now
 > reads as one consistent system, validated in `ShuffleLab` (127 cells, core=7, 0 unresolved):
 > - **Per-tile spline-smoothed roads** (the [PerTileSplineRoads.md](Docs/PerTileSplineRoads.md)
@@ -166,8 +198,15 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
   `setup_pit_core.py` (collision complex-as-simple) and **walkable in `/Game/_project/Maps/PitCoreLab`**.
 - ⬜ **Boolean sinkhole carve = TODO (phase 2)** — the intact streets are signed off; carving the
   zig-zag void + hardwiring the core into `HexShuffleGenerator` come next.
-- ⬜ Frontier placement is **transient** (not yet baked). Bespoke **building tiles** = not started.
+- ⬜ Frontier placement is **transient** (not yet baked).
   The reusable generator isn't yet wired to gameplay (autofill / rearrange).
+- ✅ **Building tiles SHIPPED in engine (2026-06-07).** `gen_buildings.py` bakes 12
+  `T_bldg_*.glb`; `FHexTileDef::BuildingMesh` + parallel ISM in
+  `AHexShuffleGenerator::Build()` places one per road-bearing frontier cell at the same
+  world transform as its street tile. Single-story walls, flat roof, interior surfaces,
+  door frames + thresholds, bevel modifier. See [Docs/Buildings.md](Docs/Buildings.md) for
+  the full pipeline. Corner pieces (bend-vertex topology) emit zero geometry — user's
+  authoring playground.
 
 ## Architecture & file map
 | Path | Role |
@@ -201,11 +240,16 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
 | `Content/Python/_run_consolidate.py` | explicit commandlet entry for the one-time material consolidation |
 | `Tools/setup_shuffle_lab.py` | (GUI editor) import 14 tiles + build catalog + lit lab |
 | `Tools/setup_pit_core.py` | (GUI editor) import 13 core tiles + build walkable `PitCoreLab` (reads `core_layout.json`) |
-| `Tools/save_occupancy.py` | (commandlet) seed catalog `Occupancy` + **force-save** |
+| `Tools/setup_buildings.py` | (GUI editor) one-shot first-time import of `T_bldg_*.glb` + wires `BuildingMesh` on each `DA_HexTileSet_Streets` row + force-save (gotcha #11). After this, use **Tools ▸ Reimport Hex Tiles** for subsequent rebakes. |
+| `Tools/_verify_buildings.py` | (GUI editor) loads ShuffleLab + Randomize + dumps ISM counts (street vs building) — sanity check after any change to FHexTileDef or AHexShuffleGenerator |
+| `Tools/save_occupancy.py` | (commandlet) seed catalog `Occupancy` + **force-save**. **Post-`_project` reorg:** path repointed to `/Game/_project/Data/...` (2026-06-07); pre-fix it had been silently 0 since the reorg |
+| `Tools/blender/gen_buildings.py` | **building-tile generator** (manifest-aware) — single-story walls + flat roof + interior surfaces + door frames + thresholds + bevel modifier; exports `T_bldg_*.glb` to `Content/_project/HexTiles/Source/`. See [Docs/Buildings.md](Docs/Buildings.md). |
+| `Tools/blender/_wip_building_facades.py` | iteration workbench — lays road tiles + buildings together for visual review (with road context); production `gen_buildings.py` is buildings-only |
 | `Tools/verify_shuffle.py` | (GUI editor) headless roll + log for self-checks |
 | `Design/Rolls/` | saved roll JSONs — curated layout history (+ `README.md`) |
-| `/Game/_project/Data/DA_HexTileSet_Streets` | the tile catalog asset |
+| `/Game/_project/Data/DA_HexTileSet_Streets` | the tile catalog asset (now carries `BuildingMesh` per row) |
 | `/Game/_project/HexTiles/Core/` | imported pit-core blockout tile meshes (13) |
+| `/Game/_project/HexTiles/Buildings/` | **imported building meshes (12 `T_bldg_*`)** — paired by name to street tiles via DA |
 | `/Game/_project/HexTiles/Materials/` | the **4 shared master materials** (every tile mesh slot points here — gotcha #19) |
 | `/Game/_project/Maps/ShuffleLab` | lit lab containing the generator actor (startup map) |
 | `/Game/_project/Maps/PitCoreLab` | lit lab — the intact 13-tile core blockout, walkable |
@@ -330,6 +374,43 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
     `Build.bat ModularHexMapEditor Win64 Development -Project="..." -WaitMutex`. (This is the
     *Live-Coding-specific* tell for the same family as #4, which covers new UCLASS; #24 covers new
     UPROPERTY/USTRUCT too.) *(Hit adding `RollConstraints` + `FHexNecklaceConstraint`.)*
+25. **Shapely returns CW polygons after `hex.difference(corridor).buffer(...)`** — verified empirically
+    against every config in `gen_buildings.py`. With CW polygons, the standard
+    `add_quad([v00,v10,v11,v01])` winding produces INWARD normals (every wall flips, every face
+    paints red in Blender's Face Orientation overlay, walls render as backfaces in UE). Shapely
+    doesn't promise any orientation on output; the OGC convention is CCW for exteriors but
+    `difference`/`buffer` operations don't preserve or enforce it. **Fix:** call
+    `shapely.geometry.polygon.orient(pc, sign=1.0)` before extracting `.exterior.coords` in every
+    builder function (walls, roofs, gardens). *(Hit twice in `gen_buildings.py`: first when I
+    removed `recalc_face_normals` thinking my winding was correct, second when I tried `orient`
+    plus `recalc` together; the working combo is `orient` ALONE — see #26.)*
+26. **`bmesh.ops.recalc_face_normals` flips alternating panels on disconnected per-segment quads.**
+    The walls in `gen_buildings.py::build_walls` create a fresh vertex set per quad (no sharing /
+    no welding), so adjacent segments share neither edges nor vertices — recalc has no
+    neighbour-consistency anchor and ends up flipping every other face in any door-split run
+    (verified: Panel 1, Lintel 1, Panel 2... alternate outward/inward). **Fix:** with `orient(CCW)`
+    (gotcha #25) the explicit `add_quad` winding is already correct on every segment; do NOT call
+    recalc on the wall mesh. *(Recalc on a CLOSED solid like the roof slab is fine — it has shared
+    edges to anchor against.)*
+27. **Blender 5.1's `bpy.ops.object.shade_smooth_by_angle()` no longer adds the Smooth-by-Angle
+    GN modifier.** In Blender 4.1 that operator added a geometry-nodes group that produced split
+    normals; in 5.1 it only marks `mesh.edges[i].use_edge_sharp` flags. Without the GN modifier
+    (or a manual `mesh.normals_split_custom_set_*` call), sharp-edge marks have **no visual effect**
+    — smooth shading just averages all incident face normals at each vertex regardless of marks.
+    **Diagnostic:** after calling the operator, `len(obj.modifiers)` is unchanged. **Fix:** set
+    `use_smooth = True` on every polygon and let the bevel modifier (with `limit_method='ANGLE'`
+    and `angle_limit = SHARP_ANGLE_DEG`) provide the visible hard-corner treatment by adding actual
+    chamfer geometry, not split-normal tricks. *(Hit while trying to give curves smooth shading
+    AND keep wall corners crisp.)*
+28. **Per-segment door placement is wrong for tessellated curves.** Shapely's `LineString.buffer`
+    tessellates an arc into many short sub-segments (~1.3 m each on a curve at R=10), so any
+    per-segment "does this segment fit a door?" check fails on curves (curve and bend ended up
+    with ZERO doors) while a single-segment straight facade got too many (`ceil(17/8) = 3`).
+    **Fix:** classify doors by **combined front-run arc length** (`doors_for_run` in
+    `gen_buildings.py`): walk the polygon's exterior, group contiguous front segments into runs,
+    pick `N = 0/1/2/3` by total run length, distribute door spans evenly along the run, and map
+    each span back to whichever segments it overlaps. A door whose width crosses multiple sub-segments
+    produces a lintel quad on each overlapped segment — the "banana lintel" follows the curve.
 
 ## Next steps
 0. **Building footprints (pivot — the next big rock).** Roll diagnostics ✅ and the constraints

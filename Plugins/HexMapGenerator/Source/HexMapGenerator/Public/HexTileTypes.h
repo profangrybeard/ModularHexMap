@@ -31,6 +31,13 @@ struct FHexTileDef
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile")
 	TSoftObjectPtr<UStaticMesh> Mesh;
 
+	/** Optional building overlay placed at the same world transform as the street tile.
+	 *  Engine adds a parallel ISM keyed on this mesh; M_BuildingBack material slot is the
+	 *  future seam for per-edge "inset on blank-side" alley logic (no re-bake needed).
+	 *  Leave null for tiles that don't carry a building (e.g. junction, custom blanks). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile")
+	TSoftObjectPtr<UStaticMesh> BuildingMesh;
+
 	/** Exactly 6 entries; index = edge. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (EditFixedSize))
 	TArray<EHexEdgeSocket> Edges;

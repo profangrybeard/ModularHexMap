@@ -511,6 +511,17 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		X.SetLocation(FVector(XY.X, XY.Y, 0.f));
 		X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg + 60.f * YawSteps, 0.f)));
 		ISM->AddInstance(X, /*bWorldSpace=*/false);
+
+		// Building overlay: same world transform as the street tile (the facade line is
+		// the road centerline offset by KEEP_HW, so the same yaw aligns the facades).
+		// Parallel ISM keyed on the building mesh -> distinct from the street ISM.
+		if (UStaticMesh* BMesh = TileSet->Tiles[TileIdx].BuildingMesh.LoadSynchronous())
+		{
+			if (UInstancedStaticMeshComponent* BISM = GetOrCreateISM(BMesh))
+			{
+				BISM->AddInstance(X, /*bWorldSpace=*/false);
+			}
+		}
 	}
 
 	EstimatedVacancies = Vacancies;

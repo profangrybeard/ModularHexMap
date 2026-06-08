@@ -22,6 +22,7 @@ if _HERE and _HERE not in sys.path:
 
 import gen_curved_tiles as _street
 import gen_pit_core as _core
+import gen_buildings as _bldg
 
 
 class TileEntry:
@@ -46,6 +47,13 @@ def _registry():
             name, "street",
             (lambda k=key, e=list(edges): _street.build_tile_obj(k, e)),
         )
+    # building kit (single-story facades + corner gardens): tile name is "T_bldg_<key>"
+    for key, edges in _bldg.EDGE_SETS.items():
+        name = "T_bldg_%s" % key
+        reg[name] = TileEntry(
+            name, "building",
+            (lambda k=key, e=list(edges): _bldg.build_tile_obj(k, e)),
+        )
     # fixed core: core_specs() keys are already "T_core_*"
     for name, (road, _qr, is_pit) in _core.core_specs().items():
         reg[name] = TileEntry(
@@ -59,10 +67,11 @@ REGISTRY = _registry()
 
 
 def all_names():
-    """Stable display order: street kit (as authored), then core tiles."""
+    """Stable display order: street kit, then matching buildings, then core tiles."""
     street = ["T_street_%s" % k for k in _street.EDGE_SETS]
-    core = [n for n in REGISTRY if n.startswith("T_core_")]
-    return street + sorted(core)
+    bldg   = ["T_bldg_%s"   % k for k in _bldg.EDGE_SETS]
+    core   = [n for n in REGISTRY if n.startswith("T_core_")]
+    return street + bldg + sorted(core)
 
 
 def get(name):

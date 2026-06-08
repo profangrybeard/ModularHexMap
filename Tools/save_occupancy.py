@@ -3,7 +3,7 @@
 #   UnrealEditor-Cmd.exe <uproject> -run=pythonscript -script="<repo>/Tools/save_occupancy.py" -unattended -nosplash
 import unreal
 
-DA = "/Game/Data/DA_HexTileSet_Streets"
+DA = "/Game/_project/Data/DA_HexTileSet_Streets"   # post-`_project` reorg (was /Game/Data/...)
 CONFIGS = {
     "blank": [], "deadend": [0], "bend": [0, 1], "curve": [0, 2], "straight": [0, 3],
     "tee": [0, 2, 4], "tee_a": [0, 1, 2], "tee_b": [0, 1, 3], "tee_c": [0, 1, 4],
