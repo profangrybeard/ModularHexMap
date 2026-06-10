@@ -108,5 +108,9 @@
 - [ ] **Stable-named baseline sweep CSV** (`Design/Rolls/Baseline.csv`) + diff after any
   growth change.
 - [ ] **Headless contact-sheet render** of the kit after each bake (visual diff artifact).
-- [ ] **`MeasureTileMask` tolerance → absolute** (currently scales with R; cross-section
-  is absolute, so the test should be too).
+- [ ] ~~**`MeasureTileMask` tolerance → absolute**~~ ✅ done 2026-06-10 (250 uu).
+- [ ] **River material consolidation**: the river kit import minted per-mesh material
+  dupes under `HexTiles/River/` (Resistance #19); `setup_river.py` doesn't run the
+  consolidator and `hextile_materials.py` doesn't know `M_Water` yet. Add `M_Water` to
+  the masters map + run consolidate (or just run Tools ▸ Reimport Hex Tiles after the
+  next bake).
