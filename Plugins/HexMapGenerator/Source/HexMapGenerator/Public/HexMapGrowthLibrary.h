@@ -30,23 +30,25 @@ struct FHexGrowthParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "3"))
 	int32 NumArteries = 3;
 
-	/** Max secondary road segments to branch off the arteries. */
+	/** Max secondary road segments to branch off the arteries.
+	 *  Defaults = the blessed ShuffleLab tuning (2026-06 sweep: 120 frontier souls,
+	 *  0 unresolved over 200 rolls) so a fresh generator rolls a real town. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0"))
-	int32 RoadBudget = 40;
+	int32 RoadBudget = 174;
 
 	/** Chance to sprout a branch to either side while extending. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
-	float BranchChance = 0.25f;
+	float BranchChance = 0.21f;
 
 	/** Base bias toward continuing straight through a cell (before run-length decay). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
-	float StraightBias = 0.6f;
+	float StraightBias = 0.72f;
 
 	/** Stacking turn pressure: each consecutive straight segment multiplies the straight-continue
 	 *  chance by this, so long straight runs grow increasingly likely to kink — built-in
 	 *  visibility blocking. 1 = no decay (constant straightness); lower = turns sooner. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
-	float StraightDecay = 0.6f;
+	float StraightDecay = 0.8f;
 
 	/** Hard cap on consecutive straight segments before a turn is forced (0 = no cap, rely on
 	 *  decay only). A guaranteed sightline limit for level design. */
@@ -64,7 +66,7 @@ struct FHexGrowthParams
 
 	/** Past ArteryStraightRadius, per-step chance an artery DIVIDES (spawns a diverging branch). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|Arteries", meta = (ClampMin = "0", ClampMax = "1"))
-	float ArteryForkChance = 0.2f;
+	float ArteryForkChance = 0.12f;
 };
 
 /** One resolved cell: its axial coordinate and 6-bit road mask. */
@@ -102,7 +104,6 @@ struct FHexRoll
 
 	UPROPERTY() int32 SchemaVersion = 1;
 	UPROPERTY() int32 Seed = 0;
-	UPROPERTY() int32 Vacancies = 0;
 	UPROPERTY() FHexGrowthParams Growth;
 	UPROPERTY() FHexNetwork Network;
 };

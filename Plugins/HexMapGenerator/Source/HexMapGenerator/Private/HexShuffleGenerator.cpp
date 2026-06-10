@@ -12,8 +12,6 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
-#include "SplineRoad.h"
-#include "Components/SplineComponent.h"
 
 AHexShuffleGenerator::AHexShuffleGenerator()
 {
@@ -29,7 +27,7 @@ AHexShuffleGenerator::AHexShuffleGenerator()
 	PopLabel->SetVerticalAlignment(EVRTA_TextCenter);
 	PopLabel->SetWorldSize(150.f);
 	PopLabel->SetTextRenderColor(FColor(255, 220, 80));
-	PopLabel->SetText(FText::FromString(TEXT("Vacancies: 0")));
+	PopLabel->SetText(FText::FromString(TEXT("Souls: 0")));
 }
 
 static int32 PopCount6(int32 M)
@@ -48,204 +46,6 @@ void AHexShuffleGenerator::Clear()
 		if (C) { C->DestroyComponent(); }
 	}
 	MeshToISM.Empty();
-	ClearSplineRoads();
-}
-
-void AHexShuffleGenerator::ClearSplineRoads()
-{
-	for (ASplineRoad* R : SplineRoads)
-	{
-		if (R) { R->Destroy(); }
-	}
-	SplineRoads.Reset();
-
-	// Belt-and-suspenders: also kill any attached spline roads the transient list lost
-	// (e.g. across an editor reload).
-	TArray<AActor*> Attached;
-	GetAttachedActors(Attached);
-	for (AActor* A : Attached)
-	{
-		if (A && A->IsA<ASplineRoad>()) { A->Destroy(); }
-	}
-}
-
-// Trace the resolved network into chains of connected road cells (cell centres linked across
-// set road edges) and spawn one curved ASplineRoad per chain. The spline's auto-tangents
-// fillet the 60-degree hex turns -> smooth London streets over the faceted tile network.
-void AHexShuffleGenerator::BuildSplineRoads()
-{
-	ClearSplineRoads();
-
-	if (!RoadSegmentMesh)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("BuildSplineRoads: assign RoadSegmentMesh (SM_RoadSeg) first."));
-		return;
-	}
-	if (LastNetwork.Cells.Num() == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("BuildSplineRoads: no network yet — Randomize (or LoadRoll) first."));
-		return;
-	}
-
-	// Road-cell set + mask lookup.
-	TSet<FIntPoint> RoadCells;
-	TMap<FIntPoint, int32> MaskOf;
-	for (const FHexCellResult& C : LastNetwork.Cells)
-	{
-		if (C.RoadMask != 0) { RoadCells.Add(C.Axial); MaskOf.Add(C.Axial, C.RoadMask); }
-	}
-
-	// Undirected adjacency, links only to other road cells (connected by construction).
-	TMap<FIntPoint, TArray<FIntPoint>> Adj;
-	for (const FIntPoint& C : RoadCells)
-	{
-		const int32 M = MaskOf[C];
-		for (int32 e = 0; e < 6; ++e)
-		{
-			if ((M & (1 << e)) == 0) { continue; }
-			const FIntPoint N = HexGrid::Neighbor(C, e);
-			if (RoadCells.Contains(N))
-			{
-				Adj.FindOrAdd(C).AddUnique(N);
-				Adj.FindOrAdd(N).AddUnique(C);
-			}
-		}
-	}
-
-	auto Degree = [&Adj](const FIntPoint& C) -> int32
-	{
-		const TArray<FIntPoint>* A = Adj.Find(C);
-		return A ? A->Num() : 0;
-	};
-	auto CellCode = [](const FIntPoint& C) -> uint32
-	{
-		return (uint32((C.X + 1000) & 0xFFFF) << 16) | uint32((C.Y + 1000) & 0xFFFF);
-	};
-	auto EdgeCode = [&CellCode](const FIntPoint& A, const FIntPoint& B) -> uint64
-	{
-		uint32 a = CellCode(A), b = CellCode(B);
-		if (a > b) { Swap(a, b); }
-		return (uint64(a) << 32) | uint64(b);
-	};
-	auto Other = [&Adj](const FIntPoint& Node, const FIntPoint& From) -> FIntPoint
-	{
-		const TArray<FIntPoint>& A = Adj[Node];
-		return (A[0] == From) ? A[1] : A[0];
-	};
-
-	TSet<uint64> Visited;
-	TArray<TArray<FIntPoint>> Chains;
-
-	auto Walk = [&](const FIntPoint& Start, const FIntPoint& First)
-	{
-		TArray<FIntPoint> Chain;
-		Chain.Add(Start);
-		FIntPoint Cur = Start, Nxt = First;
-		while (true)
-		{
-			const uint64 Key = EdgeCode(Cur, Nxt);
-			if (Visited.Contains(Key)) { break; }   // closed a loop
-			Visited.Add(Key);
-			Chain.Add(Nxt);
-			if (Degree(Nxt) == 2 && Nxt != Start)
-			{
-				const FIntPoint NN = Other(Nxt, Cur);
-				Cur = Nxt; Nxt = NN;
-			}
-			else { break; }
-		}
-		if (Chain.Num() >= 2) { Chains.Add(MoveTemp(Chain)); }
-	};
-
-	// Chains between endpoints/junctions (degree != 2).
-	for (const FIntPoint& E : RoadCells)
-	{
-		if (Degree(E) == 2) { continue; }
-		const TArray<FIntPoint>* A = Adj.Find(E);
-		if (!A) { continue; }
-		for (const FIntPoint& N0 : *A)
-		{
-			if (!Visited.Contains(EdgeCode(E, N0))) { Walk(E, N0); }
-		}
-	}
-	// Any leftover edges form pure loops (all degree-2).
-	for (const TPair<FIntPoint, TArray<FIntPoint>>& P : Adj)
-	{
-		for (const FIntPoint& N0 : P.Value)
-		{
-			if (!Visited.Contains(EdgeCode(P.Key, N0))) { Walk(P.Key, N0); }
-		}
-	}
-
-	// --- Spawn geometry: trimmed chains + junction fans --------------------------------
-	UWorld* World = GetWorld();
-
-	auto Center = [&](const FIntPoint& C) -> FVector
-	{
-		const FVector2D X = HexGrid::WorldXY(C, HexCircumradiusUU);
-		return FVector(X.X, X.Y, SplineRoadZ);
-	};
-	auto EdgeMid = [&](const FIntPoint& A, const FIntPoint& B) -> FVector
-	{
-		return (Center(A) + Center(B)) * 0.5f;
-	};
-	auto SpawnRoad = [&](const TArray<FVector>& Pts)
-	{
-		TArray<FVector> Clean;
-		for (const FVector& V : Pts)
-		{
-			if (Clean.Num() == 0 || FVector::DistSquared(Clean.Last(), V) > 1.0f) { Clean.Add(V); }
-		}
-		if (Clean.Num() < 2) { return; }
-
-		FActorSpawnParameters Params;
-		Params.Owner = this;
-		ASplineRoad* Road = World->SpawnActor<ASplineRoad>(ASplineRoad::StaticClass(), GetActorTransform(), Params);
-		if (!Road || !Road->Spline) { return; }
-		Road->RoadSegmentMesh = RoadSegmentMesh;
-		Road->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-		USplineComponent* Sp = Road->Spline;
-		Sp->ClearSplinePoints(false);
-		for (const FVector& V : Clean) { Sp->AddSplinePoint(V, ESplineCoordinateSpace::Local, false); }
-		Sp->UpdateSpline();
-		Road->Rebuild();
-		SplineRoads.Add(Road);
-	};
-
-	// Chains: pass-through cells keep their centre; a junction endpoint (degree >= 3) is
-	// TRIMMED back to the shared edge midpoint so the road stops at the junction boundary
-	// instead of running through its centre.
-	for (const TArray<FIntPoint>& Chain : Chains)
-	{
-		const int32 N = Chain.Num();
-		TArray<FVector> Pts;
-		for (int32 i = 0; i < N; ++i)
-		{
-			if (i == 0 && Degree(Chain[0]) >= 3)              { Pts.Add(EdgeMid(Chain[0], Chain[1])); }
-			else if (i == N - 1 && Degree(Chain[N - 1]) >= 3) { Pts.Add(EdgeMid(Chain[N - 2], Chain[N - 1])); }
-			else                                              { Pts.Add(Center(Chain[i])); }
-		}
-		SpawnRoad(Pts);
-	}
-
-	// Junction fans: a short arm from each junction cell's centre out to every road-edge
-	// midpoint, so the trimmed roads meet through a clean intersection instead of piling up.
-	int32 Junctions = 0;
-	for (const FIntPoint& J : RoadCells)
-	{
-		if (Degree(J) < 3) { continue; }
-		++Junctions;
-		const int32 M = MaskOf[J];
-		for (int32 e = 0; e < 6; ++e)
-		{
-			if ((M & (1 << e)) == 0) { continue; }
-			const FIntPoint Nb = HexGrid::Neighbor(J, e);
-			SpawnRoad({ Center(J), EdgeMid(J, Nb) });
-		}
-	}
-
-	UE_LOG(LogTemp, Display, TEXT("BuildSplineRoads: %d road cells, %d chains, %d junctions -> %d spline roads."),
-		RoadCells.Num(), Chains.Num(), Junctions, SplineRoads.Num());
 }
 
 void AHexShuffleGenerator::Recalibrate()
@@ -289,7 +89,11 @@ int32 AHexShuffleGenerator::MeasureTileMask(UStaticMesh* Mesh) const
 		const float A = FMath::DegreesToRadians(HexGrid::EdgeAngleDeg(e));
 		EdgeMid[e] = FVector2D(Inr * FMath::Cos(A), Inr * FMath::Sin(A));
 	}
-	const float NearDist = HexCircumradiusUU * 0.30f;
+	// ABSOLUTE tolerance (uu), not a fraction of R: the street cross-section is absolute
+	// (carriageway half-width = 1.5 m = 150 uu), so the carriageway's edge-row vertices sit
+	// exactly 150 uu from the midpoint. 250 gives float/tessellation slack while staying far
+	// below any non-connected road geometry (the junction hub edge is ~640 uu from a midpoint).
+	const float NearDist = 250.f;
 
 	int32 Mask = 0;
 	for (const FStaticMeshSection& Sec : LOD.Sections)
@@ -393,7 +197,14 @@ UInstancedStaticMeshComponent* AHexShuffleGenerator::GetOrCreateISM(UStaticMesh*
 
 void AHexShuffleGenerator::Randomize()
 {
-	++Seed;
+	// The reroll button: advance to the next seed and build it. Tools that need a
+	// SPECIFIC seed placed (constrained randomize) call BuildFromSeed directly.
+	BuildFromSeed(Seed + 1);
+}
+
+void AHexShuffleGenerator::BuildFromSeed(int32 InSeed)
+{
+	Seed = InSeed;
 	if (!TileSet)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: no TileSet assigned."));
@@ -426,11 +237,11 @@ void AHexShuffleGenerator::Randomize()
 void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 {
 	Clear();
-	LastNetwork = Net; // remember what we placed, so SaveRoll can write it out
+	LastNetwork = Net; // remember what we placed, so SaveRoll / diagnostics read the truth
 
 	const bool bUseMeasured = bCalibrated && TileRealMask.Num() == TileSet->Tiles.Num();
 	int32 Unresolved = 0;
-	int32 Vacancies = 0;
+	int32 SoulCount = 0;
 	int32 CorePlaced = 0;
 
 	// Hardwired core: map each pinned axial to its bespoke mesh (placed verbatim at yaw 0,
@@ -451,21 +262,11 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 	{
 		const FVector2D XY = HexGrid::WorldXY(Cell.Axial, HexCircumradiusUU);
 
-		// Ground-only review mode: a plain hex per cell; the streets come from the spline layer.
-		if (bGroundOnly && GroundMesh)
-		{
-			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(GroundMesh))
-			{
-				FTransform X;
-				X.SetLocation(FVector(XY.X, XY.Y, 0.f));
-				X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg, 0.f)));
-				ISM->AddInstance(X, /*bWorldSpace=*/false);
-			}
-			continue;
-		}
+		// 1 frontier tile = 1 soul (the Pop One spine); the core is the scar, never counted.
+		if (HexGrid::Distance(Cell.Axial) > Growth.CoreRadius) { ++SoulCount; }
 
-		// Core cell: drop the bespoke mesh verbatim, skip the resolver and the vacancy tally
-		// (the core follows a narrative restoration arc, not population).
+		// Core cell: drop the bespoke mesh verbatim, skip the resolver (the core follows a
+		// narrative restoration arc, not the soul count).
 		if (const TPair<UStaticMesh*, int32>* CoreE = CoreMesh.Find(Cell.Axial))
 		{
 			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(CoreE->Key))
@@ -502,8 +303,6 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
 		if (!Mesh) { ++Unresolved; continue; }
 
-		Vacancies += TileSet->Tiles[TileIdx].Occupancy;
-
 		UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh);
 		if (!ISM) { continue; }
 
@@ -524,17 +323,14 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		}
 	}
 
-	EstimatedVacancies = Vacancies;
+	Souls = SoulCount;
 	if (PopLabel)
 	{
-		PopLabel->SetText(FText::FromString(FString::Printf(TEXT("Vacancies: %d"), Vacancies)));
+		PopLabel->SetText(FText::FromString(FString::Printf(TEXT("Souls: %d"), SoulCount)));
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), core=%d, %d unresolved, vacancies=%d."),
-		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), CorePlaced, Unresolved, Vacancies);
-
-	// One-click: draw the curved roads in the same pass so a roll is fully visible immediately.
-	if (RoadSegmentMesh) { BuildSplineRoads(); }
+	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), core=%d, %d unresolved, souls=%d."),
+		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), CorePlaced, Unresolved, SoulCount);
 }
 
 static FString RollsDir()
@@ -552,7 +348,6 @@ void AHexShuffleGenerator::SaveRoll()
 
 	FHexRoll Roll;
 	Roll.Seed = Seed;
-	Roll.Vacancies = EstimatedVacancies;
 	Roll.Growth = Growth;
 	Roll.Network = LastNetwork;
 
@@ -565,7 +360,7 @@ void AHexShuffleGenerator::SaveRoll()
 
 	const FString Dir = RollsDir();
 	IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
-	const FString File = Dir / FString::Printf(TEXT("Roll_seed%d_vac%d.json"), Seed, EstimatedVacancies);
+	const FString File = Dir / FString::Printf(TEXT("Roll_seed%d.json"), Seed);
 
 	if (FFileHelper::SaveStringToFile(Json, *File))
 	{

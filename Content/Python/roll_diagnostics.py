@@ -3,9 +3,10 @@
 Three tools, all registered under Tools > (see hexmap_menus.py):
 
   diagnose_last_roll()
-      Re-grows the live ShuffleLab's network from its Seed + Growth + CoreLayout
-      and buckets every frontier cell by canonical (min-rotation) road mask.
-      Prints a histogram to the Output Log. Run after any Randomize.
+      Reads the live ShuffleLab generator's LastNetwork (the cells it actually
+      placed — valid after Randomize, BuildFromSeed, or LoadRoll alike) and
+      buckets every frontier cell by canonical (min-rotation) road mask.
+      Prints a histogram to the Output Log.
 
   run_roll_sweep(n=200, base_seed=0)
       Calls UHexMapGrowthLibrary.GrowRoadNetwork N times (pure C++, no mesh
@@ -14,11 +15,13 @@ Three tools, all registered under Tools > (see hexmap_menus.py):
       size (ceil(p95)). Writes a CSV under Design/Rolls/ for spreadsheet analysis.
 
   constrained_randomize(constraints_name="default", max_attempts=200, verbose=True)
-      Loads constraints from Design/RollConstraints/<name>.json. Grows with
-      seed, seed+1, seed+2, ... until a roll satisfies every constraint, then
-      sets the actor's Seed and triggers Randomize() so the satisfying network
-      lands in the level. Prints per-attempt failures so you can see why rolls
-      are bouncing.
+      Loads constraints (the actor's RollConstraints DataTable if assigned, else
+      Design/RollConstraints/<name>.json). Grows with seed, seed+1, seed+2, ...
+      until a roll satisfies every constraint, then calls BuildFromSeed(seed) so
+      the EXACT validated network lands in the level (Randomize() pre-increments
+      and would place the next, unvalidated seed), and re-checks the placed
+      LastNetwork as a belt-and-suspenders assertion. Prints per-attempt
+      failures so you can see why rolls are bouncing.
 
 All tools can also run from the Output Log:
   import roll_diagnostics, importlib; importlib.reload(roll_diagnostics)
@@ -189,49 +192,54 @@ def _summarise(samples):
 # Tool A: single-roll histogram
 # ---------------------------------------------------------------------------
 
+def _core_axial_set(core_cells):
+    """The pinned core as a set of (q, r) tuples — membership, not radius, so an
+    irregular authored core is excluded correctly everywhere."""
+    out = set()
+    for c in core_cells:
+        ax = _sf(c, "axial")
+        out.add((ax.x, ax.y))
+    return out
+
+
+def _bucket_cells(cells, core_axials):
+    """Bucket cells by canonical road mask, excluding core cells (axial membership).
+    Returns (frontier_buckets, core_count, unknown_buckets)."""
+    buckets = {m: 0 for m in NECKLACE_NAMES}
+    unknown = {}
+    core_count = 0
+    for cell in cells:
+        ax = _sf(cell, "axial")
+        if (ax.x, ax.y) in core_axials:
+            core_count += 1
+            continue
+        canon = _canonical_mask(_sf(cell, "road_mask"))
+        if canon in buckets:
+            buckets[canon] += 1
+        else:
+            unknown[canon] = unknown.get(canon, 0) + 1
+    return buckets, core_count, unknown
+
+
 def diagnose_last_roll():
     gen = _find_shuffle_generator()
     if gen is None:
         unreal.log_warning("[RollDiag] no HexShuffleGenerator in the open level")
         return
 
-    # Re-grow the network from the actor's current Seed + Growth + CoreLayout.
-    # We deliberately do NOT read `LastNetwork` directly — that UPROPERTY is Transient
-    # without a Blueprint visibility modifier, so Python reflection can't see it. A
-    # fresh deterministic grow with the same inputs reproduces the exact network the
-    # actor just placed for any Randomize-style roll. (Edge case: after LoadRoll() the
-    # actor's LastNetwork comes from JSON, not from grow — in that case re-growing with
-    # the seed shown here may differ. Once LastNetwork is exposed for reflection we'll
-    # read it directly and the edge case goes away — see HexShuffleGenerator.h.)
-    growth = gen.get_editor_property("growth")
-    core_r = _sf(growth, "core_radius")
-    seed = gen.get_editor_property("seed")
-    core_cells = _build_core_cells(gen)
-    net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core_cells, seed)
+    # Read the network the actor ACTUALLY placed. LastNetwork is exposed to reflection
+    # (BlueprintReadOnly + AllowPrivateAccess — see HexShuffleGenerator.h) precisely so
+    # this tool reports the truth for Randomize, BuildFromSeed, and LoadRoll alike:
+    # no re-grow, no "loaded rolls aren't reproducible" edge case.
+    net = gen.get_editor_property("last_network")
     cells = list(_sf(net, "cells")) if net is not None else []
     if not cells:
-        unreal.log_warning(
-            "[RollDiag] grow returned no cells - check the generator's Growth params (Radius=%d)"
-            % _sf(growth, "radius")
-        )
+        unreal.log_warning("[RollDiag] no roll placed yet — Randomize (or Load Roll) first")
         return
 
-    core_count = 0
-    frontier_buckets = {m: 0 for m in NECKLACE_NAMES}
-    unknown_buckets = {}
-
-    for cell in cells:
-        ax = _sf(cell, "axial")
-        q, r = ax.x, ax.y
-        if _hex_distance(q, r) <= core_r:
-            core_count += 1
-            continue
-        canon = _canonical_mask(_sf(cell, "road_mask"))
-        if canon in frontier_buckets:
-            frontier_buckets[canon] += 1
-        else:
-            unknown_buckets[canon] = unknown_buckets.get(canon, 0) + 1
-
+    seed = gen.get_editor_property("seed")
+    core_axials = _core_axial_set(_build_core_cells(gen))
+    frontier_buckets, core_count, unknown_buckets = _bucket_cells(cells, core_axials)
     frontier_total = sum(frontier_buckets.values()) + sum(unknown_buckets.values())
 
     unreal.log(
@@ -273,10 +281,7 @@ def run_roll_sweep(n=200, base_seed=0):
 
     growth = gen.get_editor_property("growth")
     core_cells = _build_core_cells(gen)
-    core_axials = set()
-    for c in core_cells:
-        ax = _sf(c, "axial")
-        core_axials.add((ax.x, ax.y))
+    core_axials = _core_axial_set(core_cells)
 
     unreal.log(
         "[RollDiag] sweep starting: %d rolls from seed %d (%d core cells pinned)"
@@ -290,23 +295,13 @@ def run_roll_sweep(n=200, base_seed=0):
     for i in range(n):
         seed = base_seed + i
         net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core_cells, seed)
-        roll_buckets = {m: 0 for m in NECKLACE_NAMES}
-        unknown = 0
-        frontier_total = 0
-        for cell in _sf(net, "cells"):
-            ax = _sf(cell, "axial")
-            if (ax.x, ax.y) in core_axials:
-                continue
-            frontier_total += 1
-            canon = _canonical_mask(_sf(cell, "road_mask"))
-            if canon in roll_buckets:
-                roll_buckets[canon] += 1
-            else:
-                unknown += 1
+        cells = list(_sf(net, "cells")) if net is not None else []
+        roll_buckets, _core, unknown_buckets = _bucket_cells(cells, core_axials)
         for m in NECKLACE_NAMES:
             per_necklace[m].append(roll_buckets[m])
-        per_roll_frontier_totals.append(frontier_total)
-        per_roll_unknown.append(unknown)
+        per_roll_frontier_totals.append(
+            sum(roll_buckets.values()) + sum(unknown_buckets.values()))
+        per_roll_unknown.append(sum(unknown_buckets.values()))
 
     # Aggregate
     rows = []
@@ -426,47 +421,52 @@ def _necklace_name_to_canon():
 
 def _load_constraints_from_datatable(data_table):
     """Read a UDataTable of FHexNecklaceConstraint rows. Returns the same shape
-    as _load_constraints_from_json: {canonical_mask_int: {min, max, exact}}."""
+    as _load_constraints_from_json: {canonical_mask_int: {min, max, exact}},
+    or None when the table can't be read at all (caller falls back to JSON).
+
+    UE 5.7's Python can't call the wildcard get-row Blueprint nodes on arbitrary
+    row structs (verified live: both get_data_table_row_from_name and
+    get_data_table_row raise) — so read whole COLUMNS as strings and zip them
+    with the row names. get_data_table_column_as_string is a plain
+    BlueprintCallable that works everywhere, and both it and
+    get_data_table_row_names iterate the table's row map in the same order."""
     if data_table is None:
         return {}
     name_to_mask = _necklace_name_to_canon()
-    out = {}
-    row_names = data_table.get_row_names() if hasattr(data_table, "get_row_names") else []
-    if not row_names:
-        # Fallback for older bindings — `get_data_table_row_names` is the alt API.
+    dtl = unreal.DataTableFunctionLibrary
+    try:
+        row_names = [str(n) for n in dtl.get_data_table_row_names(data_table)]
+        col_min   = list(dtl.get_data_table_column_as_string(data_table, "Min"))
+        col_max   = list(dtl.get_data_table_column_as_string(data_table, "Max"))
+        col_exact = list(dtl.get_data_table_column_as_string(data_table, "Exact"))
+    except Exception as exc:
+        unreal.log_warning(
+            "[RollDiag] DataTable '%s' column read failed (%s) — falling back to JSON"
+            % (data_table.get_name(), exc)
+        )
+        return None
+
+    def _num(col, i, default):
         try:
-            row_names = unreal.DataTableFunctionLibrary.get_data_table_row_names(data_table)
-        except Exception:
-            row_names = []
-    for row_name in row_names:
-        key = str(row_name)
+            return int(float(col[i]))
+        except (IndexError, ValueError, TypeError):
+            return default
+
+    out = {}
+    for i, key in enumerate(row_names):
         if key not in name_to_mask:
             unreal.log_warning(
                 "[RollDiag] DataTable row '%s' is not a known necklace; skipping. "
-                "Valid names: %s" % (key, ", ".join(sorted(NECKLACE_NAMES.values())))
+                "Valid names: %s" % (key, ", ".join(sorted(v[0] for v in NECKLACE_NAMES.values())))
             )
             continue
-        # Read the struct row. UE 5.x exposes `DataTableFunctionLibrary.get_data_table_row`.
-        try:
-            found, row = unreal.DataTableFunctionLibrary.get_data_table_row_from_name(
-                data_table, row_name
-            )
-            if not found or row is None:
-                continue
-        except Exception:
-            # Older API variant
-            try:
-                row = unreal.DataTableFunctionLibrary.get_data_table_row(data_table, row_name)
-            except Exception:
-                unreal.log_warning(
-                    "[RollDiag] couldn't read DataTable row '%s' via either API" % key
-                )
-                continue
-        canon = name_to_mask[key]
-        out[canon] = {
-            "min": int(_sf(row, "min")) if int(_sf(row, "min")) > 0 else None,
-            "max": int(_sf(row, "max")) if int(_sf(row, "max")) >= 0 else None,
-            "exact": int(_sf(row, "exact")) if int(_sf(row, "exact")) >= 0 else None,
+        mn = _num(col_min, i, 0)
+        mx = _num(col_max, i, -1)
+        ex = _num(col_exact, i, -1)
+        out[name_to_mask[key]] = {
+            "min": mn if mn > 0 else None,
+            "max": mx if mx >= 0 else None,
+            "exact": ex if ex >= 0 else None,
         }
     return out
 
@@ -489,7 +489,7 @@ def _load_constraints_from_json(name):
         if key not in name_to_mask:
             unreal.log_warning(
                 "[RollDiag] constraint key '%s' is not a known necklace; skipping. "
-                "Valid names: %s" % (key, ", ".join(sorted(NECKLACE_NAMES.values())))
+                "Valid names: %s" % (key, ", ".join(sorted(v[0] for v in NECKLACE_NAMES.values())))
             )
             continue
         canon = name_to_mask[key]
@@ -528,7 +528,8 @@ def _load_constraints(actor, name):
 
     if data_table is not None:
         loaded = _load_constraints_from_datatable(data_table)
-        return ("DataTable:%s" % data_table.get_name(), loaded)
+        if loaded is not None:   # None = unreadable table -> fall through to JSON
+            return ("DataTable:%s" % data_table.get_name(), loaded)
 
     loaded = _load_constraints_from_json(name)
     return ("JSON:%s" % name, loaded)
@@ -554,19 +555,12 @@ def _check_constraints(buckets, constraints):
     return failures
 
 
-def _grow_and_bucket(growth, core_cells, core_radius, seed):
+def _grow_and_bucket(growth, core_cells, core_axials, seed):
     """Grow with the given seed, return per-necklace frontier bucket counts."""
     net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core_cells, seed)
-    buckets = {m: 0 for m in NECKLACE_NAMES}
     if net is None:
-        return buckets
-    for cell in _sf(net, "cells"):
-        ax = _sf(cell, "axial")
-        if _hex_distance(ax.x, ax.y) <= core_radius:
-            continue
-        canon = _canonical_mask(_sf(cell, "road_mask"))
-        if canon in buckets:
-            buckets[canon] += 1
+        return {m: 0 for m in NECKLACE_NAMES}
+    buckets, _core, _unknown = _bucket_cells(list(_sf(net, "cells")), core_axials)
     return buckets
 
 
@@ -613,8 +607,8 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
         return gen.get_editor_property("seed")
 
     growth = gen.get_editor_property("growth")
-    core_radius = _sf(growth, "core_radius")
     core_cells = _build_core_cells(gen)
+    core_axials = _core_axial_set(core_cells)
 
     start_seed = gen.get_editor_property("seed") if base_seed is None else int(base_seed)
 
@@ -628,11 +622,21 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
     # Track which constraint blocked the most rolls + the closest miss per
     # constraint so the failure summary is actionable. Both keyed by mask int.
     bounce_count = {mask: 0 for mask in constraints}
-    closest_miss = {}  # mask -> (observed, requirement_str) closest to passing
+    closest_miss = {}  # mask -> (observed, requirement_str, distance_to_satisfaction)
+
+    def _miss_distance(c, observed):
+        """How far an observation is from satisfying constraint c (0 = satisfied)."""
+        if c.get("exact") is not None:
+            return abs(observed - c["exact"])
+        if c.get("min") is not None and observed < c["min"]:
+            return c["min"] - observed
+        if c.get("max") is not None and observed > c["max"]:
+            return observed - c["max"]
+        return 0
 
     for attempt in range(max_attempts):
         try_seed = start_seed + attempt
-        buckets = _grow_and_bucket(growth, core_cells, core_radius, try_seed)
+        buckets = _grow_and_bucket(growth, core_cells, core_axials, try_seed)
         failures = _check_constraints(buckets, constraints)
 
         if not failures:
@@ -647,16 +651,42 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
                        buckets.get(mask, 0),
                        _format_constraint(constraints[mask]))
                 )
-            gen.set_editor_property("seed", try_seed)
-            gen.randomize()
+            # BuildFromSeed places EXACTLY the validated seed. Randomize() would
+            # pre-increment and place the unvalidated seed+1 — never fall back to it.
+            if not hasattr(gen, "build_from_seed"):
+                unreal.log_error(
+                    "[RollDiag] generator has no BuildFromSeed — stale binaries? "
+                    "Rebuild via Tools/Build.ps1. Refusing the Randomize() fallback: "
+                    "it would place unvalidated seed %d." % (try_seed + 1)
+                )
+                return None
+            gen.build_from_seed(try_seed)
+            # Belt-and-suspenders: re-bucket what the actor ACTUALLY placed
+            # (LastNetwork) and re-check — guards the BuildFromSeed contract itself.
+            net = gen.get_editor_property("last_network")
+            placed = list(_sf(net, "cells")) if net is not None else []
+            placed_buckets, _c, _u = _bucket_cells(placed, core_axials)
+            placed_failures = _check_constraints(placed_buckets, constraints)
+            if placed_failures:
+                unreal.log_error(
+                    "[RollDiag] PLACED roll violates the validated constraints — "
+                    "BuildFromSeed contract broken: %s"
+                    % "; ".join("%s=%d (%s)" % (nm, ob, rq)
+                                for _m, nm, ob, rq in placed_failures)
+                )
+            else:
+                unreal.log(
+                    "[RollDiag] placed roll re-verified against constraints (seed=%d)"
+                    % try_seed
+                )
             return try_seed
 
         for mask, name, observed, req in failures:
             bounce_count[mask] = bounce_count.get(mask, 0) + 1
-            # "closest" = smallest distance to satisfaction
+            dist = _miss_distance(constraints[mask], observed)
             prev = closest_miss.get(mask)
-            if prev is None or abs(observed - prev[0]) > 0:
-                closest_miss[mask] = (observed, req)
+            if prev is None or dist < prev[2]:
+                closest_miss[mask] = (observed, req, dist)
 
         if verbose:
             unreal.log(
@@ -676,7 +706,7 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
         "[RollDiag]   biggest bouncer: '%s' (%d/%d attempts failed it)"
         % (NECKLACE_NAMES[worst_mask][0], worst_count, max_attempts)
     )
-    for mask, (obs, req) in closest_miss.items():
+    for mask, (obs, req, _dist) in closest_miss.items():
         unreal.log_warning(
             "[RollDiag]   closest miss '%s': observed %d, needed %s"
             % (NECKLACE_NAMES[mask][0], obs, req)

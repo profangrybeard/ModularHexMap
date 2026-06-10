@@ -81,8 +81,6 @@ if not gen:
 else:
     gen.set_editor_property("core_layout", core_da)
     gen.set_editor_property("hex_circumradius_uu", 1000.0)
-    gen.set_editor_property("road_segment_mesh", None)
-    gen.set_editor_property("ground_only", False)
     gen.recalibrate()
     gen.randomize()
     les.save_current_level()

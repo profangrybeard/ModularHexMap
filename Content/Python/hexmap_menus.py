@@ -85,8 +85,9 @@ def register():
         "ConstrainedRandomize",
         "Constrained Randomize",
         "Find a seed whose grown roll satisfies the constraints on the live "
-        "HexShuffleGenerator, then set Seed + call Randomize(). Constraint source: "
-        "the actor's 'Roll Constraints' DataTable if assigned, else "
+        "HexShuffleGenerator, then place EXACTLY that roll via BuildFromSeed "
+        "(re-verified against the placed LastNetwork). Constraint source: the "
+        "actor's 'Roll Constraints' DataTable if assigned, else "
         "Design/RollConstraints/default.json. Prints per-attempt failures so you "
         "can see why rolls bounce. "
         "Output Log: roll_diagnostics.constrained_randomize(max_attempts=500)",

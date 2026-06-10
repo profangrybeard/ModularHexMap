@@ -13,7 +13,6 @@ class UHexCoreLayout;
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
 class UTextRenderComponent;
-class ASplineRoad;
 
 /**
  * Grows a road network and drops the real tiles into the level (one ISM per mesh),
@@ -58,9 +57,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle")
 	float HexCircumradiusUU = 500.f;
 
-	/** Rough rescue capacity of the current layout (sum of placed tiles' Occupancy). */
+	/** Souls in the current layout: 1 frontier tile = 1 soul (the Pop One spine).
+	 *  Core cells (Distance <= Growth.CoreRadius) are the scar — never counted. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Shuffle")
-	int32 EstimatedVacancies = 0;
+	int32 Souls = 0;
 
 	/** Measure each tile's real road edges from its geometry (immune to import orientation). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Calibration")
@@ -74,9 +74,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Calibration")
 	bool bInvertYawShift = false;
 
-	/** Reroll: grow a fresh network and rebuild the tiles. */
+	/** Reroll: advance to the next seed, grow a fresh network, rebuild the tiles. */
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle")
 	void Randomize();
+
+	/** Grow + build the network for EXACTLY this seed (no advance). The contract callers
+	 *  rely on: the placed roll is the one this seed grows — Python's constrained
+	 *  randomize validates a seed first and must place that same network. */
+	UFUNCTION(BlueprintCallable, Category = "Hex Shuffle")
+	void BuildFromSeed(int32 InSeed);
 
 	/** Re-measure tile geometry (call if you re-import or swap tiles). */
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle")
@@ -90,34 +96,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Rolls")
 	FString RollToLoad;
 
-	/** Save the current layout to Design/Rolls/Roll_seed<N>_vac<V>.json (the durable record). */
+	/** Save the current layout to Design/Rolls/Roll_seed<N>.json (the durable record). */
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Rolls")
 	void SaveRoll();
 
 	/** Reload the roll named by RollToLoad and rebuild it verbatim (no re-growth). */
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Rolls")
 	void LoadRoll();
-
-	/** Module mesh extruded along the road splines (assign SM_RoadSeg). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
-	TObjectPtr<UStaticMesh> RoadSegmentMesh;
-
-	/** Review mode: Randomize drops a plain hex (GroundMesh) per cell instead of the road
-	 *  tiles, so the curved spline roads read clean and the empty hexes show the blocks. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
-	bool bGroundOnly = false;
-
-	/** Plain hex placed per cell when bGroundOnly (assign SM_GroundHex). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
-	TObjectPtr<UStaticMesh> GroundMesh;
-
-	/** Z (uu) the road splines sit at — match the tile carriageway top (TOP = 0.5 m = 50). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Spline Roads")
-	float SplineRoadZ = 50.f;
-
-	/** Trace the last grown network into chains and spawn one curved ASplineRoad per chain. */
-	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Spline Roads")
-	void BuildSplineRoads();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Hex Shuffle")
@@ -134,18 +119,13 @@ private:
 	TArray<int32> TileRealMask;
 	bool bCalibrated = false;
 
-	// The last network Build() placed — what SaveRoll writes out. BlueprintReadOnly
-	// so Python diagnostics can read the actually-placed cells (including after a
-	// LoadRoll, which sets LastNetwork from JSON and isn't reproducible by re-growing).
-	// AllowPrivateAccess opts past UE's "no BP on private members" rule — the field
-	// stays C++-private but reflection/BP/Python can read it.
+	// The last network Build() placed — what SaveRoll writes out and what Python's
+	// roll diagnostics read (including after a LoadRoll, which sets LastNetwork from
+	// JSON and isn't reproducible by re-growing). AllowPrivateAccess opts past UE's
+	// "no BP on private members" rule — the field stays C++-private but
+	// reflection/BP/Python can read it.
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug", meta = (AllowPrivateAccess = "true"))
 	FHexNetwork LastNetwork;
-
-	// Spawned curved-road actors (one per traced chain); destroyed on Clear / rebuild.
-	UPROPERTY(Transient)
-	TArray<TObjectPtr<ASplineRoad>> SplineRoads;
-	void ClearSplineRoads();
 
 	void MeasureCalibration();
 	int32 MeasureTileMask(UStaticMesh* Mesh) const;

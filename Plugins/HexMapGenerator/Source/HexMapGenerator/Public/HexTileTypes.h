@@ -42,13 +42,6 @@ struct FHexTileDef
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (EditFixedSize))
 	TArray<EHexEdgeSocket> Edges;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (ClampMin = "0"))
-	int32 Weight = 1;
-
-	/** How many people this section can house (rescue capacity / vacancies). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (ClampMin = "0"))
-	int32 Occupancy = 0;
-
 	FHexTileDef()
 	{
 		Edges.Init(EHexEdgeSocket::Pavement, 6);
