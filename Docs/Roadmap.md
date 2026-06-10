@@ -49,11 +49,15 @@
    fix every doc-drift item; add the master-clean guard; **restructure CLAUDE.md** into
    context (CLAUDE.md on-ramp) / direction (Roadmap.md) / memory (Worklog.md) /
    resistance (Resistance.md), and add the new Resolved entries to Design.md.
-3. **Phase 2 — Rivers plan** (`Docs/Rivers.md`, highest-priority design deliverable):
-   layered two-mask architecture (road + water as parallel 6-bit masks, never a ternary
-   socket), water-first generation pass, **river is frontier-only (director-decided:
-   core stays authored-and-dry)**, water-necklace census, sparse bridge/bank tile
-   inventory, resolver + diagnostics changes, phased implementation with gates.
+3. **Phase 2 — Rivers plan** ✅ **DELIVERED 2026-06-10** → **[Rivers.md](Rivers.md)**.
+   Design brief (director, from Richmond/the James): the river **divides business and
+   culture while putting everyone on the same team** — and the plan shows the divide is
+   *emergent* (the far bank only receives roads through bridges, so two street cultures
+   fall out of the existing growth model). Layered two-mask architecture, water-first
+   `GrowRiver`, frontier-only routing, artery-only bridging (scarcity by construction),
+   census-driven tile budget, phases R1–R4 with gates. **Awaiting director rulings**
+   (Rivers.md §7): river souls (rec: yes — inhabited-bridge, Old London Bridge
+   precedent), river name (candidate: Clear Creek), channel scale (rec: 5 m, 1-cell).
 4. **Phase 3 — Restoration loop first playable** (director-decided: before rivers
    implementation): destiny roll persists; `RestoreNextTile` BFS from the Pit;
    ghost/rubble treatment for unrestored cells; `Pop <restored+1> / 121` label;
