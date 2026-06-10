@@ -38,14 +38,17 @@ is a visible trophy case of how far the player has come.
   neighbor and how the street network forms. This is the assembly grammar.
 - Each building tile fronts the street via a **door on a road edge**.
 
-## Population = rescued people
+## Population = rescued people (1 tile = 1 soul — the LAW)
 
-The town's size *is* the rescue count: tiles house the people you save underground. Every
-tile type carries an **Occupancy** (housing capacity); a layout's total is its **rescue
-capacity / vacancies**. The `HexShuffleGenerator` sums it live and shows it, so layouts can
-be judged by how many they'd hold. Seed rule for the street kit: `Occupancy = (6 − roadEdges)
-× 2` (roads displace housing) — per-tile editable in the catalog. Building tiles will set
-their own capacities as they're authored. **Evolving toward 1 tile = 1 soul — see "Pop One".**
+The town's size *is* the rescue count. **One frontier tile houses one soul, full stop** —
+this is the pipeline's law (locked 2026-06-10; production may bend it for fun, the
+pipeline never does). The generator's `Souls` property + label is the count of frontier
+tiles; the core is the scar and is never counted. **A soul settling on a tile with
+building sections joins that tile's building group** — the player's choice of *which*
+tile a rescued soul settles is the lever that makes each player's city feel different.
+
+*(History: an interim `Occupancy = (6 − roadEdges) × 2` sum existed through 2026-06-09;
+all of that machinery was removed 2026-06-10 — count, not sum.)*
 
 ## "Pop One" — the spine (1 → 121)
 
@@ -165,6 +168,11 @@ address helper in `HexCoordinates.h` (axis name + block).
 
 ## Rivers & bridges (next challenge — design intent)
 
+> **2026-06-10:** plan in progress as the highest-priority deliverable (Docs/Rivers.md).
+> Two decisions locked: the river is **frontier-only** (routes around ring 1; the authored
+> core stays dry), and the architecture is **layered masks** (parallel road + water 6-bit
+> masks per cell — never a ternary socket). See Resolved #11.
+
 **Water is foundation, not reaction.** The river is generated **first**, as the bedrock the
 city forms around — roads and tiles react to *it*, never the reverse. This flips the
 generation order: **water → roads → buildings**, with water as a first-class layer, not a
@@ -201,9 +209,25 @@ from the prior prototype.)
 7. **"Pop One" spine** — radius-6 town = 127 tiles; 7-tile core collapses (permanent scar) →
    **120 frontier souls**; **1 tile = 1 soul** (count, not occupancy-sum); `120 + you = Pop 121`
    (alpha & omega). Souls may be people *or* other creatures. Enabled by per-tile spline roads.
+8. **Growth model: destiny roll, witnessed restoration** (2026-06-10). The full 120-cell
+   layout is rolled **once per save** (constraint-checked; the roll JSON is the durable
+   record), then **restored one tile per rescue**, BFS outward from the Pit along the road
+   graph — the town heals from the wound outward. Player agency = choosing **among frontier
+   candidates** (and which soul settles where), never freeform layout: the necklace-complete
+   kit guarantees every candidate is legal, so placement can't dead-end. The act-2 rearrange
+   re-rolls the *unrestored remainder* under a story justification.
+9. **Occupancy is retired** (2026-06-10) — see "Population" above. Count, not sum, in code
+   as well as design.
+10. **The randomizer is a dev tool.** Growth knobs, sweeps, and constraints exist to prove
+    the kit and roll destinies — they are not a player-facing system.
+11. **Rivers are frontier-only** (2026-06-10): the river routes around ring 1; the authored
+    core stays dry. Architecture decision: **layered masks** — road and water are parallel
+    6-bit masks per cell, never a ternary socket (which would balloon 14 necklaces to ~130).
+    Plan doc: Docs/Rivers.md (in progress — the highest-priority deliverable).
+12. **The Pit's descend prompt / level transition is NOT this repo's scope** — it lives with
+    the dungeon project. The town↔dungeon junction is a standing design goal the director
+    manages across both projects; this repo only keeps the Pit tile + its anchor stable.
 
 ## Open
 
 - **Story beats for the 6 ring-1 tiles** — their narrative-gated restoration arc (TBD).
-- **Unlock/placement:** how frontier tiles enter the town as achievements (manual designer
-  placement vs. progression-driven) — affects the generator's role.
