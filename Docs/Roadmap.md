@@ -55,9 +55,10 @@
    *emergent* (the far bank only receives roads through bridges, so two street cultures
    fall out of the existing growth model). Layered two-mask architecture, water-first
    `GrowRiver`, frontier-only routing, artery-only bridging (scarcity by construction),
-   census-driven tile budget, phases R1–R4 with gates. **Awaiting director rulings**
-   (Rivers.md §7): river souls (rec: yes — inhabited-bridge, Old London Bridge
-   precedent), river name (candidate: Clear Creek), channel scale (rec: 5 m, 1-cell).
+   census-driven tile budget, phases R1–R4 with gates. **Director rulings landed
+   (Rivers.md §7): river souls YES** (bridge-climber / kayak-keeper / lifeguard / one
+   lost to the river — souls = 120 holds), **name = "River"** (vanilla by choice),
+   **channel = 5 m one-cell** (game scale). R1 is unblocked.
 4. **Phase 3 — Restoration loop first playable** (director-decided: before rivers
    implementation): destiny roll persists; `RestoreNextTile` BFS from the Pit;
    ghost/rubble treatment for unrestored cells; `Pop <restored+1> / 121` label;

@@ -37,6 +37,13 @@ session locked the direction (see Roadmap "Locked direction"), then two executio
   TestMap / Z_Houses (director-approved); ShuffleLab + PitCoreLab re-saved clean; doc
   drift reconciled; **CLAUDE.md split into context (CLAUDE.md) / direction (Roadmap.md
   + Design.md) / memory (this file) / resistance (Resistance.md)**.
+- **Phase 2 rivers plan delivered + ruled** ([Rivers.md](Rivers.md)) — design brief from
+  the director's Richmond/James weekend (river = divider of business/culture AND the
+  thing that puts everyone on one team). Core insight: the two-bank divide is *emergent*
+  (far bank only receives roads through bridges). Rulings same day: river/bridge cells
+  house souls (souls = 120 holds); name = "River" (vanilla by choice); channel = 5 m
+  one-cell. R1 (growth-side implementation) unblocked; restoration loop remains next in
+  the build queue per the locked order.
 
 ## 2026-06-07 (late) — Buildings SHIPPED in engine
 

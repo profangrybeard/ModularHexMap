@@ -224,18 +224,24 @@ river becomes part of every destiny roll with zero migration (old rolls = waterM
 One interaction to honor in the restoration loop's BFS: bridge cells gate the far bank's
 restoration order, which is *correct* — the far bank heals after its bridge does.
 
-## 7. Decisions for the director
+## 7. Decisions — RULED (director, 2026-06-10)
 
-1. **River souls** — recommend **yes** (§5.4): river/bridge cells house souls; Pop 121
-   arithmetic untouched; inhabited-bridge becomes a marquee landmark candidate.
-2. **The river's name** — Clear Creek (Golden, CO seasoning) vs. a James/RVA homage vs.
-   something diegetic-original. Pure naming; gates only the addressing strings of R4.
-3. **Channel scale** — recommend the 1-cell-wide 5 m channel (mill-stream-to-canal,
-   walkable-bridge scale). A Thames-wide 2-cell river is *supported* by the layered
-   architecture (parallel water edges) but doubles the water kit — defer unless the 5 m
-   read disappoints in R2 preview.
-4. **Quays/wharfs** (side streets ending at the bank as docks) — defer to post-R4
-   flourish; reopens the prune rule deliberately when we want it.
+1. **River souls: YES.** River/bridge cells house souls; Pop 121 arithmetic untouched.
+   Director's framing of the river-soul cast (capture verbatim — this is authoring
+   direction): *"a person climbing under the bridge, or a person maintaining the
+   kayaks, or a person that's a lifeguard, or a person that was lost to the river."*
+   Note the last one — a soul the river TOOK is still one of the 120 you bring home.
+   The inhabited bridge (Old London Bridge precedent) stays a marquee landmark
+   candidate.
+2. **The river's name: "River."** Deliberately vanilla — flavoring it Richmond *and*
+   Golden is muddy evolution; plain until the director makes up his damn mind.
+   (Accidentally authentic: Londoners call the Thames "the river" in daily speech.)
+   Implementation: the diegetic helper uses the literal string `River`; trivially
+   re-nameable later.
+3. **Channel scale: 5 m, one cell wide.** Game scale, not sim scale. The two-cell-wide
+   option stays architecturally possible and deliberately unbuilt.
+4. **Quays/wharfs** — deferred to post-R4 flourish (reopens the prune rule deliberately
+   when wanted).
 
 ## 8. Tuning knobs (planned)
 

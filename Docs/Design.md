@@ -223,7 +223,12 @@ from the prior prototype.)
 11. **Rivers are frontier-only** (2026-06-10): the river routes around ring 1; the authored
     core stays dry. Architecture decision: **layered masks** — road and water are parallel
     6-bit masks per cell, never a ternary socket (which would balloon 14 necklaces to ~130).
-    Plan doc: Docs/Rivers.md (in progress — the highest-priority deliverable).
+    Plan: **Docs/Rivers.md (delivered + ruled)**. Rulings: **river/bridge cells house
+    souls** (the bridge-climber, the kayak-keeper, the lifeguard, one lost to the river —
+    souls = 120 holds exactly); the river's name is **"River"** (vanilla by choice, until
+    the director decides); **channel = 5 m, one cell** (game scale, not sim scale). The
+    river is rolled once per save and never re-rolled — the second permanent anchor
+    beside the Pit.
 12. **The Pit's descend prompt / level transition is NOT this repo's scope** — it lives with
     the dungeon project. The town↔dungeon junction is a standing design goal the director
     manages across both projects; this repo only keeps the Pit tile + its anchor stable.
