@@ -59,11 +59,25 @@
    (Rivers.md §7): river souls YES** (bridge-climber / kayak-keeper / lifeguard / one
    lost to the river — souls = 120 holds), **name = "River"** (vanilla by choice),
    **channel = 5 m one-cell** (game scale). R1 is unblocked.
-4. **Phase 3 — Restoration loop first playable** (director-decided: before rivers
-   implementation): destiny roll persists; `RestoreNextTile` BFS from the Pit;
-   ghost/rubble treatment for unrestored cells; `Pop <restored+1> / 121` label;
-   `GetRestorationCandidates()` hook for soul→tile assignment.
-5. **Phase 4 — Rivers implementation** per the plan doc.
+4. **Phase 4→3 PIVOT (director, 2026-06-10): rivers implementation FIRST** — "I really
+   want to trust the river design before we design much more." **R1–R3 LANDED same
+   day**, gates met:
+   - R1 growth: `WaterMask` layer, `GrowRiver` momentum walk (frontier-only),
+     water-as-wall roads, artery-only one-deck bridging. 200-roll sweep: river mean
+     10.6 cells, bridges mean 1.52 (min 0 — quiet-bank rolls exist; tuning knob later),
+     souls 120.0, 0 unresolved.
+   - R2 kit: `gen_river_tiles.py` — 3 water tiles + **3 census-complete bridge tiles**
+     (straight×straight 120°/60°, straight×curve — the ONLY pairs that occur) +
+     `river_kit.json`; `setup_river.py` wiring (catalog = 20 rows).
+   - R3 resolution: two-layer measure-and-rotate (`M_Water`), joint-rotation
+     `FindPlacement`; **in-engine: 20-tile calibration OK both layers, 127 cells /
+     0 unresolved / souls=120 with the river through town and bridges placed.**
+   - **R4 (banks & identity) remains**: `Bank` attribute, "River" addressing,
+     embankment dressing, bank-aware soul assignment.
+5. **Phase 3 (now next) — Restoration loop first playable**: destiny roll persists;
+   `RestoreNextTile` BFS from the Pit (bridges gate the far bank's healing — correct);
+   ghost/rubble treatment; `Pop <restored+1> / 121` label; `GetRestorationCandidates()`
+   hook for soul→tile assignment.
 6. **Phase 5 — Buildings facade continuity + min-block-size rule** (per-edge
    `M_BuildingBack` variation, party-wall pilaster, landmark slots; growth-side block
    guarantee).

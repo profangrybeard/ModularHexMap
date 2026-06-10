@@ -221,6 +221,49 @@ def _bucket_cells(cells, core_axials):
     return buckets, core_count, unknown
 
 
+def _joint_canonical(road, water):
+    """Canonicalize a (road, water) mask PAIR under JOINT rotation — both layers rotate
+    by the same k, because a bridge's identity is the relative road/water geometry."""
+    best = None
+    for r in range(6):
+        key = (_rotate_mask_6(road, r) << 6) | _rotate_mask_6(water, r)
+        if best is None or key < best:
+            best = key
+    return ((best >> 6) & 0x3F, best & 0x3F)
+
+
+def _pair_name(pair):
+    rd, wt = pair
+    rn = NECKLACE_NAMES.get(_canonical_mask(rd), ("0b{:06b}".format(rd),))[0]
+    wn = NECKLACE_NAMES.get(_canonical_mask(wt), ("0b{:06b}".format(wt),))[0]
+    # NB: %-formatting has no binary conversion — use str.format for the masks.
+    return "road:{} x water:{} [0b{:06b}|0b{:06b}]".format(rn, wn, rd, wt)
+
+
+def _water_census(cells, core_axials):
+    """Water-layer stats over placed/grown cells (frontier only).
+    Returns (water_buckets{canon: n}, bridge_pairs{(road,water) joint-canon: n},
+             water_cell_count, bridge_count)."""
+    water_buckets, bridge_pairs = {}, {}
+    water_cells = bridges = 0
+    for cell in cells:
+        ax = _sf(cell, "axial")
+        if (ax.x, ax.y) in core_axials:
+            continue
+        w = int(_sf(cell, "water_mask"))
+        if w == 0:
+            continue
+        water_cells += 1
+        wc = _canonical_mask(w)
+        water_buckets[wc] = water_buckets.get(wc, 0) + 1
+        rd = int(_sf(cell, "road_mask"))
+        if rd != 0:
+            bridges += 1
+            pair = _joint_canonical(rd, w)
+            bridge_pairs[pair] = bridge_pairs.get(pair, 0) + 1
+    return water_buckets, bridge_pairs, water_cells, bridges
+
+
 def diagnose_last_roll():
     gen = _find_shuffle_generator()
     if gen is None:
@@ -262,6 +305,15 @@ def diagnose_last_roll():
         for m, n in sorted(unknown_buckets.items()):
             unreal.log_warning("    0b{:06b}  {:d}".format(m, n))
 
+    # Water layer: river cells + bridge pairs (Docs/Rivers.md census).
+    wb, bp, wcount, bcount = _water_census(cells, core_axials)
+    unreal.log("[RollDiag] water: %d river cells, %d bridges" % (wcount, bcount))
+    for m, n in sorted(wb.items()):
+        nm = NECKLACE_NAMES.get(m, ("0b{:06b}".format(m),))[0]
+        unreal.log("  water {:<10s} {:>3d}".format(nm, n))
+    for pair, n in sorted(bp.items(), key=lambda kv: -kv[1]):
+        unreal.log("  bridge %-46s %3d" % (_pair_name(pair), n))
+
 
 # ---------------------------------------------------------------------------
 # Tool B: multi-roll sweep
@@ -292,6 +344,9 @@ def run_roll_sweep(n=200, base_seed=0):
     per_roll_frontier_totals = []
     per_roll_unknown = []
 
+    agg_water, agg_pairs = {}, {}
+    per_roll_water, per_roll_bridges = [], []
+
     for i in range(n):
         seed = base_seed + i
         net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core_cells, seed)
@@ -302,6 +357,13 @@ def run_roll_sweep(n=200, base_seed=0):
         per_roll_frontier_totals.append(
             sum(roll_buckets.values()) + sum(unknown_buckets.values()))
         per_roll_unknown.append(sum(unknown_buckets.values()))
+        wb, bp, wcount, bcount = _water_census(cells, core_axials)
+        per_roll_water.append(wcount)
+        per_roll_bridges.append(bcount)
+        for m, c in wb.items():
+            agg_water[m] = agg_water.get(m, 0) + c
+        for pair, c in bp.items():
+            agg_pairs[pair] = agg_pairs.get(pair, 0) + c
 
     # Aggregate
     rows = []
@@ -348,6 +410,23 @@ def run_roll_sweep(n=200, base_seed=0):
         % (total_mean, total_pool)
     )
 
+    # Water census (Docs/Rivers.md): the empirical authoring budget for the river kit.
+    ws = _summarise(per_roll_water)
+    bs = _summarise(per_roll_bridges)
+    unreal.log(
+        "[RollDiag] WATER: river cells mean %.1f (min %d max %d) | bridges mean %.2f "
+        "(min %d max %d)" % (ws["mean"], ws["min"], ws["max"],
+                             bs["mean"], bs["min"], bs["max"])
+    )
+    total_w = sum(agg_water.values()) or 1
+    for m, c in sorted(agg_water.items()):
+        nm = NECKLACE_NAMES.get(m, ("0b{:06b}".format(m),))[0]
+        unreal.log("  water  {:<10s} {:>6d}  ({:>5.1f}%)".format(nm, c, 100.0 * c / total_w))
+    unreal.log("[RollDiag] bridge pairs (joint-canonical; author these, most-common first):")
+    total_b = sum(agg_pairs.values()) or 1
+    for pair, c in sorted(agg_pairs.items(), key=lambda kv: -kv[1]):
+        unreal.log("  bridge %-46s %6d  (%5.1f%%)" % (_pair_name(pair), c, 100.0 * c / total_b))
+
     # CSV
     out_dir = os.path.join(unreal.Paths.project_dir(), "Design", "Rolls")
     try:
@@ -390,6 +469,14 @@ def run_roll_sweep(n=200, base_seed=0):
                 f.write("# artery_fork_chance,{:.4f}\n".format(growth.get_editor_property("artery_fork_chance")))
             except Exception as exc:
                 f.write("# (growth provenance footer error: {})\n".format(exc))
+            f.write("\n# Water census (aggregate over all rolls)\n")
+            f.write("# mean_river_cells,{:.4f}\n".format(ws["mean"]))
+            f.write("# mean_bridges,{:.4f}\n".format(bs["mean"]))
+            for m, c in sorted(agg_water.items()):
+                nm = NECKLACE_NAMES.get(m, ("0b{:06b}".format(m),))[0]
+                f.write("# water_{},{}\n".format(nm, c))
+            for pair, c in sorted(agg_pairs.items(), key=lambda kv: -kv[1]):
+                f.write("# bridge_0b{:06b}x0b{:06b},{}\n".format(pair[0], pair[1], c))
     except Exception as exc:
         unreal.log_warning("[RollDiag] CSV write failed: %s" % exc)
         return None

@@ -20,8 +20,10 @@ public:
 	/** 6-bit road mask of a tile at rotation 0 (bit e set when edge e is Road). */
 	static int32 TileMask(const FHexTileDef& Tile);
 
-	/** Find a tile + rotation (0..5) whose rotated road mask equals TargetMask. */
-	bool FindTileForMask(int32 TargetMask, int32& OutTileIndex, int32& OutRotation) const;
+	/** Find a tile + rotation (0..5) whose rotated ROAD and WATER masks BOTH equal the
+	 *  targets under the same rotation (the layered-mask contract — Docs/Rivers.md §2).
+	 *  TargetWaterMask 0 = a dry cell, matched by dry tiles only. */
+	bool FindTileForMask(int32 TargetMask, int32 TargetWaterMask, int32& OutTileIndex, int32& OutRotation) const;
 };
 
 /** One hardwired fixed-core cell: a bespoke mesh pinned at an axial coord (placed verbatim, yaw 0).

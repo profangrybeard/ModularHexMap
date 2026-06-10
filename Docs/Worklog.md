@@ -42,8 +42,27 @@ session locked the direction (see Roadmap "Locked direction"), then two executio
   thing that puts everyone on one team). Core insight: the two-bank divide is *emergent*
   (far bank only receives roads through bridges). Rulings same day: river/bridge cells
   house souls (souls = 120 holds); name = "River" (vanilla by choice); channel = 5 m
-  one-cell. R1 (growth-side implementation) unblocked; restoration loop remains next in
-  the build queue per the locked order.
+  one-cell.
+- **Rivers R1–R3 IMPLEMENTED + verified in-engine** (director pivot: "trust the river
+  before we design much more"; rivers jumped ahead of the restoration loop):
+  - **R1 growth:** `FHexCellResult.WaterMask`, `GrowRiver` (seeded momentum walk,
+    boundary→boundary, frontier-only, no self-touch, 24-attempt retry), water-as-wall
+    `MarkRoad`, **artery-only one-deck bridging** (landing confirmed before writing —
+    the first census caught failed crossings leaving roads diving into water, and
+    arteries marching *along* the channel; both fixed, census re-run clean).
+  - **Census discipline paid off:** exactly **3 bridge pairs exist** in 200 rolls
+    (straight×straight 120° 45.7%, 60° 43.8%, straight×curve 10.5%) → the complete
+    bridge kit is 3 parametric meshes. River mean 10.6 cells; bridges mean 1.52.
+  - **R2 kit:** `gen_river_tiles.py` (channel 5 m, water at −0.9, banks in-tile,
+    census-driven `BRIDGE_SETS`, writes `river_kit.json`); `setup_river.py` imports +
+    wires the catalog (20 rows).
+  - **R3 resolution:** material-keyed two-layer `MeasureTileMask` + joint-rotation
+    `FindPlacement`; **20-tile calibration OK on both layers; 127 cells / 0 unresolved
+    / souls=120 with the river through town and both bridge types placed (seed 6).**
+  - Python-formatting gotcha caught live: `%`-formatting has no binary conversion
+    (`%06b` → ValueError); and `AutomationLibrary.take_high_res_screenshot` silently
+    no-ops outside the automation framework — console `HighResShot` is the working
+    editor capture path.
 
 ## 2026-06-07 (late) — Buildings SHIPPED in engine
 

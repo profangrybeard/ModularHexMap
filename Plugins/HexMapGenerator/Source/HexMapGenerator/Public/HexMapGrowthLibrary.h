@@ -67,9 +67,21 @@ struct FHexGrowthParams
 	/** Past ArteryStraightRadius, per-step chance an artery DIVIDES (spawns a diverging branch). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|Arteries", meta = (ClampMin = "0", ClampMax = "1"))
 	float ArteryForkChance = 0.12f;
+
+	/** Roll a river: a boundary-to-boundary momentum walk grown BEFORE roads (water is
+	 *  foundation — Docs/Rivers.md). Off = pre-river behavior, bit-exact for the road layer. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River")
+	bool bRiver = true;
+
+	/** River momentum: chance to continue straight each step (loves crossing, hates
+	 *  branching — v1 never branches). Lower = lazier meander. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River", meta = (ClampMin = "0", ClampMax = "1"))
+	float RiverStraightBias = 0.8f;
 };
 
-/** One resolved cell: its axial coordinate and 6-bit road mask. */
+/** One resolved cell: its axial coordinate and the layered 6-bit edge masks.
+ *  Layers are PARALLEL, never merged (Docs/Rivers.md §2): road and water each keep
+ *  binary-necklace math; a cell with both nonzero is a bridge. */
 USTRUCT(BlueprintType)
 struct FHexCellResult
 {
@@ -80,6 +92,10 @@ struct FHexCellResult
 
 	UPROPERTY(BlueprintReadOnly, Category = "Hex Map")
 	int32 RoadMask = 0;
+
+	/** Water layer (0 = dry). Old saved rolls lack the field and load as 0. */
+	UPROPERTY(BlueprintReadOnly, Category = "Hex Map")
+	int32 WaterMask = 0;
 };
 
 /** The grown network: every cell in the region with its road mask (0 = blank). */

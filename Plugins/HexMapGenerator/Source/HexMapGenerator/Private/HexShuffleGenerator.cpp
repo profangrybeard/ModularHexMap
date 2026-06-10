@@ -54,30 +54,31 @@ void AHexShuffleGenerator::Recalibrate()
 	MeasureCalibration();
 }
 
-// Read the mesh's M_Road material section and see which of the 6 edge midpoints its
-// carriageway vertices reach -> the tile's true road mask at yaw 0. CPU-only (no physics),
-// and it captures any import mirror/rotation because it reads the actual geometry.
-int32 AHexShuffleGenerator::MeasureTileMask(UStaticMesh* Mesh) const
+// Read the mesh's keyed material section ("Road" or "Water") and see which of the 6
+// edge midpoints that layer's vertices reach -> the tile's true layer mask at yaw 0.
+// CPU-only (no physics), and it captures any import mirror/rotation because it reads
+// the actual geometry. One measurer, two layers — the layered-mask contract.
+int32 AHexShuffleGenerator::MeasureTileMask(UStaticMesh* Mesh, const TCHAR* MaterialKey) const
 {
 	if (!Mesh) { return 0; }
 	const FStaticMeshRenderData* RD = Mesh->GetRenderData();
 	if (!RD || RD->LODResources.Num() == 0) { return 0; }
 	const FStaticMeshLODResources& LOD = RD->LODResources[0];
 
-	// Locate the road material slot.
+	// Locate the keyed material slot.
 	int32 RoadSlot = INDEX_NONE;
 	const TArray<FStaticMaterial>& Mats = Mesh->GetStaticMaterials();
 	for (int32 i = 0; i < Mats.Num(); ++i)
 	{
 		const FString SlotName = Mats[i].MaterialSlotName.ToString();
 		const FString MatName = Mats[i].MaterialInterface ? Mats[i].MaterialInterface->GetName() : FString();
-		if (SlotName.Contains(TEXT("Road")) || MatName.Contains(TEXT("Road")))
+		if (SlotName.Contains(MaterialKey) || MatName.Contains(MaterialKey))
 		{
 			RoadSlot = i;
 			break;
 		}
 	}
-	if (RoadSlot == INDEX_NONE) { return 0; } // no road section -> blank tile
+	if (RoadSlot == INDEX_NONE) { return 0; } // no such section -> layer absent on this tile
 
 	const FPositionVertexBuffer& PVB = LOD.VertexBuffers.PositionVertexBuffer;
 	FIndexArrayView Indices = LOD.IndexBuffer.GetArrayView();
@@ -125,24 +126,30 @@ void AHexShuffleGenerator::MeasureCalibration()
 
 	const int32 N = TileSet->Tiles.Num();
 	TileRealMask.Init(0, N);
+	TileRealWaterMask.Init(0, N);
 	int32 PopMismatches = 0;
 
 	for (int32 i = 0; i < N; ++i)
 	{
 		UStaticMesh* M = TileSet->Tiles[i].Mesh.LoadSynchronous();
-		const int32 Measured = MeasureTileMask(M);
+		const int32 Measured = MeasureTileMask(M, TEXT("Road"));
+		const int32 MeasuredW = MeasureTileMask(M, TEXT("Water"));
 		TileRealMask[i] = Measured;
+		TileRealWaterMask[i] = MeasuredW;
 
 		const int32 Authored = UHexTileSet::TileMask(TileSet->Tiles[i]);
-		const int32 PM = PopCount6(Measured);
-		const int32 PA = PopCount6(Authored);
-		if (PM != PA) { ++PopMismatches; }
+		const int32 AuthoredW = TileSet->Tiles[i].WaterMask & 0x3F;
+		const int32 PM = PopCount6(Measured), PA = PopCount6(Authored);
+		const int32 PMW = PopCount6(MeasuredW), PAW = PopCount6(AuthoredW);
+		if (PM != PA || PMW != PAW) { ++PopMismatches; }
 
-		UE_LOG(LogTemp, Display, TEXT("HexShuffle tile '%s': measured=0x%02X(%d) authored=0x%02X(%d) %s"),
-			*TileSet->Tiles[i].Name.ToString(), Measured, PM, Authored, PA, (PM == PA ? TEXT("OK") : TEXT("MISMATCH")));
+		UE_LOG(LogTemp, Display, TEXT("HexShuffle tile '%s': road measured=0x%02X(%d) authored=0x%02X(%d) | water measured=0x%02X(%d) authored=0x%02X(%d) %s"),
+			*TileSet->Tiles[i].Name.ToString(), Measured, PM, Authored, PA, MeasuredW, PMW, AuthoredW, PAW,
+			((PM == PA && PMW == PAW) ? TEXT("OK") : TEXT("MISMATCH")));
 	}
 
-	// Road-count is rotation-invariant, so every measured popcount must equal the authored one.
+	// Edge-count is rotation-invariant, so every measured popcount must equal the
+	// authored one — per layer.
 	bCalibrated = (PopMismatches == 0);
 
 	if (bCalibrated)
@@ -157,16 +164,18 @@ void AHexShuffleGenerator::MeasureCalibration()
 	}
 }
 
-bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32& OutTile, int32& OutYawSteps) const
+bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps) const
 {
 	for (int32 i = 0; i < TileRealMask.Num(); ++i)
 	{
 		for (int32 k = 0; k < 6; ++k)
 		{
 			// World mask of this tile placed at yaw 60*k is RotateLeft(real, k) for UE's
-			// yaw convention; bInvertYawShift flips it if turns come out mirrored.
+			// yaw convention; bInvertYawShift flips it if turns come out mirrored. BOTH
+			// layers must match under the SAME rotation (the layered-mask contract).
 			const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
-			if (HexGrid::RotateMask6(TileRealMask[i], Rot) == CellMask)
+			if (HexGrid::RotateMask6(TileRealMask[i], Rot) == CellMask &&
+				HexGrid::RotateMask6(TileRealWaterMask[i], Rot) == CellWaterMask)
 			{
 				OutTile = i;
 				OutYawSteps = k;
@@ -239,7 +248,9 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 	Clear();
 	LastNetwork = Net; // remember what we placed, so SaveRoll / diagnostics read the truth
 
-	const bool bUseMeasured = bCalibrated && TileRealMask.Num() == TileSet->Tiles.Num();
+	const bool bUseMeasured = bCalibrated
+		&& TileRealMask.Num() == TileSet->Tiles.Num()
+		&& TileRealWaterMask.Num() == TileSet->Tiles.Num();
 	int32 Unresolved = 0;
 	int32 SoulCount = 0;
 	int32 CorePlaced = 0;
@@ -276,7 +287,7 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 				// as the frontier resolver does. Without this the core places at a fixed yaw and
 				// comes out mis-rotated (rings off the mirror axis are visibly wrong every roll).
 				int32 CoreYaw = 0;
-				const int32 Real = MeasureTileMask(CoreE->Key);
+				const int32 Real = MeasureTileMask(CoreE->Key, TEXT("Road"));
 				for (int32 k = 0; k < 6; ++k)
 				{
 					const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
@@ -291,12 +302,12 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 			continue;
 		}
 
-		// Frontier cell: resolve the grown mask to a street tile + rotation and place it.
+		// Frontier cell: resolve the grown masks (both layers) to a tile + rotation.
 		int32 TileIdx = INDEX_NONE;
 		int32 YawSteps = 0;
 		const bool bFound = bUseMeasured
-			? FindPlacement(Cell.RoadMask, TileIdx, YawSteps)
-			: TileSet->FindTileForMask(Cell.RoadMask, TileIdx, YawSteps);
+			? FindPlacement(Cell.RoadMask, Cell.WaterMask, TileIdx, YawSteps)
+			: TileSet->FindTileForMask(Cell.RoadMask, Cell.WaterMask, TileIdx, YawSteps);
 
 		if (!bFound) { ++Unresolved; continue; }
 

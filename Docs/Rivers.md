@@ -1,5 +1,14 @@
 # Rivers & Bridges — the plan (Phase 2 deliverable, 2026-06-10)
 
+> **STATUS: R1–R3 LANDED 2026-06-10** (director pivot: "trust the river before we
+> design much more"). Gates: 200-roll sweep — river spans every roll, mean 10.6 cells,
+> 0 ring-1 violations, bridges mean 1.52, souls 120.0, 0 unresolved; the census reports
+> exactly THREE bridge pairs (straight×straight 120°/60°, straight×curve) — all three
+> authored; in-engine: 20-tile two-layer calibration OK, 127 cells / 0 unresolved /
+> souls=120 with the river through town. **R4 (banks & identity) is the open phase.**
+> Tuning flag: bridges min 0 means some rolls leave a roadless far bank — charming or
+> a knob, director's call when it surfaces in play.
+
 > **The brief (director, 2026-06-10):** the river is a **divider of business and culture
 > that simultaneously puts everyone on the same team** — the James in Richmond, the
 > Thames in London ("north of the river" / "south of the river" is a real London cultural

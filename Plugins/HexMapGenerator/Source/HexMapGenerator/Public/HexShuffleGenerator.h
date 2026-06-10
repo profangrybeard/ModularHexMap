@@ -114,9 +114,13 @@ private:
 	UPROPERTY(Transient)
 	TMap<TObjectPtr<UStaticMesh>, TObjectPtr<UInstancedStaticMeshComponent>> MeshToISM;
 
-	// Calibration cache: each tile's true road mask (edges its carriageway reaches), at yaw 0.
+	// Calibration cache: each tile's true ROAD and WATER masks (edges each layer's
+	// geometry reaches), at yaw 0. Layers measured independently from material sections.
 	UPROPERTY(Transient)
 	TArray<int32> TileRealMask;
+
+	UPROPERTY(Transient)
+	TArray<int32> TileRealWaterMask;
 	bool bCalibrated = false;
 
 	// The last network Build() placed — what SaveRoll writes out and what Python's
@@ -128,8 +132,8 @@ private:
 	FHexNetwork LastNetwork;
 
 	void MeasureCalibration();
-	int32 MeasureTileMask(UStaticMesh* Mesh) const;
-	bool FindPlacement(int32 CellMask, int32& OutTile, int32& OutYawSteps) const;
+	int32 MeasureTileMask(UStaticMesh* Mesh, const TCHAR* MaterialKey) const;
+	bool FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps) const;
 
 	void Build(const FHexNetwork& Net);
 	UInstancedStaticMeshComponent* GetOrCreateISM(UStaticMesh* Mesh);

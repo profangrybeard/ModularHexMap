@@ -42,6 +42,12 @@ struct FHexTileDef
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (EditFixedSize))
 	TArray<EHexEdgeSocket> Edges;
 
+	/** Water layer at rotation 0 (bit e set when edge e carries the river). 0 for the
+	 *  street kit; nonzero on river tiles; road edges + water bits both nonzero = a
+	 *  bridge tile. Authored mirror of what calibration measures from M_Water verts. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (ClampMin = "0", ClampMax = "63"))
+	int32 WaterMask = 0;
+
 	FHexTileDef()
 	{
 		Edges.Init(EHexEdgeSocket::Pavement, 6);

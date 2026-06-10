@@ -23,6 +23,7 @@ if _HERE and _HERE not in sys.path:
 import gen_curved_tiles as _street
 import gen_pit_core as _core
 import gen_buildings as _bldg
+import gen_river_tiles as _river
 
 
 class TileEntry:

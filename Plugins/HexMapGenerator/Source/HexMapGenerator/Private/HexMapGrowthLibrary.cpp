@@ -37,16 +37,108 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		if (InR(CC.Axial)) { Mask[CC.Axial] = CC.RoadMask; }
 	}
 
+	// --- 0. The river: water grows FIRST (foundation, not reaction — Docs/Rivers.md). ---
+	// A boundary-to-boundary momentum walk: loves crossing, never branches (v1), and is
+	// FRONTIER-ONLY — it may not enter Distance <= CoreRadius+1, so the authored core
+	// stays dry and the wound keeps the center while the water takes a chord.
+	TMap<FIntPoint, int32> Water;
+	for (const FIntPoint& C : Region) { Water.Add(C, 0); }
+	if (P.bRiver)
+	{
+		const int32 Standoff = P.CoreRadius + 1;
+		TArray<FIntPoint> Boundary;
+		for (const FIntPoint& C : Region) { if (Distance(C) == P.Radius) { Boundary.Add(C); } }
+		// Deterministic boundary order: TSet iteration order isn't contractual, so sort.
+		Boundary.Sort([](const FIntPoint& A, const FIntPoint& B)
+			{ return (A.X != B.X) ? (A.X < B.X) : (A.Y < B.Y); });
+
+		const int32 MinLen = P.Radius + 2;   // must genuinely cross before it may exit
+		for (int32 Attempt = 0; Attempt < 24 && Boundary.Num() > 0; ++Attempt)
+		{
+			const FIntPoint Entry = Boundary[Rng.RandRange(0, Boundary.Num() - 1)];
+			// Initial heading: the inward-most step (min Distance), ties broken by stream.
+			int32 H = -1, BestD = MAX_int32;
+			const int32 Tie = Rng.RandRange(0, 5);
+			for (int32 k = 0; k < 6; ++k)
+			{
+				const int32 d = (Tie + k) % 6;
+				const FIntPoint N = Neighbor(Entry, d);
+				if (InR(N) && Distance(N) < BestD && Distance(N) > Standoff)
+				{
+					BestD = Distance(N); H = d;
+				}
+			}
+			if (H < 0) { continue; }
+
+			TArray<FIntPoint> Path;
+			TSet<FIntPoint> OnPath;
+			TMap<FIntPoint, int32> Trial;   // water bits this attempt (committed only on success)
+			FIntPoint C = Entry;
+			Path.Add(C); OnPath.Add(C);
+			const int32 H0 = H;
+			int32 ExitDir = -1;
+			int32 Guard = 256;
+			while (--Guard > 0 && ExitDir < 0)
+			{
+				// Momentum: straight at RiverStraightBias, else meander ±1. Then fall back
+				// through the remaining non-backward directions before declaring a dead end.
+				const int32 Left = (H + 1) % 6, Right = (H + 5) % 6, Back = (H + 3) % 6;
+				TArray<int32, TInlineAllocator<5>> Try;
+				if (Rng.FRand() < P.RiverStraightBias) { Try = { H, (Rng.FRand() < 0.5f) ? Left : Right }; }
+				else { const bool L = Rng.FRand() < 0.5f; Try = { L ? Left : Right, H, L ? Right : Left }; }
+				for (int32 d = 0; d < 6; ++d) { if (d != Back && !Try.Contains(d)) { Try.Add(d); } }
+
+				int32 Step = -1;
+				for (int32 d : Try)
+				{
+					const FIntPoint N = Neighbor(C, d);
+					if (!InR(N))
+					{
+						if (Path.Num() >= MinLen) { ExitDir = d; break; }   // flow off the world
+						continue;
+					}
+					if (Distance(N) <= Standoff) { continue; }   // frontier-only (locked)
+					if (OnPath.Contains(N)) { continue; }        // no self-touch / braiding
+					Step = d; break;
+				}
+				if (ExitDir >= 0) { break; }
+				if (Step < 0) { break; }                         // dead end -> retry attempt
+
+				const FIntPoint N = Neighbor(C, Step);
+				Trial.FindOrAdd(C) |= (1 << Step);
+				Trial.FindOrAdd(N) |= (1 << ((Step + 3) % 6));
+				C = N; H = Step;
+				Path.Add(C); OnPath.Add(C);
+			}
+			if (ExitDir < 0) { continue; }                       // failed attempt; next seed-roll
+
+			// Off-map edges so the river visibly enters/leaves the world (no prune on water).
+			int32 EntryOut = (H0 + 3) % 6;
+			if (InR(Neighbor(Entry, EntryOut)))
+			{
+				for (int32 d = 0; d < 6; ++d) { if (!InR(Neighbor(Entry, d))) { EntryOut = d; break; } }
+			}
+			Trial.FindOrAdd(Entry) |= (1 << EntryOut);
+			Trial.FindOrAdd(C) |= (1 << ExitDir);
+			for (const TPair<FIntPoint, int32>& T : Trial) { Water[T.Key] = T.Value; }
+			break;
+		}
+	}
+	auto IsWater = [&](const FIntPoint& C) { const int32* W = Water.Find(C); return W && *W != 0; };
+
 	// Mark a road on edge e of C, plus the mutual return edge on the neighbor if it is
 	// in-region. Returns true when the road continues into the map (neighbor in-region);
 	// false means it runs off the map edge (still drawn on C, just no neighbor). Core cells
 	// are immutable: we never write their masks (they keep their authored values), though a
 	// frontier road may still abut and "dead-end into" the core (e.g. a street into the Pit).
+	// WATER is a wall to ordinary streets: only the artery walk writes road over water,
+	// explicitly, as a bridge (Docs/Rivers.md §3.2) — so bridge scarcity is structural.
 	auto MarkRoad = [&](const FIntPoint& C, int32 e) -> bool
 	{
-		if (!InR(C) || InCore(C)) { return false; }
-		Mask[C] |= (1 << e);
+		if (!InR(C) || InCore(C) || IsWater(C)) { return false; }
 		const FIntPoint N = Neighbor(C, e);
+		if (InR(N) && IsWater(N)) { return false; }   // streets never enter water
+		Mask[C] |= (1 << e);
 		if (InR(N)) { if (!InCore(N)) { Mask[N] |= (1 << ((e + 3) % 6)); } return true; }
 		return false;
 	};
@@ -94,6 +186,34 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 						StepDir = (Rng.FRand() < 0.5f) ? (CurDir + 1) % 6 : (CurDir + 5) % 6;
 					}
 				}
+
+				// BRIDGE: when the artery meets the river it crosses — ONE deck over ONE
+				// water cell, straight through, landing confirmed BEFORE any bits are
+				// written (a failed crossing must not leave a road diving into the
+				// water). The river is one cell wide by design, so needing a second
+				// water cell means we're running ALONG the channel, not across it —
+				// refuse. One deck per water cell (no double-crossings). This is the
+				// ONLY road-onto-water writer, so bridge count ≈ artery-river
+				// intersections and the far bank's whole street network descends from
+				// these crossings (the two-bank divide is emergent — Docs/Rivers.md §1).
+				{
+					const FIntPoint Ahead = Neighbor(C, StepDir);
+					if (InR(Ahead) && IsWater(Ahead))
+					{
+						const FIntPoint Land = Neighbor(Ahead, StepDir);
+						const bool bCanCross = InR(Land) && !IsWater(Land) && !InCore(Land)
+							&& Mask[Ahead] == 0;
+						if (!bCanCross) { break; }                    // artery ends at the bank
+						Mask[C] |= (1 << StepDir);
+						Mask[Ahead] |= (1 << StepDir) | (1 << ((StepDir + 3) % 6));
+						Mask[Land] |= (1 << ((StepDir + 3) % 6));
+						Seeds.AddUnique(Land);                         // far-bank branch seed
+						C = Land;                                      // continue on the far side
+						CurDir = StepDir;
+						continue;                                      // (no Seeds on bridge cells)
+					}
+				}
+
 				MarkRoad(C, StepDir);        // runs off the edge at the boundary cell
 				Seeds.AddUnique(C);
 				CurDir = StepDir;
@@ -220,6 +340,7 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		FHexCellResult R;
 		R.Axial = C;
 		R.RoadMask = Mask[C];
+		R.WaterMask = Water[C];
 		Net.Cells.Add(R);
 	}
 	return Net;
