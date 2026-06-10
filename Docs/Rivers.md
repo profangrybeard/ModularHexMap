@@ -8,6 +8,10 @@
 > souls=120 with the river through town. **R4 (banks & identity) is the open phase.**
 > Tuning flag: bridges min 0 means some rolls leave a roadless far bank — charming or
 > a knob, director's call when it surfaces in play.
+>
+> **Proof (seed 6, 11 river cells, 2 bridges):** ![the river through town — dense near
+> bank, open far bank](Images/river_seed6_wide.png) — the two-bank divide visible in
+> the first rendered roll, exactly as §1 predicted.
 
 > **The brief (director, 2026-06-10):** the river is a **divider of business and culture
 > that simultaneously puts everyone on the same team** — the James in Richmond, the

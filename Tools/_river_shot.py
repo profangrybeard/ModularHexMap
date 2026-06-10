@@ -64,22 +64,19 @@ def _tick(_dt):
                        % (S["seed"], gen.get_editor_property("souls")))
             rd.diagnose_last_roll()
         if t == 140:
-            ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
-            ues.set_level_viewport_camera_info(
-                unreal.Vector(0.0, -17500.0, 12500.0),
-                unreal.Rotator(roll=0.0, pitch=-40.0, yaw=90.0))
-        if t == 220:
-            # Console HighResShot writes Saved/Screenshots/WindowsEditor/HighresScreenshot*.png
-            # next frame; AutomationLibrary.take_high_res_screenshot silently no-ops outside
-            # the automation framework (verified live).
-            unreal.SystemLibrary.execute_console_command(None, "HighResShot 2400x1350")
-        if t == 340:
-            # Bridge close-up: find a bridge cell in the placed network and orbit it.
+            # ONE shot per session is the reliable pattern. Mode by env-ish flag file:
+            # default = wide; if Saved/shot_closeup exists -> bridge close-up instead.
             import math
-            eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-            gen = next((a for a in eas.get_all_level_actors()
-                        if a.get_class().get_name() == "HexShuffleGenerator"), None)
-            if gen:
+            closeup = os.path.exists(os.path.join(REPO, "Saved", "shot_closeup"))
+            ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+            if not closeup:
+                ues.set_level_viewport_camera_info(
+                    unreal.Vector(0.0, -17500.0, 12500.0),
+                    unreal.Rotator(roll=0.0, pitch=-40.0, yaw=90.0))
+            else:
+                eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+                gen = next((a for a in eas.get_all_level_actors()
+                            if a.get_class().get_name() == "HexShuffleGenerator"), None)
                 net = gen.get_editor_property("last_network")
                 circ = float(gen.get_editor_property("hex_circumradius_uu"))
                 inr = circ * 0.8660254
@@ -95,14 +92,16 @@ def _tick(_dt):
                     yaw = math.degrees(math.atan2(cy - py, cx - px))
                     dist = math.hypot(cx - px, cy - py)
                     pitch = -math.degrees(math.atan2(pz - 150.0, dist))
-                    ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
                     ues.set_level_viewport_camera_info(
                         unreal.Vector(px, py, pz),
                         unreal.Rotator(roll=0.0, pitch=pitch, yaw=yaw))
                     unreal.log("[Shot] bridge close-up at (%.0f, %.0f)" % (cx, cy))
-        if t == 440:
+        if t == 240:
+            # Console HighResShot writes Saved/Screenshots/WindowsEditor/HighresScreenshot*.png
+            # next frame; AutomationLibrary.take_high_res_screenshot silently no-ops outside
+            # the automation framework (verified live).
             unreal.SystemLibrary.execute_console_command(None, "HighResShot 2400x1350")
-        if t >= 620:
+        if t >= 460:
             unreal.log("[Shot] done; quitting")
             if S["h"] is not None:
                 unreal.unregister_slate_post_tick_callback(S["h"])
