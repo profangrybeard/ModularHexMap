@@ -24,10 +24,11 @@ Repo root `C:\SCAD\_projects\ModularHexMap`. Engine: launcher **UE 5.7** at
 `C:\Program Files\Epic Games\UE_5.7`. Blender **5.1** at `C:\Program Files\Blender Foundation\Blender 5.1`.
 
 ```powershell
-# Build the editor target (after any C++ change; needs the editor CLOSED — DLL lock)
-& "C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat" `
-  ModularHexMapEditor Win64 Development `
-  -Project="C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject" -WaitMutex
+# Build the editor target (after any C++ change; needs the editor CLOSED — DLL lock).
+# This is the ONLY sanctioned compile path. NEVER use the VS 2022 Build menu on this
+# project — it dies on $(IncludePath) > 32 KB (gotcha #29). The script wraps Build.bat
+# so future-you doesn't have to remember the engine path / args.
+.\Tools\Build.ps1
 
 # Launch the editor (startup map = /Game/_project/Maps/ShuffleLab)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
@@ -411,6 +412,21 @@ or just refresh existing assets via **Tools ▸ Reimport Hex Tiles** instead.
     pick `N = 0/1/2/3` by total run length, distribute door spans evenly along the run, and map
     each span back to whichever segments it overlaps. A door whose width crosses multiple sub-segments
     produces a lintel quad on each overlapped segment — the "banana lintel" follows the curve.
+29. **NEVER use VS 2022 Build menu on this UE project — it trips MSBuild's `SetEnv` task before
+    any compile starts.** Line 116 of `Microsoft.Cpp.Current.targets` runs
+    `<SetEnv Name="INCLUDE" Value="$(IncludePath)" Prefix="false" />`, and `$(IncludePath)` on a
+    UE 5.7 project with engine modules + plugins exceeds **32 767 chars** (the per-variable
+    Windows env-var ceiling that .NET's `Environment.SetEnvironmentVariable` enforces). MSBuild
+    throws `MSB4018: System.ArgumentException: Environment variable name or value is too long`
+    and dies. Nothing about the machine env is wrong — a clean install with `PATH` at 1 074 chars
+    and *zero* other env vars over 1 000 chars still hits this. **Fix:** always compile via
+    `Tools/Build.ps1` (or the underlying `Build.bat ModularHexMapEditor Win64 Development -Project=... -WaitMutex`).
+    That path goes through UnrealBuildTool → `cl.exe` directly, passing include paths as
+    command-line `/I "..."` args instead of stuffing them into a Windows env var. Same compiler,
+    same SDK, just not via MSBuild's SetEnv. Editor's "rebuild outdated modules?" prompt also
+    works (it calls UBT internally). Edit C++ in whatever IDE you like; only ever build through
+    `Tools/Build.ps1`. *(Hit on the secondary dev machine when picking up the building-tile work
+    fresh; cost an evening.)*
 
 ## Next steps
 0. **Building footprints (pivot — the next big rock).** Roll diagnostics ✅ and the constraints
