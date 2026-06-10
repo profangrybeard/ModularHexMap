@@ -35,9 +35,12 @@ facades don't answer it.
 Requires Shapely (installed 2026-06-05).
 """
 
+import os
 import bpy, bmesh, math, sys, importlib
 
-TOOLS_DIR = r"C:\SCAD\_projects\ModularHexMap\Tools\blender"
+TOOLS_DIR = (os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals()
+             else os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+                 bpy.data.filepath))), "Tools", "blender"))
 if TOOLS_DIR not in sys.path:
     sys.path.append(TOOLS_DIR)
 import gen_curved_tiles as g

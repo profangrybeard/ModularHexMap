@@ -80,7 +80,7 @@ doors, straight got too many).
 
 ```python
 def doors_for_run(L):
-    if L < 1.3:  return 0     # no room for a 0.9 m door
+    if L < 1.3:  return 0     # no room for a 0.9 m door (DOOR_W + 0.4)
     if L < 7.0:  return 1     # small shop
     if L < 25.0: return 2     # default
     return 3                  # long facade
@@ -131,26 +131,24 @@ up automatically.
 
 ## Commands
 
+Run from the **repo root** (machine-neutral — the scripts derive the repo path themselves):
+
 ```powershell
 # 1. Bake the .glb (headless, Blender; never saves the master)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
-  "C:\SCAD\_projects\ModularHexMap\Source_Art\Blender\HexBase.blend" `
-  --python "C:\SCAD\_projects\ModularHexMap\Tools\blender\gen_buildings.py"
+  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_buildings.py"
 
 # 2. First-time UE import + DA wiring (GUI editor, one-shot Python; required only ONCE)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
-  "C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject" `
-  -ExecutePythonScript="C:\SCAD\_projects\ModularHexMap\Tools\setup_buildings.py"
+  "$PWD\ModularHexMap.uproject" -ExecutePythonScript="$PWD\Tools\setup_buildings.py"
 
 # 3. Subsequent geometry changes: just reimport (refreshes both streets + buildings)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
-  "C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject" `
-  -ExecutePythonScript="C:\SCAD\_projects\ModularHexMap\Content\Python\reimport_hextiles.py"
+  "$PWD\ModularHexMap.uproject" -ExecutePythonScript="$PWD\Content\Python\reimport_hextiles.py"
 
 # 4. Verify in-engine (loads ShuffleLab, Randomizes, dumps ISM counts)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
-  "C:\SCAD\_projects\ModularHexMap\ModularHexMap.uproject" `
-  -ExecutePythonScript="C:\SCAD\_projects\ModularHexMap\Tools\_verify_buildings.py"
+  "$PWD\ModularHexMap.uproject" -ExecutePythonScript="$PWD\Tools\_verify_buildings.py"
 ```
 
 ## Tuning knobs

@@ -1,7 +1,7 @@
 """reimport_hextiles.py — one-click batch reimport of the hex-tile static meshes.
 
-Reimports every StaticMesh under /Game/HexTiles from its recorded .glb source (the files the
-Blender "Build Enabled" / "Export This Tile" pipeline writes to Content/HexTiles/Source/), then
+Reimports every StaticMesh under /Game/_project/HexTiles from its recorded .glb source (the files the
+Blender "Build Enabled" / "Export This Tile" pipeline writes to Content/_project/HexTiles/Source/), then
 re-asserts Collision Complexity = Use Complex As Simple (gotcha #5) so tiles stay walkable.
 
 Run it three ways:
@@ -74,7 +74,7 @@ def run():
             fixed += 1
 
     # self-heal materials: glTF reimport re-mints per-tile material dupes; fold them back into
-    # the /Game/HexTiles/Materials masters so the project never re-accumulates the sprawl.
+    # the /Game/_project/HexTiles/Materials masters so the project never re-accumulates the sprawl.
     try:
         import hextile_materials
         hextile_materials.consolidate_to_masters()

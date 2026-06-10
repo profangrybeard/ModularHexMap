@@ -3,8 +3,9 @@
     blender --background Source_Art/Blender/HexBase.blend \
             --python Tools/blender/gen_curved_tiles.py
 
-Supersedes the faceted center->edge arms in gen_street_tiles.py. Same 14 road-edge
-configs, same boolean-carve pipeline (full-hex flagstone pavement minus a carriageway
+Supersedes the faceted center->edge arms of the old gen_street_tiles.py (deleted
+2026-06-10; git history has it). Same 14 road-edge configs, same boolean-carve
+pipeline (full-hex flagstone pavement minus a carriageway
 channel + a cobble carriageway surface), but the channel CENTRELINE is now smooth:
 
   * THROUGH-ROUTES (exactly 2 connected edges, not opposite) -> a single CIRCULAR ARC.

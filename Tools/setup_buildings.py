@@ -22,7 +22,7 @@ import os
 import time
 import unreal
 
-REPO     = r"C:/SCAD/_projects/ModularHexMap"
+REPO     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # machine-neutral
 SRC      = REPO + "/Content/_project/HexTiles/Source"
 DEST     = "/Game/_project/HexTiles/Buildings"
 DA_PATH  = "/Game/_project/Data/DA_HexTileSet_Streets"

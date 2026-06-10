@@ -8,21 +8,23 @@ contract, same C1 modular contract at edge midpoints. Each building tile sits ON
 matching street tile at the same cell -- the engine places both at the same world position.
 
 Geometry layers per tile (one joined mesh per glb):
-  * Walls   -- single-story (3.5 m eaves), facades trace the road centreline offset by
-                KEEP_HW = 2.5 m, multiple doors at ~8 m spacing on long facades.
-  * Roof    -- FLAT slab (no gables -- those read as a field of tents in a hex grid).
-  * Gardens -- waist-height (1 m) stone-wall ring on every "bend corner" piece (any pair
-                of adjacent road edges sharing a hex vertex), with a 1.5 m gate gap on the
-                road-facing side. Inner-bend rule shrinks the road corridor at each shared
-                vertex so the corner garden is a usable plot (~9 m^2), not a sliver.
+  * Walls    -- single-story (3.5 m eaves), facades trace the road centreline offset by
+                KEEP_HW = 2.5 m, doors by per-run arc length (doors_for_run).
+  * Roof     -- FLAT slab (no gables -- those read as a field of tents in a hex grid).
+  * Interior -- coincident inward-facing wall duplicates + the roof underside (ceiling).
+  * Doors    -- jambs + header + threshold per door, in M_DoorFrame.
+  * Gardens  -- corner pieces (any pair of adjacent road edges sharing a hex vertex)
+                emit NO geometry: that plot is the user's hand-authoring playground.
+                The inner-bend disc subtraction grows each corner to ~9 m^2 of room.
 
 Material slot order (kept stable so the engine can drive per-slot logic):
-  * M_Building     -- facade walls (front)
-  * M_BuildingBack -- back & side walls (along the hex boundary) -- the engine can later
-                       split / hide / replace these per-edge to render the "inset on
-                       blank-side" alley behaviour without authoring 2^N tile variants.
-  * M_BuildingRoof -- flat roof slabs
-  * M_GardenWall   -- garden stone wall
+  * M_Building         -- facade walls (front, road-facing)
+  * M_BuildingBack     -- back & side walls (along the hex boundary) -- the engine can
+                          later split / hide / replace these per-edge to render the
+                          "inset on blank-side" alley behaviour without 2^N variants.
+  * M_BuildingRoof     -- flat roof slab top + sides
+  * M_BuildingInterior -- inside face of every wall + the ceiling
+  * M_DoorFrame        -- jambs + headers + thresholds
 
 NEVER saves the master (gotcha #2/#18). Manifest-aware -- skips any T_bldg_* tile marked
 bespoke. See Docs/BuildingFootprints.md for the design history (paused -> resumed pivot).
@@ -223,7 +225,7 @@ def add_quad(bm, p0_xy, p1_xy, z0, z1):
 
 def doors_for_run(L):
     """Door count for a single front (road-facing) run of total arc length L.
-       <3 m -> 0 (no room),  3-7 m -> 1,  7-25 m -> 2 (default),  >25 m -> 3.
+       <1.3 m (DOOR_W+0.4) -> 0 (no room),  1.3-7 m -> 1,  7-25 m -> 2,  >=25 m -> 3.
     Multi-frontage buildings get this called once per run -> every run of >1.3 m gets
     >=1 door, so 'min 1 per frontage' falls out for free."""
     if L < DOOR_W + 0.4:

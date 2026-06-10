@@ -7,18 +7,22 @@
 # DA_HexTileSet_Streets catalog with each tile's edge sockets, and assembles a lit
 # ShuffleLab with an AHexShuffleGenerator ready to Randomize. Each phase is guarded
 # so a failure in one is logged and the rest still run.
+#
+# Rebuild-from-scratch order: this script -> Tools/wire_core_into_shufflelab.py (core
+# layout + roll) -> Tools/setup_buildings.py (BuildingMesh wiring). The .glb sources
+# must exist first (bake via gen_curved_tiles.py — the staging dir is gitignored).
 
 import os
 import unreal
 
-REPO     = r"C:/SCAD/_projects/ModularHexMap"
-SRC      = REPO + "/Content/HexTiles/Source"
-DEST     = "/Game/HexTiles"
-DATA_DIR = "/Game/Data"
+REPO     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # machine-neutral
+SRC      = REPO + "/Content/_project/HexTiles/Source"
+DEST     = "/Game/_project/HexTiles"
+DATA_DIR = "/Game/_project/Data"
 DA_NAME  = "DA_HexTileSet_Streets"
-MAP_PATH = "/Game/Maps/ShuffleLab"
+MAP_PATH = "/Game/_project/Maps/ShuffleLab"
 
-# Must match Tools/blender/gen_street_tiles.py EDGE_SETS.
+# Must match Tools/blender/gen_curved_tiles.py EDGE_SETS.
 CONFIGS = {
     "blank": [], "deadend": [0], "bend": [0, 1], "curve": [0, 2], "straight": [0, 3],
     "tee": [0, 2, 4], "tee_a": [0, 1, 2], "tee_b": [0, 1, 3], "tee_c": [0, 1, 4],
@@ -90,7 +94,6 @@ def make_catalog(meshes):
         socks = [unreal.HexEdgeSocket.ROAD if i in edges else unreal.HexEdgeSocket.PAVEMENT
                  for i in range(6)]
         d.set_editor_property("edges", socks)
-        d.set_editor_property("weight", 1)
         tiles.append(d)
     asset.set_editor_property("tiles", tiles)
     unreal.EditorAssetLibrary.save_loaded_asset(asset)
@@ -122,6 +125,7 @@ def make_lab(asset):
     gen = spawn(unreal.HexShuffleGenerator, (0.0, 0.0, 0.0))
     gen.set_editor_property("tile_set", asset)
     gen.set_editor_property("seed", 1)
+    gen.set_editor_property("hex_circumradius_uu", 1000.0)   # R = 10 m contract
     les.save_current_level()
     log("make_lab: ShuffleLab built with generator")
 

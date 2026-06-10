@@ -3,6 +3,12 @@
 > **Read this first to resume.** This supersedes the map-wide spline-road direction. Originally
 > written at a context-limit handoff; the redesign has since shipped — the open questions below
 > are now resolved with the recipe used.
+>
+> **2026-06-10 cleanup:** everything the "RETIRE" section lists is now actually GONE, not just
+> retired — `ASplineRoad`, `BuildSplineRoads()`, `bGroundOnly`/`GroundMesh`/`RoadSegmentMesh`/
+> `SplineRoadZ`, the `SM_RoadSeg`/`SM_GroundHex` assets, and the `gen_street_tiles.py`/
+> `gen_road_segment.py`/`gen_ground_hex.py` generators. Git history has all of it. This doc
+> remains as the design record of the pivot.
 
 ## The pivot (why we changed course)
 - **REJECTED:** the map-wide *runtime* spline-road system built this session (`ASplineRoad` chains

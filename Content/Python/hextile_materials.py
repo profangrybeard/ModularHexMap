@@ -2,7 +2,7 @@
 
 glTF import mints a fresh Materials/ folder per mesh, so reimporting ~30 tiles scattered ~130
 copies of what are really 4 materials. consolidate_to_masters() ensures one master each under
-/Game/HexTiles/Materials/ and uses EditorAssetLibrary.consolidate_assets to replace every
+/Game/_project/HexTiles/Materials/ and uses EditorAssetLibrary.consolidate_assets to replace every
 reference (on every mesh slot) with the master and delete the copy. Also deletes dead orphans
 (M_Walk / M_Building_* from older kit versions) and prunes the emptied per-tile Materials folders.
 

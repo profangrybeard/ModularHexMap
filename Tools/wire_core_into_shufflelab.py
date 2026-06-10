@@ -1,15 +1,15 @@
 # wire_core_into_shufflelab.py  (GUI editor one-shot)
-# Import the 13 (2x, pit-void) core tiles, rebuild DA_HexCoreLayout, recolor their borders,
-# assign the core to the EXISTING ShuffleLab generator (was None), and roll.
+# Import the core tiles from core_layout.json, rebuild DA_HexCoreLayout, recolor their
+# borders, assign the core to the EXISTING ShuffleLab generator, and roll.
 #   UnrealEditor.exe <uproject> -ExecutePythonScript="Tools/wire_core_into_shufflelab.py"
 import os, json, unreal
 
-REPO      = r"C:/SCAD/_projects/ModularHexMap"
-SRC       = REPO + "/Content/HexTiles/Source"
-CORE_DEST = "/Game/HexTiles/Core"
-DATA_DIR  = "/Game/Data"
+REPO      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # machine-neutral
+SRC       = REPO + "/Content/_project/HexTiles/Source"
+CORE_DEST = "/Game/_project/HexTiles/Core"
+DATA_DIR  = "/Game/_project/Data"
 CORE_DA   = "DA_HexCoreLayout"
-MAP_PATH  = "/Game/Maps/ShuffleLab"
+MAP_PATH  = "/Game/_project/Maps/ShuffleLab"
 MANIFEST  = SRC + "/core_layout.json"
 BORDER    = unreal.LinearColor(0.015, 0.015, 0.02, 1.0)
 

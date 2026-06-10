@@ -195,7 +195,8 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 	//    ONLY if its in-region neighbour carries the matching return road; otherwise it runs off the
 	//    map or butts a block / blank core face -> a confusing stray stub, so erase it. Legit
 	//    cul-de-sacs survive (their single edge connects to a real neighbour); the pinned core is
-	//    never mutated. Decided against a snapshot so removals don't interact within the pass.
+	//    never mutated. All keep-tests read a SNAPSHOT so removals can't cascade within the pass
+	//    (mutual edges either both survive or both go).
 	{
 		const TMap<FIntPoint, int32> Snap = Mask;
 		for (const FIntPoint& C : Region)

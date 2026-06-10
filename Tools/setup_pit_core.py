@@ -3,24 +3,24 @@
 # headless-commandlet Slate assert (see CLAUDE.md gotcha #1):
 #   UnrealEditor.exe <uproject> -ExecutePythonScript="<repo>/Tools/setup_pit_core.py"
 #
-# Imports the 13 intact core tiles (7 fixed core + 6 perimeter valleys), collision =
-# complex-as-simple, then builds a lit PitCoreLab with each tile placed at its exact
-# generator coordinate (WorldXY) and a PlayerStart, so you can PIE and WALK the intact
-# pre-destruction core. No boolean yet — that's the next pass.
+# Imports the 7 fixed-core tiles (the Pit + 6 ring spokes, per core_layout.json),
+# collision = complex-as-simple, then builds a lit PitCoreLab with each tile placed at
+# its exact generator coordinate (WorldXY) and a PlayerStart, so you can PIE and WALK
+# the core. (The 6 perimeter "valley" tiles were dropped 2026-06-06.)
 
 import os
 import json
 import math
 import unreal
 
-REPO     = r"C:/SCAD/_projects/ModularHexMap"
-SRC      = REPO + "/Content/HexTiles/Source"
-DEST     = "/Game/HexTiles/Core"
-MAP_PATH = "/Game/Maps/PitCoreLab"
+REPO     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # machine-neutral
+SRC      = REPO + "/Content/_project/HexTiles/Source"
+DEST     = "/Game/_project/HexTiles/Core"
+MAP_PATH = "/Game/_project/Maps/PitCoreLab"
 MANIFEST = SRC + "/core_layout.json"
 
-CIRC = 500.0                       # hex circumradius in uu (R = 5 m), matches the generator
-INR  = CIRC * math.cos(math.radians(30))   # 433.0127
+CIRC = 1000.0                      # hex circumradius in uu (R = 10 m), matches the generator
+INR  = CIRC * math.cos(math.radians(30))
 
 log, warn, err = unreal.log, unreal.log_warning, unreal.log_error
 tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -32,9 +32,18 @@ def axial_to_world_uu(q, r):
 
 
 def load_layout():
+    """Return {tile_name: (q, r)}. gen_pit_core.py writes {"q":, "r":, "mask":} dicts
+    (the mask feeds DA_HexCoreLayout via wire_core_into_shufflelab.py); the original
+    [q, r] list shape is still accepted for old manifests."""
     with open(MANIFEST) as f:
         data = json.load(f)
-    return data["tiles"]   # {tile_name: [q, r]}
+    out = {}
+    for name, spec in data["tiles"].items():
+        if isinstance(spec, dict):
+            out[name] = (spec["q"], spec["r"])
+        else:
+            out[name] = (spec[0], spec[1])
+    return out
 
 
 def import_tiles(names):

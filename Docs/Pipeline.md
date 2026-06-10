@@ -67,8 +67,8 @@ Two tracks share **one** canonical base — `Source_Art/Blender/HexBase.blend`
 1. **Procedural tiles (roads/streets)** — generated, never hand-modeled. The canonical
    generator is `Tools/blender/gen_curved_tiles.py` (per-tile spline-smoothed roads:
    circular-arc `bend`/`curve` + fanned spline junctions = hub + cubic-bezier + swirl).
-   It is a table of `name → connected-edge list`. The earlier faceted
-   `gen_street_tiles.py` is **superseded** (kept for reference; don't regenerate from it).
+   It is a table of `name → connected-edge list`. (The earlier faceted
+   `gen_street_tiles.py` was superseded and deleted 2026-06-10; git history has it.)
    Run against the master to (re)build + export every `T_street_*.glb`:
 
    ```
