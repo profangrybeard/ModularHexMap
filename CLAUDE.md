@@ -15,7 +15,10 @@
 
 Deeper references: [Docs/Design.md](Docs/Design.md) (the vision + resolved design law),
 [Docs/Pipeline.md](Docs/Pipeline.md) (Blender→UE flow), [Docs/Buildings.md](Docs/Buildings.md)
-(building-tile pipeline), [Source_Art/README.md](Source_Art/README.md) (the tile contract),
+(building-tile pipeline), [Docs/Rivers.md](Docs/Rivers.md) (the water layer),
+[Docs/Testing.md](Docs/Testing.md) (**the user testing script** — run it instead of
+intuition; exact steps + expected values for every feature),
+[Source_Art/README.md](Source_Art/README.md) (the tile contract),
 [Docs/Audit_2026-06-10.md](Docs/Audit_2026-06-10.md) (full external audit).
 
 ## What this is
