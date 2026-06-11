@@ -149,3 +149,9 @@
     and a Ctrl+S habit won't fire to persist it. **Fix:** after any scripted edit you intend to
     keep, save explicitly (`bpy.ops.wm.save_mainfile()`); after any you DON'T intend to keep,
     remember the session still holds the edits live (#21) even though the file looks clean.
+32. **Every editor session OVERWRITES `Saved/Logs/ModularHexMap.log`** — the previous
+    session's log rotates to `ModularHexMap-backup-<timestamp>.log`. Chained one-shot
+    runs (gate → gate → census) leave only the LAST session in the main log; grepping
+    it for an earlier gate's PASS line silently finds nothing. **Fix:** read the
+    backups (`ls -t Saved/Logs/ModularHexMap-backup-*.log`) for all but the final
+    session of a chain. *(Bit twice during the 2026-06-11 gate chains.)*

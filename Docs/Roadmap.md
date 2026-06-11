@@ -126,8 +126,10 @@
      design read, center-clustered). 4th bridge pair authored from the census
      (`T_bridge_09_06`, straight × bend-water; catalog = 21).
   2. **Curated clamp (NEXT — director's eyeball)**: `blank: {max: N}` constraint row
-     culls the geography-strangled tail (p95 = 68, max 107). Generate reference rolls
-     at blank ≈ 30 / 45 / 60, walk them, pick N where airy tips into dead.
+     culls the geography-strangled tail (p95 = 68, max 107). **Reference rolls are
+     saved and waiting**: set `RollToLoad` to `Roll_seed22` (blank 30) / `Roll_seed5`
+     (blank 45) / `Roll_seed188` (blank 60), Load Roll, walk each; pick N where airy
+     tips into dead, then add the `blank` row (Max = N) to `DT_RollConstraints_Default`.
   3. **Open ground is occupied ground** (the read fix): blank VARIANTS — garden squares,
      greens, allotments, yards, orchard plots (Bloomsbury garden-square energy; every
      blank is a SOUL's home, so absence should read as tended ground, not void). 3–5
@@ -146,8 +148,17 @@
   `GetRestorationCandidates()`, soul-to-tile assignment record in the save).
 - [ ] **Pop label** = `Pop <restored+1> / 121` once restoration exists (interim after the
   occupancy nuke: frontier soul count).
-- [ ] **Stable-named baseline sweep CSV** (`Design/Rolls/Baseline.csv`) + diff after any
-  growth change.
+- [x] ~~**Stable-named baseline sweep CSV**~~ ✅ live (`Design/Rolls/Baseline.csv`,
+  re-anchored per default change).
+- [ ] **R=10 master propagation** *(recovered 2026-06-11 — dropped in the doc
+  restructure)*: the master `HexBase.blend` still carries the R=5 base + anchors;
+  generators build parametrically and only pull materials, so nothing is blocked —
+  but the master and `Source_Art/README.md` should match the R=10 contract eventually.
+  Deliberate master save required (Resistance #30 hygiene).
+- [ ] **Asymmetric Pit rim + deeper carve** *(recovered — director's bespoke art pass)*:
+  irregular slumped collapsed-building rim on `T_core_pit` (not a clean hex) + the
+  −3 m zig-zag descent; now joined by the **ring-1 pour-in water tiles** (the river
+  passing the wound) from the core-anchored evolution.
 - [ ] **Headless contact-sheet render** of the kit after each bake (visual diff artifact).
 - [ ] ~~**`MeasureTileMask` tolerance → absolute**~~ ✅ done 2026-06-10 (250 uu).
 - [ ] **River material consolidation**: the river kit import minted per-mesh material

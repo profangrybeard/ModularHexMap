@@ -70,14 +70,20 @@ Diagnose Last Roll / Hex Roll Sweep / Constrained Randomize**. `Recalibrate` aft
 reimporting tiles. Day-to-day tile authoring runs through the **"Hex Tiles" Blender
 addon** (`Tools/blender/tile_pipeline.py`) — see Docs/Pipeline.md.
 
-## Status snapshot (2026-06-10)
+## Status snapshot (2026-06-11)
 
-Works end-to-end, verified: **127 cells / core=7 / 0 unresolved / souls=120**; streets +
-buildings as paired ISMs under real light in `ShuffleLab`; constrained rolls place the
-exact validated seed and re-verify. The platform phase (audit bugs, occupancy removal,
-spline-road deletion, graveyard sweep, this doc split) landed 2026-06-10 — see
-Worklog.md. **Next:** rivers plan (highest-priority deliverable), then the restoration
-loop first playable — the full queue with rationale is Roadmap.md.
+Works end-to-end, all gates green: **127 cells / core=7 / 0 unresolved / souls=120**.
+The town is a playable loop in `ShuffleLab` (saved with **restoration mode ON**):
+Randomize rolls a **destiny** — streets + buildings + the **River** (core-anchored
+through-flow past the wound, player-chosen `RiverOutflowDir`, oxbow meander at the
+0.22 default, ~2.5 bridges clustered near the center, Left/Right Banks via `GetBank`)
+— rendered as a **ghost silhouette at Pop 1**; `RestoreNext`/`RestoreCell` heal it one
+soul at a time toward **Pop 121** (bridges gate the far bank); rolls save/load as the
+complete town save (`FHexRoll` + `Restored`). Catalog = 21 tiles (14 street + 3 river +
+4 census-complete bridges); `RoadBudget` is an honest density dial (wave reseeding) and
+`SideBridgeChance` the bridge-scarcity dial. Run [Docs/Testing.md](Docs/Testing.md)
+T0–T11 to verify everything; **next:** blank-max clamp (director's eyeball) + the
+garden-square blank variants — full queue in Roadmap.md.
 
 ## Architecture & file map
 

@@ -44,9 +44,10 @@
 
 1. Select the generator. Click **Recalibrate** (calibration is always-on; this forces a
    fresh measure).
-   **Expect:** one log line per catalog tile (20), each ending **OK** — road AND water
-   masks measured (`road measured=… | water measured=…`), then
-   `calibration OK (20 tiles measured from geometry)`. ANY `MISMATCH` = fail.
+   **Expect:** one log line per catalog tile (**21**: 14 street + 3 river + 4 bridges),
+   each ending **OK** — road AND water masks measured
+   (`road measured=… | water measured=…`), then
+   `calibration OK (21 tiles measured from geometry)`. ANY `MISMATCH` = fail.
 2. Set Details ▸ Restoration ▸ `bRestorationMode` **OFF** (dev view). Click **Randomize**.
    **Expect:** the golden line (127/7/0/120). A full solid town: streets + buildings,
    the core star at center, the river somewhere through it, the label reads `Souls: 120`.
@@ -77,8 +78,11 @@
    **Expect:** kinky, medieval-feeling streets (forced turns). Restore to **0**.
 3. Knobs you may freely play with and what they bias: `BranchChance` (side-street
    density), `StraightBias`/`StraightDecay` (sightlines), `ArteryKinkChance`/
-   `ArteryForkChance` (avenue character). **Always restore the blessed values**
-   (174 / .21 / .72 / .8 / .35 / .12) or re-load the level without saving.
+   `ArteryForkChance` (avenue character), `RiverStraightBias` (meander — 0.22 is the
+   ruled look), `SideBridgeChance` (bridge scarcity — 0 = avenues only). **Always
+   restore the blessed values** (174 / .21 / .72 / .8 / .35 / .12 / .22 / .35) or
+   re-load the level without saving. Since wave reseeding, `RoadBudget` is an honest
+   density contract: it buys what it says.
 
 ## T4 — Roll save/load (the town save)
 
@@ -118,8 +122,10 @@
    re-grow.
 2. Tools ▸ **Hex Roll Sweep (200 rolls)** (~10 s).
    **Expect:** per-necklace mean/std/p95 table; `sum(mean)=120.0`,
-   `mean unresolved 0.00`; WATER block (river cells mean ~11, bridges mean ~0.4);
-   exactly **3 bridge pair kinds**; a CSV lands in `Design/Rolls/`. Compare against
+   `mean unresolved 0.00`; **blank mean ≈ 36** (the wave-reseeding contract); WATER
+   block (river cells mean ~17, **bridges mean ~2.5**, center-clustered); **4 bridge
+   pair kinds** (the straight×bend pair is rare, ~0.4%, and may not appear in every
+   sweep); a CSV lands in `Design/Rolls/`. Compare against
    `Design/Rolls/Baseline.csv` after any growth change.
 
 ## T7 — The River
