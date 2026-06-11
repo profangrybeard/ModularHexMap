@@ -74,10 +74,22 @@
      0 unresolved / souls=120 with the river through town and bridges placed.**
    - **R4 (banks & identity) remains**: `Bank` attribute, "River" addressing,
      embankment dressing, bank-aware soul assignment.
-5. **Phase 3 (now next) — Restoration loop first playable**: destiny roll persists;
-   `RestoreNextTile` BFS from the Pit (bridges gate the far bank's healing — correct);
-   ghost/rubble treatment; `Pop <restored+1> / 121` label; `GetRestorationCandidates()`
-   hook for soul→tile assignment.
+5. **Phase 3 — Restoration loop** ✅ **LANDED 2026-06-11** (the first playable):
+   - Engine: `bRestorationMode` + `GhostMaterial` + `RestoredCells` on the generator;
+     `RestoreNext` / `RestoreAll` / `ResetRestoration` / `RestoreCell(Axial)` /
+     `GetRestorationCandidates()` (the player-agency hook). Healing propagates over
+     land + bridges, never open water — the far bank waits for its bridge; an
+     across-water fallback keeps bridge-less destinies fully reachable.
+   - Presentation: unrestored frontier renders as the ghost silhouette (street mesh,
+     `M_GhostTile` translucent unlit, no collision); buildings materialize with their
+     soul; label = `Pop <restored+1> / 121`.
+   - Save format: `FHexRoll.Restored` — a roll file is now the complete town save
+     (destiny + healing progress); old rolls load as fresh Pop 1.
+   - **Gate ALL PASS** (`Tools/verify_restoration.py`): fresh destiny = Pop 1; healing
+     opens at ring 2; Save/Load round-trips progress; RestoreAll reaches all 120
+     souls, 0 stranded; reset clean. Proof shot: Pop 46 mid-heal in Docs/Images.
+   - Still game-side (not this repo's engine work): the player-facing settle-a-soul UI
+     and soul-identity records (who lives where) — content/UI layer on the hooks above.
 6. **Phase 5 — Buildings facade continuity + min-block-size rule** (per-edge
    `M_BuildingBack` variation, party-wall pilaster, landmark slots; growth-side block
    guarantee).

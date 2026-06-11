@@ -11,6 +11,7 @@ class UDataTable;
 class UHexTileSet;
 class UHexCoreLayout;
 class UInstancedStaticMeshComponent;
+class UMaterialInterface;
 class UStaticMesh;
 class UTextRenderComponent;
 
@@ -92,6 +93,50 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle")
 	void Clear();
 
+	// --- Restoration (the first playable: destiny roll, witnessed restoration) -------
+
+	/** OFF = the dev shuffle tool (everything places solid, label = Souls). ON = the
+	 *  destiny renders as a ghost silhouette; only the core scar + restored cells are
+	 *  solid; souls arrive one rescue at a time (RestoreNext / RestoreCell); label =
+	 *  Pop <restored+1> / <souls+1> — you are the +1. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Restoration")
+	bool bRestorationMode = false;
+
+	/** Translucent override for unrestored ghost tiles (assign M_GhostTile; created by
+	 *  Tools/setup_ghost_material.py). Unset = ghosts render with their own materials. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Restoration")
+	TObjectPtr<UMaterialInterface> GhostMaterial;
+
+	/** Souls already home. Persisted through SaveRoll/LoadRoll (FHexRoll.Restored), so
+	 *  a roll file is the complete town save: destiny + healing progress. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Shuffle|Restoration")
+	TArray<FIntPoint> RestoredCells;
+
+	/** Restore the next soul (deterministically-first candidate: ring-outward from the
+	 *  Pit, bridges gating the far bank). The auto-heal path; the player-agency path is
+	 *  RestoreCell on a candidate of the player's choosing. */
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Restoration")
+	void RestoreNext();
+
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Restoration")
+	void RestoreAll();
+
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Hex Shuffle|Restoration")
+	void ResetRestoration();
+
+	/** Settle a soul on a specific candidate cell. Returns false (with a warning) if
+	 *  the cell isn't currently a legal candidate. */
+	UFUNCTION(BlueprintCallable, Category = "Hex Shuffle|Restoration")
+	bool RestoreCell(FIntPoint Axial);
+
+	/** Unrestored cells a soul could settle next: adjacent to the core or to a restored
+	 *  PROPAGATING cell. Land and bridges propagate; open water never does — the far
+	 *  bank waits for its bridge (Docs/Rivers.md §1). If strict propagation strands
+	 *  souls (a bridge-less roll), falls back to plain adjacency so all souls stay
+	 *  reachable. Sorted ring-outward, then axial — deterministic. */
+	UFUNCTION(BlueprintCallable, Category = "Hex Shuffle|Restoration")
+	TArray<FIntPoint> GetRestorationCandidates() const;
+
 	/** Filename (in Design/Rolls, .json optional) or a full path, to reload with Load Roll. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Rolls")
 	FString RollToLoad;
@@ -113,6 +158,10 @@ private:
 
 	UPROPERTY(Transient)
 	TMap<TObjectPtr<UStaticMesh>, TObjectPtr<UInstancedStaticMeshComponent>> MeshToISM;
+
+	// Ghost twins: same meshes, GhostMaterial on every slot, no collision.
+	UPROPERTY(Transient)
+	TMap<TObjectPtr<UStaticMesh>, TObjectPtr<UInstancedStaticMeshComponent>> MeshToGhostISM;
 
 	// Calibration cache: each tile's true ROAD and WATER masks (edges each layer's
 	// geometry reaches), at yaw 0. Layers measured independently from material sections.
@@ -136,5 +185,7 @@ private:
 	bool FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps) const;
 
 	void Build(const FHexNetwork& Net);
+	void RefreshPresentation();
 	UInstancedStaticMeshComponent* GetOrCreateISM(UStaticMesh* Mesh);
+	UInstancedStaticMeshComponent* GetOrCreateGhostISM(UStaticMesh* Mesh);
 };

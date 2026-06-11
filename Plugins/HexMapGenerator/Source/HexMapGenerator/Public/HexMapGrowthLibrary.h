@@ -122,6 +122,11 @@ struct FHexRoll
 	UPROPERTY() int32 Seed = 0;
 	UPROPERTY() FHexGrowthParams Growth;
 	UPROPERTY() FHexNetwork Network;
+
+	/** Souls already home (restored cell coords). With Network this makes the roll the
+	 *  complete town save: the destiny + how far it has healed. Old rolls lack the
+	 *  field and load as empty (nothing restored). */
+	UPROPERTY() TArray<FIntPoint> Restored;
 };
 
 /**

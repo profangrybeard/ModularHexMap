@@ -1,5 +1,26 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 — Restoration loop: the first playable
+
+The queue returned to Phase 3 after the rivers pivot. Landed + gated in one pass:
+- **Engine API** (`AHexShuffleGenerator`): `bRestorationMode`, `GhostMaterial`,
+  `RestoredCells`; `RestoreNext` / `RestoreAll` / `ResetRestoration` /
+  `RestoreCell(Axial)` / `GetRestorationCandidates()`. Candidates = unrestored cells
+  adjacent to the core or a restored *propagating* cell — land and bridges propagate,
+  open water never does (the far bank waits for its bridge, per Rivers.md §1); a plain
+  adjacency fallback keeps bridge-less destinies fully reachable. Deterministic
+  ring-outward ordering.
+- **Presentation:** ghost twin ISMs (same meshes, `M_GhostTile` translucent unlit on
+  every slot, no collision) render the unrestored destiny; buildings only materialize
+  with their soul; label switches to `Pop <restored+1> / 121`.
+- **Save format:** `FHexRoll.Restored` — a roll JSON is now the complete town save
+  (destiny + progress). Old rolls load as fresh Pop 1.
+- **Gate ALL PASS** (`verify_restoration.py`, seed 6): Pop 1 start, 12 candidates at
+  ring 2, RestoreNext advances, Save/Load round-trips progress, RestoreAll = 120/120
+  with 0 candidates left, reset clean. Mid-heal proof shot (Pop 46) in Docs/Images.
+- Tooling: `setup_ghost_material.py` (creates M_GhostTile, wires + saves ShuffleLab
+  with restoration mode ON), `verify_restoration.py` (the gate), `_restore_shot.py`.
+
 > The **memory** doc: dated session records of what landed and why. CLAUDE.md stays a
 > lean on-ramp; the diary lives here. Direction (queue/ToDos) is [Roadmap.md](Roadmap.md);
 > gotchas are [Resistance.md](Resistance.md).

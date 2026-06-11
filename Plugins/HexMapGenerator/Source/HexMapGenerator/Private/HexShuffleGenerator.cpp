@@ -46,6 +46,7 @@ void AHexShuffleGenerator::Clear()
 		if (C) { C->DestroyComponent(); }
 	}
 	MeshToISM.Empty();
+	MeshToGhostISM.Empty();
 }
 
 void AHexShuffleGenerator::Recalibrate()
@@ -204,6 +205,32 @@ UInstancedStaticMeshComponent* AHexShuffleGenerator::GetOrCreateISM(UStaticMesh*
 	return ISM;
 }
 
+// Ghost twin of GetOrCreateISM: GhostMaterial on every slot, no collision — the
+// destiny silhouette you can see but not stand on.
+UInstancedStaticMeshComponent* AHexShuffleGenerator::GetOrCreateGhostISM(UStaticMesh* Mesh)
+{
+	if (!Mesh) { return nullptr; }
+	if (TObjectPtr<UInstancedStaticMeshComponent>* Found = MeshToGhostISM.Find(Mesh))
+	{
+		return *Found;
+	}
+	UInstancedStaticMeshComponent* ISM = NewObject<UInstancedStaticMeshComponent>(this);
+	ISM->SetMobility(EComponentMobility::Movable);
+	ISM->SetStaticMesh(Mesh);
+	ISM->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (GhostMaterial)
+	{
+		for (int32 i = 0; i < Mesh->GetStaticMaterials().Num(); ++i)
+		{
+			ISM->SetMaterial(i, GhostMaterial);
+		}
+	}
+	ISM->SetupAttachment(Root);
+	ISM->RegisterComponent();
+	MeshToGhostISM.Add(Mesh, ISM);
+	return ISM;
+}
+
 void AHexShuffleGenerator::Randomize()
 {
 	// The reroll button: advance to the next seed and build it. Tools that need a
@@ -214,6 +241,7 @@ void AHexShuffleGenerator::Randomize()
 void AHexShuffleGenerator::BuildFromSeed(int32 InSeed)
 {
 	Seed = InSeed;
+	RestoredCells.Reset();   // a fresh destiny starts at Pop 1 (you)
 	if (!TileSet)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: no TileSet assigned."));
@@ -269,12 +297,21 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		}
 	}
 
+	// Restoration: in restoration mode, frontier cells not yet restored render as the
+	// ghost silhouette (street mesh only, GhostMaterial, no collision) — the destiny's
+	// empty shelves. The core scar is always solid.
+	TSet<FIntPoint> RestoredSet(RestoredCells);
+
 	for (const FHexCellResult& Cell : Net.Cells)
 	{
 		const FVector2D XY = HexGrid::WorldXY(Cell.Axial, HexCircumradiusUU);
 
 		// 1 frontier tile = 1 soul (the Pop One spine); the core is the scar, never counted.
 		if (HexGrid::Distance(Cell.Axial) > Growth.CoreRadius) { ++SoulCount; }
+
+		const bool bGhost = bRestorationMode
+			&& HexGrid::Distance(Cell.Axial) > Growth.CoreRadius
+			&& !RestoredSet.Contains(Cell.Axial);
 
 		// Core cell: drop the bespoke mesh verbatim, skip the resolver (the core follows a
 		// narrative restoration arc, not the soul count).
@@ -314,12 +351,23 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
 		if (!Mesh) { ++Unresolved; continue; }
 
-		UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh);
-		if (!ISM) { continue; }
-
 		FTransform X;
 		X.SetLocation(FVector(XY.X, XY.Y, 0.f));
 		X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg + 60.f * YawSteps, 0.f)));
+
+		if (bGhost)
+		{
+			// Unrestored: the street/lot silhouette only. The building (and its soul)
+			// arrives with restoration.
+			if (UInstancedStaticMeshComponent* GISM = GetOrCreateGhostISM(Mesh))
+			{
+				GISM->AddInstance(X, /*bWorldSpace=*/false);
+			}
+			continue;
+		}
+
+		UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh);
+		if (!ISM) { continue; }
 		ISM->AddInstance(X, /*bWorldSpace=*/false);
 
 		// Building overlay: same world transform as the street tile (the facade line is
@@ -337,11 +385,127 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 	Souls = SoulCount;
 	if (PopLabel)
 	{
-		PopLabel->SetText(FText::FromString(FString::Printf(TEXT("Souls: %d"), SoulCount)));
+		PopLabel->SetText(FText::FromString(bRestorationMode
+			? FString::Printf(TEXT("Pop %d / %d"), RestoredCells.Num() + 1, SoulCount + 1)
+			: FString::Printf(TEXT("Souls: %d"), SoulCount)));
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), core=%d, %d unresolved, souls=%d."),
-		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), CorePlaced, Unresolved, SoulCount);
+	UE_LOG(LogTemp, Display, TEXT("HexShuffle: built %d cells (%s resolver), core=%d, %d unresolved, souls=%d, restored=%d%s."),
+		Net.Cells.Num(), bUseMeasured ? TEXT("measured") : TEXT("authored"), CorePlaced, Unresolved, SoulCount,
+		RestoredCells.Num(), bRestorationMode ? TEXT(" [restoration]") : TEXT(""));
+}
+
+void AHexShuffleGenerator::RefreshPresentation()
+{
+	if (LastNetwork.Cells.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: no network yet — Randomize (or Load Roll) first."));
+		return;
+	}
+	// Build() assigns LastNetwork = Net; rebuilding from our own member needs a copy
+	// (self-assignment of the array is what we'd otherwise hand it).
+	const FHexNetwork Copy = LastNetwork;
+	Build(Copy);
+}
+
+TArray<FIntPoint> AHexShuffleGenerator::GetRestorationCandidates() const
+{
+	TArray<FIntPoint> Out;
+	if (LastNetwork.Cells.Num() == 0) { return Out; }
+
+	TMap<FIntPoint, const FHexCellResult*> CellOf;
+	for (const FHexCellResult& C : LastNetwork.Cells) { CellOf.Add(C.Axial, &C); }
+	const TSet<FIntPoint> Restored(RestoredCells);
+
+	auto IsCore = [&](const FIntPoint& A) { return HexGrid::Distance(A) <= Growth.CoreRadius; };
+	// A neighbor spreads the healing if it's the core (the wound seeds it) or a
+	// restored cell that isn't open water — bridges (road over water) propagate,
+	// the bare river never does, so the far bank waits for its bridge.
+	auto Propagates = [&](const FIntPoint& A) -> bool
+	{
+		if (IsCore(A)) { return true; }
+		if (!Restored.Contains(A)) { return false; }
+		const FHexCellResult* C = CellOf.FindRef(A);
+		return C && !(C->WaterMask != 0 && C->RoadMask == 0);
+	};
+
+	for (const FHexCellResult& C : LastNetwork.Cells)
+	{
+		if (IsCore(C.Axial) || Restored.Contains(C.Axial)) { continue; }
+		for (int32 e = 0; e < 6; ++e)
+		{
+			if (Propagates(HexGrid::Neighbor(C.Axial, e))) { Out.Add(C.Axial); break; }
+		}
+	}
+
+	if (Out.Num() == 0)
+	{
+		// Strict propagation stranded souls (a bridge-less far bank). Relax to plain
+		// adjacency so all 120 stay reachable — the river itself carries the healing.
+		for (const FHexCellResult& C : LastNetwork.Cells)
+		{
+			if (IsCore(C.Axial) || Restored.Contains(C.Axial)) { continue; }
+			for (int32 e = 0; e < 6; ++e)
+			{
+				const FIntPoint N = HexGrid::Neighbor(C.Axial, e);
+				if (IsCore(N) || Restored.Contains(N)) { Out.Add(C.Axial); break; }
+			}
+		}
+		if (Out.Num() > 0)
+		{
+			UE_LOG(LogTemp, Display, TEXT("HexShuffle: restoration crossed open water (no bridge on this destiny)."));
+		}
+	}
+
+	Out.Sort([](const FIntPoint& A, const FIntPoint& B)
+	{
+		const int32 DA = HexGrid::Distance(A), DB = HexGrid::Distance(B);
+		if (DA != DB) { return DA < DB; }
+		return (A.X != B.X) ? (A.X < B.X) : (A.Y < B.Y);
+	});
+	return Out;
+}
+
+void AHexShuffleGenerator::RestoreNext()
+{
+	const TArray<FIntPoint> Candidates = GetRestorationCandidates();
+	if (Candidates.Num() == 0)
+	{
+		UE_LOG(LogTemp, Display, TEXT("HexShuffle: every soul is home (or no roll yet)."));
+		return;
+	}
+	RestoredCells.Add(Candidates[0]);
+	RefreshPresentation();
+}
+
+bool AHexShuffleGenerator::RestoreCell(FIntPoint Axial)
+{
+	if (!GetRestorationCandidates().Contains(Axial))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: (%d,%d) is not a restoration candidate."), Axial.X, Axial.Y);
+		return false;
+	}
+	RestoredCells.Add(Axial);
+	RefreshPresentation();
+	return true;
+}
+
+void AHexShuffleGenerator::RestoreAll()
+{
+	int32 Guard = 100000;
+	while (--Guard > 0)
+	{
+		const TArray<FIntPoint> Candidates = GetRestorationCandidates();
+		if (Candidates.Num() == 0) { break; }
+		RestoredCells.Add(Candidates[0]);
+	}
+	RefreshPresentation();
+}
+
+void AHexShuffleGenerator::ResetRestoration()
+{
+	RestoredCells.Reset();
+	RefreshPresentation();
 }
 
 static FString RollsDir()
@@ -361,6 +525,7 @@ void AHexShuffleGenerator::SaveRoll()
 	Roll.Seed = Seed;
 	Roll.Growth = Growth;
 	Roll.Network = LastNetwork;
+	Roll.Restored = RestoredCells;   // destiny + healing progress = the complete save
 
 	FString Json;
 	if (!FJsonObjectConverter::UStructToJsonObjectString(Roll, Json))
@@ -423,9 +588,11 @@ void AHexShuffleGenerator::LoadRoll()
 		MeasureCalibration();
 	}
 
-	// Restore provenance, then rebuild the saved network verbatim (no re-growth).
+	// Restore provenance + healing progress, then rebuild the saved network verbatim
+	// (no re-growth). Old rolls lack Restored and load as a fresh Pop 1.
 	Seed = Roll.Seed;
 	Growth = Roll.Growth;
+	RestoredCells = Roll.Restored;
 	Build(Roll.Network);
 
 	UE_LOG(LogTemp, Display, TEXT("HexShuffle: loaded roll '%s' (seed %d, %d cells)."),
