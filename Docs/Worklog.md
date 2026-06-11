@@ -1,5 +1,32 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (later) — Rivers R4: core-anchored river, player heading, banks
+
+Director design evolution mid-R4: the river is **designed into the core** — it passes
+the wound (water sloshing/pouring into the Pit, his bespoke art pass), giving the river
+a required start location, and **players grow it in a direction they prefer**. Rulings
+(asked + answered): through-flow past the wound; direction chosen at destiny-roll time.
+- **Growth:** ring-1 water route injected on two adjacent story tiles (gates at
+  `RiverOutflowDir` and +1; the art replaces the visuals later — interim ring-1 gap
+  accepted); two arms grow outward from the gates to the boundary; arteries whose gate
+  cell is water yield their avenue to the river.
+- **`FHexGrowthParams.RiverOutflowDir`** (−1 = rolled, 0–5 = the player's roll-time
+  choice, permanent after).
+- **Banks (R4):** flow-relative **Left Bank / Right Bank** via nearest-segment side of
+  the river centerline — `GetBank` / `GetBankName` (BlueprintCallable). The geometry
+  gift: adjacent gates force a 60° bend past the Pit, carving a small wedge district
+  hugged by the river on two sides (seed 6: L=15 / R=95) — a pocket-quarter identity
+  for free.
+- **The wound unites the banks:** ring-1 water is core, the core propagates healing —
+  restoration rounds the Pit between banks from the start; bridges stay the scarce
+  mid-frontier connectors.
+- **Gates:** verify_river_r4 ALL PASS (gates carry water, outflow at chosen heading,
+  arms reach boundary, 0 unresolved, souls=120, banks populated, water/core = −1);
+  restoration regression ALL PASS; census unchanged in KIND (same 3 bridge pairs, no
+  new authoring) but **bridges mean fell 1.52 → 0.41** (radial arms parallel the
+  arteries) — flagged as a tuning knob (meander up, or side-street bridging, or a
+  min-bridge constraint).
+
 ## 2026-06-11 — Restoration loop: the first playable
 
 The queue returned to Phase 3 after the rivers pivot. Landed + gated in one pass:

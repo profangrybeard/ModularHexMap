@@ -220,15 +220,19 @@ from the prior prototype.)
    as well as design.
 10. **The randomizer is a dev tool.** Growth knobs, sweeps, and constraints exist to prove
     the kit and roll destinies — they are not a player-facing system.
-11. **Rivers are frontier-only** (2026-06-10): the river routes around ring 1; the authored
-    core stays dry. Architecture decision: **layered masks** — road and water are parallel
-    6-bit masks per cell, never a ternary socket (which would balloon 14 necklaces to ~130).
-    Plan: **Docs/Rivers.md (delivered + ruled)**. Rulings: **river/bridge cells house
-    souls** (the bridge-climber, the kayak-keeper, the lifeguard, one lost to the river —
-    souls = 120 holds exactly); the river's name is **"River"** (vanilla by choice, until
-    the director decides); **channel = 5 m, one cell** (game scale, not sim scale). The
-    river is rolled once per save and never re-rolled — the second permanent anchor
-    beside the Pit.
+11. **The River** (plan + rulings 2026-06-10; core-anchored evolution 2026-06-11).
+    Architecture: **layered masks** — road and water are parallel 6-bit masks per cell,
+    never a ternary socket. Rulings: **river/bridge cells house souls** (the
+    bridge-climber, the kayak-keeper, the lifeguard, one lost to the river — souls = 120
+    holds exactly); the river's name is **"River"** (vanilla by choice, until the
+    director decides); **channel = 5 m, one cell** (game scale). **2026-06-11, superseding
+    frontier-only: the River is CORE-ANCHORED — it passes the wound** through two
+    adjacent ring-1 story tiles, water sloshing/pouring into the Pit (authored art);
+    **the player picks the outflow heading at destiny-roll time** ("grow the river in a
+    direction you prefer") and it is permanent after — the River still endures, never
+    re-rolled. Banks are flow-relative: **Left Bank / Right Bank**. The wound unites the
+    banks: ring-1 water tiles are core, and the core propagates healing. Plan + status:
+    **Docs/Rivers.md**.
 12. **The Pit's descend prompt / level transition is NOT this repo's scope** — it lives with
     the dungeon project. The town↔dungeon junction is a standing design goal the director
     manages across both projects; this repo only keeps the Pit tile + its anchor stable.

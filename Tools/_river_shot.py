@@ -34,7 +34,7 @@ def _pick_seed(gen):
         net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core, seed)
         cells = list(rd._sf(net, "cells"))
         _wb, bp, wc, bc = rd._water_census(cells, axials)
-        if not (2 <= bc <= 4):
+        if not (1 <= bc <= 4):
             continue
         if _authored and any(p not in _authored for p in bp):
             continue
@@ -57,6 +57,10 @@ def _tick(_dt):
                 unreal.log_error("[Shot] no HexShuffleGenerator in the startup map")
                 S["t"] = 10000
                 return
+            growth = gen.get_editor_property("growth")
+            growth.set_editor_property("river_outflow_dir", 4)   # "the player chose west-ish"
+            gen.set_editor_property("growth", growth)
+            gen.set_editor_property("restoration_mode", False)   # solid dev view for the proof
             gen.recalibrate()
             S["seed"] = _pick_seed(gen)
             gen.build_from_seed(S["seed"])

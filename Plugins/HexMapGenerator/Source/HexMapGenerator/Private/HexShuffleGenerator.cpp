@@ -9,6 +9,7 @@
 #include "StaticMeshResources.h"
 #include "Materials/MaterialInterface.h"
 #include "JsonObjectConverter.h"
+#include "Algo/Reverse.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
@@ -506,6 +507,141 @@ void AHexShuffleGenerator::ResetRestoration()
 {
 	RestoredCells.Reset();
 	RefreshPresentation();
+}
+
+// Ordered river centerline (cell centers, inflow -> outflow) from the placed network.
+// Walks the water path graph from a boundary endpoint, then orients by the core gates:
+// the OUTFLOW gate Y is the ring-1 water cell whose CCW-rotated axial equals the other
+// gate X (the injection contract: X sits CCW-next from Y).
+bool AHexShuffleGenerator::BuildRiverPath(TArray<FVector2D>& OutPts) const
+{
+	OutPts.Reset();
+	if (LastNetwork.Cells.Num() == 0) { return false; }
+
+	TMap<FIntPoint, int32> WaterOf;
+	for (const FHexCellResult& C : LastNetwork.Cells)
+	{
+		if (C.WaterMask != 0) { WaterOf.Add(C.Axial, C.WaterMask); }
+	}
+	if (WaterOf.Num() < 2) { return false; }
+
+	// Endpoints: water cells with a bit pointing off the placed region.
+	TArray<FIntPoint> Ends;
+	for (const TPair<FIntPoint, int32>& W : WaterOf)
+	{
+		for (int32 e = 0; e < 6; ++e)
+		{
+			if ((W.Value & (1 << e)) && !WaterOf.Contains(HexGrid::Neighbor(W.Key, e)))
+			{
+				const FIntPoint N = HexGrid::Neighbor(W.Key, e);
+				bool bInRegion = false;
+				for (const FHexCellResult& C : LastNetwork.Cells)
+				{
+					if (C.Axial == N) { bInRegion = true; break; }
+				}
+				if (!bInRegion) { Ends.AddUnique(W.Key); }
+			}
+		}
+	}
+	if (Ends.Num() == 0) { return false; }
+
+	// Walk from one endpoint along mutual water edges.
+	TArray<FIntPoint> Path;
+	{
+		FIntPoint Cur = Ends[0];
+		FIntPoint Prev(MAX_int32, MAX_int32);
+		int32 Guard = WaterOf.Num() + 4;
+		while (--Guard > 0)
+		{
+			Path.Add(Cur);
+			FIntPoint Next = Prev;
+			bool bFound = false;
+			const int32 M = WaterOf[Cur];
+			for (int32 e = 0; e < 6; ++e)
+			{
+				if ((M & (1 << e)) == 0) { continue; }
+				const FIntPoint N = HexGrid::Neighbor(Cur, e);
+				if (N == Prev || !WaterOf.Contains(N)) { continue; }
+				if ((WaterOf[N] & (1 << ((e + 3) % 6))) == 0) { continue; }
+				Next = N; bFound = true; break;
+			}
+			if (!bFound) { break; }
+			Prev = Cur; Cur = Next;
+		}
+	}
+	if (Path.Num() < 2) { return false; }
+
+	// Orient inflow -> outflow: find the two ring-1 gates; Y(outflow) satisfies
+	// rotateCCW(Y) == X. If the walk visits Y before X, we started at the outflow
+	// end — reverse.
+	FIntPoint GateA(MAX_int32, 0), GateB(MAX_int32, 0);
+	for (const TPair<FIntPoint, int32>& W : WaterOf)
+	{
+		if (HexGrid::Distance(W.Key) <= Growth.CoreRadius)
+		{
+			if (GateA.X == MAX_int32) { GateA = W.Key; }
+			else { GateB = W.Key; }
+		}
+	}
+	if (GateB.X != MAX_int32)
+	{
+		auto RotCCW = [](const FIntPoint& A) { return FIntPoint(-A.Y, A.X + A.Y); };
+		const FIntPoint Y = (RotCCW(GateA) == GateB) ? GateA
+		                  : (RotCCW(GateB) == GateA) ? GateB : GateA;
+		const int32 IdxY = Path.IndexOfByKey(Y);
+		const FIntPoint X = (Y == GateA) ? GateB : GateA;
+		const int32 IdxX = Path.IndexOfByKey(X);
+		if (IdxY != INDEX_NONE && IdxX != INDEX_NONE && IdxY < IdxX)
+		{
+			Algo::Reverse(Path);
+		}
+	}
+
+	for (const FIntPoint& C : Path)
+	{
+		OutPts.Add(HexGrid::WorldXY(C, HexCircumradiusUU));
+	}
+	return true;
+}
+
+int32 AHexShuffleGenerator::GetBank(FIntPoint Axial) const
+{
+	if (HexGrid::Distance(Axial) <= Growth.CoreRadius) { return -1; }   // the wound is both banks
+	for (const FHexCellResult& C : LastNetwork.Cells)
+	{
+		if (C.Axial == Axial && C.WaterMask != 0) { return -1; }        // the River is the River
+	}
+	TArray<FVector2D> Pts;
+	if (!BuildRiverPath(Pts)) { return -1; }
+
+	const FVector2D P = HexGrid::WorldXY(Axial, HexCircumradiusUU);
+	float BestD2 = MAX_flt;
+	float BestCross = 0.f;
+	for (int32 i = 0; i + 1 < Pts.Num(); ++i)
+	{
+		const FVector2D A = Pts[i], B = Pts[i + 1];
+		const FVector2D AB = B - A;
+		const float L2 = AB.SizeSquared();
+		const float T = (L2 > 0.f) ? FMath::Clamp(FVector2D::DotProduct(P - A, AB) / L2, 0.f, 1.f) : 0.f;
+		const FVector2D Q = A + AB * T;
+		const float D2 = (P - Q).SizeSquared();
+		if (D2 < BestD2)
+		{
+			BestD2 = D2;
+			BestCross = AB.X * (P.Y - A.Y) - AB.Y * (P.X - A.X);
+		}
+	}
+	return (BestCross > 0.f) ? 0 : 1;   // left of flow = Left Bank
+}
+
+FString AHexShuffleGenerator::GetBankName(FIntPoint Axial) const
+{
+	switch (GetBank(Axial))
+	{
+	case 0:  return TEXT("Left Bank");
+	case 1:  return TEXT("Right Bank");
+	default: return FString();
+	}
 }
 
 static FString RollsDir()

@@ -38,90 +38,86 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 	}
 
 	// --- 0. The river: water grows FIRST (foundation, not reaction — Docs/Rivers.md). ---
-	// A boundary-to-boundary momentum walk: loves crossing, never branches (v1), and is
-	// FRONTIER-ONLY — it may not enter Distance <= CoreRadius+1, so the authored core
-	// stays dry and the wound keeps the center while the water takes a chord.
+	// CORE-ANCHORED THROUGH-FLOW (director, 2026-06-11): the river passes the wound.
+	// Two adjacent ring-1 story tiles carry the authored water route (the pour-in —
+	// the Pit drinks a spill); from their outward stubs, TWO ARMS grow to the map
+	// boundary. The OUTFLOW arm's gate sits at P.RiverOutflowDir (the player's choice
+	// at destiny-roll time; -1 = rolled), the inflow gate at OutDir+1. Arms never
+	// re-enter the core (Distance <= CoreRadius) and never touch each other.
 	TMap<FIntPoint, int32> Water;
 	for (const FIntPoint& C : Region) { Water.Add(C, 0); }
 	if (P.bRiver)
 	{
-		const int32 Standoff = P.CoreRadius + 1;
-		TArray<FIntPoint> Boundary;
-		for (const FIntPoint& C : Region) { if (Distance(C) == P.Radius) { Boundary.Add(C); } }
-		// Deterministic boundary order: TSet iteration order isn't contractual, so sort.
-		Boundary.Sort([](const FIntPoint& A, const FIntPoint& B)
-			{ return (A.X != B.X) ? (A.X < B.X) : (A.Y < B.Y); });
+		const int32 OutDir = (P.RiverOutflowDir >= 0 && P.RiverOutflowDir <= 5)
+			? P.RiverOutflowDir : Rng.RandRange(0, 5);
+		const int32 InGate = (OutDir + 1) % 6;
 
-		const int32 MinLen = P.Radius + 2;   // must genuinely cross before it may exit
-		for (int32 Attempt = 0; Attempt < 24 && Boundary.Num() > 0; ++Attempt)
+		// The authored core water route at the chosen heading: Y = ring-1 cell on the
+		// outflow axis, X = its neighbor on the inflow side. Until the bespoke pour-in
+		// art lands these masks are system-injected; the art replaces the visuals, the
+		// masks stay the contract. Edge X->Y is (OutDir+5)%6 (hex identity:
+		// AxialDir[d] - AxialDir[d+1] = AxialDir[(d+5)%6]).
+		const FIntPoint CellY = AxialDir[OutDir];          // outflow gate (ring 1)
+		const FIntPoint CellX = AxialDir[InGate];          // inflow gate (ring 1)
+		if (InR(CellY)) { Water[CellY] |= (1 << OutDir) | (1 << ((OutDir + 2) % 6)); }
+		if (InR(CellX)) { Water[CellX] |= (1 << InGate) | (1 << ((OutDir + 5) % 6)); }
+
+		// Grow one arm from a core stub to the boundary. Returns true on success and
+		// commits its bits into Trial; OnPath is shared across arms (no braiding).
+		auto GrowArm = [&](const FIntPoint& Seed, int32 EntryEdge, int32 Heading,
+		                   TMap<FIntPoint, int32>& Trial, TSet<FIntPoint>& OnPath) -> bool
 		{
-			const FIntPoint Entry = Boundary[Rng.RandRange(0, Boundary.Num() - 1)];
-			// Initial heading: the inward-most step (min Distance), ties broken by stream.
-			int32 H = -1, BestD = MAX_int32;
-			const int32 Tie = Rng.RandRange(0, 5);
-			for (int32 k = 0; k < 6; ++k)
-			{
-				const int32 d = (Tie + k) % 6;
-				const FIntPoint N = Neighbor(Entry, d);
-				if (InR(N) && Distance(N) < BestD && Distance(N) > Standoff)
-				{
-					BestD = Distance(N); H = d;
-				}
-			}
-			if (H < 0) { continue; }
-
-			TArray<FIntPoint> Path;
-			TSet<FIntPoint> OnPath;
-			TMap<FIntPoint, int32> Trial;   // water bits this attempt (committed only on success)
-			FIntPoint C = Entry;
-			Path.Add(C); OnPath.Add(C);
-			const int32 H0 = H;
-			int32 ExitDir = -1;
+			if (!InR(Seed) || OnPath.Contains(Seed)) { return false; }
+			Trial.FindOrAdd(Seed) |= (1 << EntryEdge);     // connect to the core stub
+			FIntPoint C = Seed;
+			int32 H = Heading;
+			OnPath.Add(C);
 			int32 Guard = 256;
-			while (--Guard > 0 && ExitDir < 0)
+			while (--Guard > 0)
 			{
-				// Momentum: straight at RiverStraightBias, else meander ±1. Then fall back
-				// through the remaining non-backward directions before declaring a dead end.
 				const int32 Left = (H + 1) % 6, Right = (H + 5) % 6, Back = (H + 3) % 6;
 				TArray<int32, TInlineAllocator<5>> Try;
 				if (Rng.FRand() < P.RiverStraightBias) { Try = { H, (Rng.FRand() < 0.5f) ? Left : Right }; }
 				else { const bool L = Rng.FRand() < 0.5f; Try = { L ? Left : Right, H, L ? Right : Left }; }
 				for (int32 d = 0; d < 6; ++d) { if (d != Back && !Try.Contains(d)) { Try.Add(d); } }
 
-				int32 Step = -1;
+				int32 Step = -1, ExitDir = -1;
 				for (int32 d : Try)
 				{
 					const FIntPoint N = Neighbor(C, d);
-					if (!InR(N))
-					{
-						if (Path.Num() >= MinLen) { ExitDir = d; break; }   // flow off the world
-						continue;
-					}
-					if (Distance(N) <= Standoff) { continue; }   // frontier-only (locked)
-					if (OnPath.Contains(N)) { continue; }        // no self-touch / braiding
+					if (!InR(N)) { ExitDir = d; break; }            // reached the world's edge
+					if (Distance(N) <= P.CoreRadius) { continue; }  // never re-enter the wound
+					if (OnPath.Contains(N)) { continue; }           // no self-touch / braiding
 					Step = d; break;
 				}
-				if (ExitDir >= 0) { break; }
-				if (Step < 0) { break; }                         // dead end -> retry attempt
+				if (ExitDir >= 0)
+				{
+					Trial.FindOrAdd(C) |= (1 << ExitDir);           // visibly flow off the map
+					return true;
+				}
+				if (Step < 0) { return false; }                     // dead end -> retry river
 
 				const FIntPoint N = Neighbor(C, Step);
 				Trial.FindOrAdd(C) |= (1 << Step);
 				Trial.FindOrAdd(N) |= (1 << ((Step + 3) % 6));
 				C = N; H = Step;
-				Path.Add(C); OnPath.Add(C);
+				OnPath.Add(C);
 			}
-			if (ExitDir < 0) { continue; }                       // failed attempt; next seed-roll
+			return false;
+		};
 
-			// Off-map edges so the river visibly enters/leaves the world (no prune on water).
-			int32 EntryOut = (H0 + 3) % 6;
-			if (InR(Neighbor(Entry, EntryOut)))
+		for (int32 Attempt = 0; Attempt < 24; ++Attempt)
+		{
+			TMap<FIntPoint, int32> Trial;
+			TSet<FIntPoint> OnPath;
+			OnPath.Add(CellY); OnPath.Add(CellX);              // core water is off-limits to arms
+			const bool bOut = GrowArm(Neighbor(CellY, OutDir), (OutDir + 3) % 6, OutDir, Trial, OnPath);
+			const bool bIn  = bOut && GrowArm(Neighbor(CellX, InGate), (InGate + 3) % 6, InGate, Trial, OnPath);
+			if (bOut && bIn)
 			{
-				for (int32 d = 0; d < 6; ++d) { if (!InR(Neighbor(Entry, d))) { EntryOut = d; break; } }
+				for (const TPair<FIntPoint, int32>& T : Trial) { Water[T.Key] |= T.Value; }
+				break;
 			}
-			Trial.FindOrAdd(Entry) |= (1 << EntryOut);
-			Trial.FindOrAdd(C) |= (1 << ExitDir);
-			for (const TPair<FIntPoint, int32>& T : Trial) { Water[T.Key] = T.Value; }
-			break;
 		}
 	}
 	auto IsWater = [&](const FIntPoint& C) { const int32* W = Water.Find(C); return W && *W != 0; };
@@ -162,6 +158,7 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 			int32 Adv = 100;
 			while (InR(C) && InCore(C) && --Adv > 0) { C = Neighbor(C, d); }
 			if (!InR(C)) { continue; } // axis runs off the map while still inside the core
+			if (IsWater(C)) { continue; } // the river took this avenue (an arm runs out this gate)
 			// Inward connector toward the core (the artery continues out of the core's stub).
 			Mask[C] |= (1 << ((d + 3) % 6));
 			int32 CurDir = d;

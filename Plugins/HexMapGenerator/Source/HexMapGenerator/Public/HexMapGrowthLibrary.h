@@ -77,6 +77,14 @@ struct FHexGrowthParams
 	 *  branching — v1 never branches). Lower = lazier meander. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River", meta = (ClampMin = "0", ClampMax = "1"))
 	float RiverStraightBias = 0.8f;
+
+	/** The player's river choice at destiny-roll time: the OUTFLOW heading (0-5;
+	 *  -1 = rolled from the seed). The river is CORE-ANCHORED through-flow: it enters
+	 *  from the map edge, passes the wound through two adjacent ring-1 story tiles
+	 *  (the authored pour-in — the Pit drinks a spill), and exits along this heading.
+	 *  "Players grow the river in a direction they prefer" (director, 2026-06-11). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River", meta = (ClampMin = "-1", ClampMax = "5"))
+	int32 RiverOutflowDir = -1;
 };
 
 /** One resolved cell: its axial coordinate and the layered 6-bit edge masks.

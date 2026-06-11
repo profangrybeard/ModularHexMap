@@ -12,6 +12,28 @@
 > **Proof (seed 6, 11 river cells, 2 bridges):** ![the river through town — dense near
 > bank, open far bank](Images/river_seed6_wide.png) — the two-bank divide visible in
 > the first rendered roll, exactly as §1 predicted.
+>
+> **DESIGN EVOLUTION (director, 2026-06-11) — the river is CORE-ANCHORED now,
+> superseding §3.1's boundary-chord and the original frontier-only routing:**
+> - **The river passes the wound.** Two adjacent ring-1 story tiles carry the water
+>   route past the Pit, with water sloshing/pouring into the sinkhole (the director's
+>   bespoke art pass; the system injects the ring-1 water masks until that art lands —
+>   interim visual gap on ring 1 is expected and accepted).
+> - **The player picks the outflow heading at destiny-roll time**
+>   (`FHexGrowthParams.RiverOutflowDir`, −1 = rolled) — "players grow the river in a
+>   direction they prefer." Permanent after the roll; the river still endures.
+> - **Topology: through-flow.** Two arms grow outward from the core gates (outflow at
+>   the chosen heading, inflow at heading+1) to the map boundary. The river takes those
+>   two avenues — arteries whose gate cell is water yield to it.
+> - **Banks are flow-relative now: Left Bank / Right Bank** (Rive Gauche / Rive
+>   Droite), computed by nearest-segment side of the river centerline
+>   (`GetBank`/`GetBankName`) — robust even though the through-core route no longer
+>   strictly disconnects the disk.
+> - **The wound unites the banks.** Ring-1 water tiles are core, and the core
+>   propagates healing — so restoration can round the Pit between banks from the
+>   start. The two-bank *street* divide persists (bridges stay scarce away from
+>   center), but the first bank-to-bank connection is the scar itself. On-theme:
+>   the river divides; the wound is where everyone meets.
 
 > **The brief (director, 2026-06-10):** the river is a **divider of business and culture
 > that simultaneously puts everyone on the same team** — the James in Richmond, the

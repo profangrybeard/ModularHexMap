@@ -72,8 +72,14 @@
    - R3 resolution: two-layer measure-and-rotate (`M_Water`), joint-rotation
      `FindPlacement`; **in-engine: 20-tile calibration OK both layers, 127 cells /
      0 unresolved / souls=120 with the river through town and bridges placed.**
-   - **R4 (banks & identity) remains**: `Bank` attribute, "River" addressing,
-     embankment dressing, bank-aware soul assignment.
+   - **R4 ✅ LANDED 2026-06-11** with a director design evolution: the river is
+     **core-anchored** (passes the wound; pour-in art is the director's pass; ring-1
+     water masks system-injected until then), **`RiverOutflowDir`** is the player's
+     destiny-roll choice, and banks are flow-relative **Left/Right Bank**
+     (`GetBank`/`GetBankName`). Gates ALL PASS; census: same 3 bridge pairs.
+     **Open tuning flags:** bridges mean fell to 0.41 (radial arms parallel arteries) —
+     meander/side-street-bridging/min-bridge constraint when it matters; embankment
+     *dressing* and bank-keyed material params remain an art-phase item.
 5. **Phase 3 — Restoration loop** ✅ **LANDED 2026-06-11** (the first playable):
    - Engine: `bRestorationMode` + `GhostMaterial` + `RestoredCells` on the generator;
      `RestoreNext` / `RestoreAll` / `ResetRestoration` / `RestoreCell(Axial)` /

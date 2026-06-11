@@ -137,6 +137,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hex Shuffle|Restoration")
 	TArray<FIntPoint> GetRestorationCandidates() const;
 
+	// --- River & banks (Rivers.md R4) -----------------------------------------------
+
+	/** Which bank of the River a cell sits on, relative to flow (inflow → outflow):
+	 *  0 = Left Bank, 1 = Right Bank (Rive Gauche / Rive Droite). Water cells, the
+	 *  core, and riverless rolls return -1 — the River and the wound belong to both. */
+	UFUNCTION(BlueprintCallable, Category = "Hex Shuffle|River")
+	int32 GetBank(FIntPoint Axial) const;
+
+	/** "Left Bank" / "Right Bank" / "" — the diegetic half of an address. */
+	UFUNCTION(BlueprintCallable, Category = "Hex Shuffle|River")
+	FString GetBankName(FIntPoint Axial) const;
+
 	/** Filename (in Design/Rolls, .json optional) or a full path, to reload with Load Roll. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Rolls")
 	FString RollToLoad;
@@ -186,6 +198,7 @@ private:
 
 	void Build(const FHexNetwork& Net);
 	void RefreshPresentation();
+	bool BuildRiverPath(TArray<FVector2D>& OutPts) const;
 	UInstancedStaticMeshComponent* GetOrCreateISM(UStaticMesh* Mesh);
 	UInstancedStaticMeshComponent* GetOrCreateGhostISM(UStaticMesh* Mesh);
 };
