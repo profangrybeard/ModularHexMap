@@ -14,6 +14,7 @@ class UInstancedStaticMeshComponent;
 class UMaterialInterface;
 class UStaticMesh;
 class UTextRenderComponent;
+struct FRandomStream;
 
 /**
  * Grows a road network and drops the real tiles into the level (one ISM per mesh),
@@ -189,7 +190,11 @@ private:
 
 	void MeasureCalibration();
 	int32 MeasureTileMask(UStaticMesh* Mesh, const TCHAR* MaterialKey) const;
-	bool FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps) const;
+	/** Measured-mask resolver. VariantStream (per roll-seed + cell) picks among tiles
+	 *  that resolve to the same masks by FHexTileDef::Weight — the blank-variant hook;
+	 *  null = legacy first-match. */
+	bool FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps,
+		const FRandomStream* VariantStream = nullptr) const;
 
 	void Build(const FHexNetwork& Net);
 	void RefreshPresentation();

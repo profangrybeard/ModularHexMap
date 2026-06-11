@@ -48,6 +48,14 @@ struct FHexTileDef
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (ClampMin = "0", ClampMax = "63"))
 	int32 WaterMask = 0;
 
+	/** Relative pick weight among catalog tiles that resolve to the SAME (road, water)
+	 *  mask under rotation — the blank-variant dial (plain ground vs garden square vs
+	 *  green vs allotment). Irrelevant while a mask has one tile (the usual case);
+	 *  0 = never placed by the resolver (bespoke/manual only). The pick is seeded per
+	 *  (roll seed, cell), so a destiny keeps its gardens through save/load/healing. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (ClampMin = "0.0"))
+	float Weight = 1.f;
+
 	FHexTileDef()
 	{
 		Edges.Init(EHexEdgeSocket::Pavement, 6);

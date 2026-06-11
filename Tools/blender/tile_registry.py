@@ -24,6 +24,7 @@ import gen_curved_tiles as _street
 import gen_pit_core as _core
 import gen_buildings as _bldg
 import gen_river_tiles as _river
+import gen_blank_variants as _blank
 
 
 class TileEntry:
@@ -55,6 +56,13 @@ def _registry():
             name, "building",
             (lambda k=key, e=list(edges): _bldg.build_tile_obj(k, e)),
         )
+    # blank variants (tended open ground; weighted siblings of T_street_blank)
+    for key in _blank.VARIANTS:
+        name = "T_blank_%s" % key
+        reg[name] = TileEntry(
+            name, "street",
+            (lambda k=key: _blank.build_tile_obj(k)),
+        )
     # fixed core: core_specs() keys are already "T_core_*"
     for name, (road, _qr, is_pit) in _core.core_specs().items():
         reg[name] = TileEntry(
@@ -68,11 +76,12 @@ REGISTRY = _registry()
 
 
 def all_names():
-    """Stable display order: street kit, then matching buildings, then core tiles."""
+    """Stable display order: street kit, blank variants, buildings, then core tiles."""
     street = ["T_street_%s" % k for k in _street.EDGE_SETS]
+    blank  = ["T_blank_%s"  % k for k in _blank.VARIANTS]
     bldg   = ["T_bldg_%s"   % k for k in _bldg.EDGE_SETS]
     core   = [n for n in REGISTRY if n.startswith("T_core_")]
-    return street + bldg + sorted(core)
+    return street + blank + bldg + sorted(core)
 
 
 def get(name):

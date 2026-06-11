@@ -54,6 +54,12 @@ commands below run from the **repo root** and stay machine-neutral.
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_pit_core.py"       # 7 core tiles
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_buildings.py"      # 12 building tiles
+& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
+  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_blank_variants.py" # 3 blank variants (gardens)
+
+# Contact-sheet renders of staged tiles (visual check after a bake; trailing args filter by substring)
+& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background --factory-startup `
+  --python ".\Tools\blender\render_contact.py" -- T_blank
 
 # Post-change smoke test (one-shot GUI editor: calibrate, roll, histogram, constrained+assert)
 & "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" `
@@ -79,11 +85,19 @@ through-flow past the wound, player-chosen `RiverOutflowDir`, oxbow meander at t
 0.22 default, ~2.5 bridges clustered near the center, Left/Right Banks via `GetBank`)
 — rendered as a **ghost silhouette at Pop 1**; `RestoreNext`/`RestoreCell` heal it one
 soul at a time toward **Pop 121** (bridges gate the far bank); rolls save/load as the
-complete town save (`FHexRoll` + `Restored`). Catalog = 21 tiles (14 street + 3 river +
-4 census-complete bridges); `RoadBudget` is an honest density dial (wave reseeding) and
-`SideBridgeChance` the bridge-scarcity dial. Run [Docs/Testing.md](Docs/Testing.md)
-T0–T11 to verify everything; **next:** blank-max clamp (director's eyeball) + the
-garden-square blank variants — full queue in Roadmap.md.
+complete town save (`FHexRoll` + `Restored`). Catalog = **24 tiles** (14 street +
+3 river + 4 census-complete bridges + 3 blank variants — garden/green/allotment,
+Weight-picked per cell, deterministic per destiny); `RoadBudget` is an honest
+density dial (wave reseeding) and `SideBridgeChance` the bridge-scarcity dial;
+census + constraints speak **dry semantics** (blank = dry ground; `water` is its
+own bucket/row); **StraightDecay 0.33** is the canyon-killer ruling (multi-tile
+walled straights structurally dead; Baseline.csv anchored there: dry blank mean
+27.8 / p95 69, straights ≈ 9, bridges ≈ 2.2).
+Run [Docs/Testing.md](Docs/Testing.md) T0–T11 to verify everything. The **"too
+much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp —
+`junction 1–3 / tee_c 1–3 / blank 2–40` + plain-void Weight 0.4, proof seed 65 —
+L3 garden variants); **next:** yard/orchard variant siblings + Weight dialing,
+buildings facade continuity (Phase 5), landmark tiles — full queue in Roadmap.md.
 
 ## Architecture & file map
 
@@ -103,12 +117,15 @@ garden-square blank variants — full queue in Roadmap.md.
 | `Tools/blender/gen_curved_tiles.py` | canonical street-kit generator (spline-curved; edit `EDGE_SETS`; manifest-aware) |
 | `Tools/blender/gen_pit_core.py` | pit-core generator (7-tile radial star; manifest-aware; writes `core_layout.json`) |
 | `Tools/blender/gen_buildings.py` | building-tile generator (walls/roof/interior/doors; manifest-aware) — see Docs/Buildings.md |
+| `Tools/blender/gen_blank_variants.py` | blank-variant generator (garden/green/allotment — tended open ground; manifest-aware; writes `blank_kit.json`) |
+| `Tools/blender/render_contact.py` | headless contact-sheet renders of staged .glbs → `Docs/Images/ContactSheets/` |
 | `Tools/blender/tile_pipeline.py` | the "Hex Tiles" Blender addon (export toggles, preview, Promote to Bespoke) |
 | `Tools/blender/tile_registry.py` / `tile_common.py` | single tile list pulled from the generators / shared paths+export+manifest plumbing |
 | `Tools/blender/tile_manifest.json` | git-tracked per-tile state: `enabled` + `bespoke` + `blend` |
 | `Tools/blender/_wip_building_facades.py` | iteration workbench: streets + buildings together for visual review |
 | `Tools/setup_shuffle_lab.py` → `wire_core_into_shufflelab.py` → `setup_buildings.py` | rebuild-from-scratch chain (GUI editor one-shots; bake .glbs first) |
 | `Tools/setup_pit_core.py` | (GUI editor) import core tiles + build walkable `PitCoreLab` |
+| `Tools/setup_blank_variants.py` | (GUI editor) import blank variants + catalog rows with `Weight` — run AFTER the C++ build that adds `Weight` |
 | `Tools/verify_shuffle.py` / `Tools/_verify_buildings.py` | post-change smoke test / building-ISM sanity check |
 | `Content/Python/reimport_hextiles.py` | **Tools ▸ Reimport Hex Tiles** — reimport all tiles + Complex-As-Simple + material self-heal |
 | `Content/Python/roll_diagnostics.py` | Diagnose Last Roll / Hex Roll Sweep / Constrained Randomize (BuildFromSeed + placed-roll re-verify) |

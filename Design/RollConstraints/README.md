@@ -36,9 +36,9 @@ rolls.
 
 ## File format
 
-JSON. Top-level object. Keys are necklace names (must match the 14 mask
-classes the generator emits — see the `roll_diagnostics.NECKLACE_NAMES` list).
-Values are either:
+JSON. Top-level object. Keys are necklace names (the 14 mask classes the
+generator emits plus the `water` pseudo-bucket — see
+`roll_diagnostics.ALL_BUCKET_NAMES`). Values are either:
 
 - **Integer** — shorthand for `{"min": N}`. The roll must contain at least N
   frontier cells of that type.
@@ -73,9 +73,23 @@ blank   deadend   bend     curve    straight
 tee     tee_a     tee_b    tee_c
 quad    quad_b    quad_c
 penta   junction
+water
 ```
 
 See `roll_diagnostics.py` for the bit-mask definitions.
+
+### Bucket semantics (director's ruling, 2026-06-11)
+
+- **`blank` = DRY open ground only** (road mask 0 *and* water mask 0) — the
+  cells the blank-max curation clamp and the garden-square variants are about.
+- **`water` = pure river cells** (road mask 0, water mask ≠ 0). It is a
+  pseudo-bucket, not a street necklace; constraining it bounds river length.
+- **Bridges count under their road necklace** (they carry streets), never under
+  `water` or `blank`.
+
+Every frontier cell lands in exactly one bucket, so feasibility sums against
+the sweep still account for all 120 souls. Sweeps before 2026-06-11 counted
+river cells inside `blank` — don't compare those numbers raw.
 
 ## Feasibility hints
 

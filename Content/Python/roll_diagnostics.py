@@ -23,6 +23,12 @@ Three tools, all registered under Tools > (see hexmap_menus.py):
       LastNetwork as a belt-and-suspenders assertion. Prints per-attempt
       failures so you can see why rolls are bouncing.
 
+Bucket semantics (director's ruling 2026-06-11): 'blank' counts DRY open ground
+only (road mask 0 AND water mask 0). Pure-water cells bucket as 'water' (also a
+legal constraint row = river-length clamp); bridges count under their road
+necklace. Every frontier cell lands in exactly one bucket, so sum(mean) over the
+14 necklaces + water still accounts for all 120 souls.
+
 All tools can also run from the Output Log:
   import roll_diagnostics, importlib; importlib.reload(roll_diagnostics)
   roll_diagnostics.diagnose_last_roll()
@@ -66,6 +72,19 @@ NECKLACE_ORDER = sorted(
     NECKLACE_NAMES.keys(),
     key=lambda m: (NECKLACE_NAMES[m][1], NECKLACE_NAMES[m][0]),
 )
+
+# Pseudo-bucket: frontier cells that are NOT street necklaces. Director's ruling
+# (2026-06-11): water is water (hosts a water soul); blank is dry ground (hosts a
+# soul whose work lives in that blank). A road-mask-0 cell carrying water is a
+# RIVER cell, never a "blank" — it must not trip blank-max curation or pad the
+# open-ground stats. Bridges (road != 0, water != 0) keep their road necklace:
+# they carry streets. The sentinel key lives outside 6-bit mask space so the
+# water bucket can share the necklace dict (keeping sum(mean) = 120 exact) and
+# the constraints namespace (a 'water' row = river-length clamp) without ever
+# colliding with a canonical road mask.
+WATER_PSEUDO_MASK = 0x40
+PSEUDO_NAMES = {WATER_PSEUDO_MASK: ("water", 0)}
+ALL_BUCKET_NAMES = {**NECKLACE_NAMES, **PSEUDO_NAMES}
 
 
 # ---------------------------------------------------------------------------
@@ -204,8 +223,11 @@ def _core_axial_set(core_cells):
 
 def _bucket_cells(cells, core_axials):
     """Bucket cells by canonical road mask, excluding core cells (axial membership).
+    Pure-water cells (road mask 0, water mask != 0) are river, not blank — they
+    land in the WATER_PSEUDO_MASK ('water') bucket; bridges keep their road
+    necklace. 'blank' therefore means DRY open ground (road 0 AND water 0).
     Returns (frontier_buckets, core_count, unknown_buckets)."""
-    buckets = {m: 0 for m in NECKLACE_NAMES}
+    buckets = {m: 0 for m in ALL_BUCKET_NAMES}
     unknown = {}
     core_count = 0
     for cell in cells:
@@ -213,7 +235,11 @@ def _bucket_cells(cells, core_axials):
         if (ax.x, ax.y) in core_axials:
             core_count += 1
             continue
-        canon = _canonical_mask(_sf(cell, "road_mask"))
+        road = int(_sf(cell, "road_mask"))
+        if road == 0 and int(_sf(cell, "water_mask")) != 0:
+            buckets[WATER_PSEUDO_MASK] += 1
+            continue
+        canon = _canonical_mask(road)
         if canon in buckets:
             buckets[canon] += 1
         else:
@@ -298,6 +324,13 @@ def diagnose_last_roll():
                 name, deg, mask, n, pct
             )
         )
+    n_water = frontier_buckets[WATER_PSEUDO_MASK]
+    pct = (100.0 * n_water / frontier_total) if frontier_total else 0.0
+    unreal.log(
+        "  {:<10s} (river: road 0 + water)  {:>4d}  ({:>5.1f}%)".format(
+            "water", n_water, pct
+        )
+    )
     if unknown_buckets:
         unreal.log_warning(
             "[RollDiag] masks outside the 14-necklace catalog (should not happen):"
@@ -340,7 +373,7 @@ def run_roll_sweep(n=200, base_seed=0):
         % (n, base_seed, len(core_axials))
     )
 
-    per_necklace = {m: [] for m in NECKLACE_NAMES}
+    per_necklace = {m: [] for m in ALL_BUCKET_NAMES}
     per_roll_frontier_totals = []
     per_roll_unknown = []
 
@@ -352,7 +385,7 @@ def run_roll_sweep(n=200, base_seed=0):
         net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core_cells, seed)
         cells = list(_sf(net, "cells")) if net is not None else []
         roll_buckets, _core, unknown_buckets = _bucket_cells(cells, core_axials)
-        for m in NECKLACE_NAMES:
+        for m in ALL_BUCKET_NAMES:
             per_necklace[m].append(roll_buckets[m])
         per_roll_frontier_totals.append(
             sum(roll_buckets.values()) + sum(unknown_buckets.values()))
@@ -365,16 +398,18 @@ def run_roll_sweep(n=200, base_seed=0):
         for pair, c in bp.items():
             agg_pairs[pair] = agg_pairs.get(pair, 0) + c
 
-    # Aggregate
+    # Aggregate. The water pseudo-bucket rides along as a normal row (mask_bin
+    # label 'water') so sum(mean) still accounts for every frontier cell = 120.
     rows = []
-    for mask in NECKLACE_ORDER:
-        name, deg = NECKLACE_NAMES[mask]
+    for mask in NECKLACE_ORDER + [WATER_PSEUDO_MASK]:
+        name, deg = ALL_BUCKET_NAMES[mask]
         s = _summarise(per_necklace[mask])
         pool = int(math.ceil(s["p95"]))
         rows.append({
             "name": name,
             "edges": deg,
-            "mask_bin": "0b{:06b}".format(mask),
+            "mask_bin": ("water" if mask == WATER_PSEUDO_MASK
+                         else "0b{:06b}".format(mask)),
             "mean": s["mean"],
             "std": s["std"],
             "min": s["min"],
@@ -501,9 +536,10 @@ def _constraints_path(name):
 
 def _necklace_name_to_canon():
     """Build a {name_string: canonical_mask} lookup so we can map DataTable row
-    names (which are FNames like 'junction') to canonical mask values.
-    NECKLACE_NAMES values are (name, edge_count) tuples — take the [0]."""
-    return {v[0]: k for k, v in NECKLACE_NAMES.items()}
+    names (which are FNames like 'junction') to canonical mask values. Includes
+    the 'water' pseudo-bucket — constraining it bounds river length (pure-water
+    cells; bridges count under their road necklace, blank stays dry-only)."""
+    return {v[0]: k for k, v in ALL_BUCKET_NAMES.items()}
 
 
 def _load_constraints_from_datatable(data_table):
@@ -544,7 +580,7 @@ def _load_constraints_from_datatable(data_table):
         if key not in name_to_mask:
             unreal.log_warning(
                 "[RollDiag] DataTable row '%s' is not a known necklace; skipping. "
-                "Valid names: %s" % (key, ", ".join(sorted(v[0] for v in NECKLACE_NAMES.values())))
+                "Valid names: %s" % (key, ", ".join(sorted(v[0] for v in ALL_BUCKET_NAMES.values())))
             )
             continue
         mn = _num(col_min, i, 0)
@@ -576,7 +612,7 @@ def _load_constraints_from_json(name):
         if key not in name_to_mask:
             unreal.log_warning(
                 "[RollDiag] constraint key '%s' is not a known necklace; skipping. "
-                "Valid names: %s" % (key, ", ".join(sorted(v[0] for v in NECKLACE_NAMES.values())))
+                "Valid names: %s" % (key, ", ".join(sorted(v[0] for v in ALL_BUCKET_NAMES.values())))
             )
             continue
         canon = name_to_mask[key]
@@ -630,7 +666,7 @@ def _check_constraints(buckets, constraints):
     failures = []
     for mask, c in constraints.items():
         observed = buckets.get(mask, 0)
-        name = NECKLACE_NAMES.get(mask, (str(mask), -1))[0]
+        name = ALL_BUCKET_NAMES.get(mask, (str(mask), -1))[0]
         if c.get("exact") is not None:
             if observed != c["exact"]:
                 failures.append((mask, name, observed, "exact %d" % c["exact"]))
@@ -646,7 +682,7 @@ def _grow_and_bucket(growth, core_cells, core_axials, seed):
     """Grow with the given seed, return per-necklace frontier bucket counts."""
     net = unreal.HexMapGrowthLibrary.grow_road_network(growth, core_cells, seed)
     if net is None:
-        return {m: 0 for m in NECKLACE_NAMES}
+        return {m: 0 for m in ALL_BUCKET_NAMES}
     buckets, _core, _unknown = _bucket_cells(list(_sf(net, "cells")), core_axials)
     return buckets
 
@@ -704,7 +740,7 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
         % (source, start_seed, max_attempts)
     )
     for mask, c in constraints.items():
-        unreal.log("  %-9s %s" % (NECKLACE_NAMES[mask][0], _format_constraint(c)))
+        unreal.log("  %-9s %s" % (ALL_BUCKET_NAMES[mask][0], _format_constraint(c)))
 
     # Track which constraint blocked the most rolls + the closest miss per
     # constraint so the failure summary is actionable. Both keyed by mask int.
@@ -734,7 +770,7 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
             for mask in constraints:
                 unreal.log(
                     "  %-9s got %d  (%s)"
-                    % (NECKLACE_NAMES[mask][0],
+                    % (ALL_BUCKET_NAMES[mask][0],
                        buckets.get(mask, 0),
                        _format_constraint(constraints[mask]))
                 )
@@ -791,12 +827,12 @@ def constrained_randomize(constraints_name="default", max_attempts=200,
     )
     unreal.log_warning(
         "[RollDiag]   biggest bouncer: '%s' (%d/%d attempts failed it)"
-        % (NECKLACE_NAMES[worst_mask][0], worst_count, max_attempts)
+        % (ALL_BUCKET_NAMES[worst_mask][0], worst_count, max_attempts)
     )
     for mask, (obs, req, _dist) in closest_miss.items():
         unreal.log_warning(
             "[RollDiag]   closest miss '%s': observed %d, needed %s"
-            % (NECKLACE_NAMES[mask][0], obs, req)
+            % (ALL_BUCKET_NAMES[mask][0], obs, req)
         )
     unreal.log_warning(
         "[RollDiag]   try: loosen constraints, raise max_attempts, "

@@ -125,17 +125,62 @@
      contract). Blank mean 83.7 → **36.5**; bridges 0.47 → **2.54** (the original
      design read, center-clustered). 4th bridge pair authored from the census
      (`T_bridge_09_06`, straight × bend-water; catalog = 21).
-  2. **Curated clamp (NEXT — director's eyeball)**: `blank: {max: N}` constraint row
-     culls the geography-strangled tail (p95 = 68, max 107). **Reference rolls are
-     saved and waiting**: set `RollToLoad` to `Roll_seed22` (blank 30) / `Roll_seed5`
-     (blank 45) / `Roll_seed188` (blank 60), Load Roll, walk each; pick N where airy
-     tips into dead, then add the `blank` row (Max = N) to `DT_RollConstraints_Default`.
-  3. **Open ground is occupied ground** (the read fix): blank VARIANTS — garden squares,
-     greens, allotments, yards, orchard plots (Bloomsbury garden-square energy; every
-     blank is a SOUL's home, so absence should read as tended ground, not void). 3–5
-     parametric blockout variants via the existing kit discipline; bespoke promotions
-     per the manifest later; needs a seeded weighted-variant pick in the resolver
-     (reintroduces what `Weight` was for — removed as dead, returns with its consumer).
+  2. ✅ **Curated clamp LANDED 2026-06-11**: `DT_RollConstraints_junction_mxBlank`
+     = **junction 1–3, tee_c 1–3, blank 2–40 (dry)** — git mirror
+     `Design/RollConstraints/curated.json`. Plain-VOID scarcity (the director's
+     "2–4 raw blanks") is the **Weight dial, not a census row**: plain
+     `T_street_blank` Weight 0.4 vs three gardens at 1.0. Proof roll: constrained
+     satisfied at seed 65 in 4 attempts; placed re-verify PASS; dressing census
+     voids=4 / gardens 9+10+6 / dry 29. History below:
+     `blank: {max: N}` constraint row
+     culls the geography-strangled tail. **Semantics ruled + fixed 2026-06-11**
+     (water is water, blank is blank): `blank` now counts **dry ground only** —
+     pure river cells moved to their own `water` bucket (also a legal constraint
+     row = river-length clamp); bridges stay under their road necklace. Reference
+     rolls in dry terms: `Roll_seed22` (**15**) / `Roll_seed5` (**24**) /
+     `Roll_seed188` (**36**) — note these are old-tuning destinies (decay 0.8);
+     they load verbatim but fresh rolls run blanker. **Baseline re-anchored dry +
+     StraightDecay 0.33 (2026-06-11)**: blank mean 27.8 / p50 23 / p95 69 / max
+     87; water mean 14.7 (p95 25); sum(mean) = 120.0 exact. The
+     geography-strangled tail is real in dry terms — the clamp still earns its
+     keep.
+     ⚠ The first eyeball pass set Max = 5 in `DT_RollConstraints_junction_mxBlank`
+     — under the old census semantics that was **impossible** (the river alone
+     always exceeds 5, census floor was 12), and on exhaustion Constrained
+     Randomize changes nothing and returns None — so the "good results" were
+     unconstrained Layer-1 rolls. In dry terms Max 5 is still extreme (dry min
+     over 200 rolls = 6). **Re-pick N from the dry 0.33-decay baseline** (p50 23 /
+     mean 27.8 — a Max around 35–40 cuts the dead tail while keeping constrained
+     rolls fast), then SAVE the DataTable and mirror a JSON preset under
+     `Design/RollConstraints/`.
+     ⚠ The committed table's other rows are also infeasible-to-coinflip against
+     the post-Layer-1 distribution (verify 2026-06-11): **junction Max 2**
+     (junction means 6.5 — densification made 6-ways common; if junction scarcity
+     is the intent, that's a growth/landmark design pass, not a constraint) and
+     **tee_c Min 1** (tee_c mean 0.69, p50 = 0 — a near-coinflip alone). Director's
+     ruling needed on both rows.
+  3. **Open ground is occupied ground** (the read fix): blank VARIANTS — every blank
+     is a SOUL's home, so absence should read as tended ground, not void (Bloomsbury
+     garden-square energy). ✅ **LANDED 2026-06-11** (build + setup + consolidate +
+     verify all green: calibration 24 tiles, 127 cells / 0 unresolved / souls=120;
+     awaiting the director's look ruling + Weight dialing):
+     - Engine: `FHexTileDef.Weight` returned WITH its consumer — both resolvers
+       (`FindPlacement` measured / `FindTileForMask` authored) now collect ALL tiles
+       matching a cell's (road, water) masks and pick Weight-proportionally from a
+       per-cell `FRandomStream(VariantSeedFor(Seed, Axial))`; mask-0 cells also roll
+       a free heading (gardens don't stamp). Deterministic per destiny: LoadRoll +
+       healing re-place identical variants, save format unchanged.
+     - Kit: `gen_blank_variants.py` → `T_blank_garden` (railed green, two gates,
+       monument) / `T_blank_green` (off-centre lawn, desire-line S path, tree,
+       mounds) / `T_blank_allotment` (5 raised beds, shed on the sixth plot,
+       compost). Street-kit canvas reused verbatim; `M_Green` new master; manifest +
+       registry entries live; contact sheets in `Docs/Images/ContactSheets/`.
+     - Wiring: `Tools/setup_blank_variants.py` (catalog rows from `blank_kit.json`,
+       incl. Weight; run AFTER the C++ build — `weight` doesn't exist in old
+       binaries). Plain `T_street_blank` stays in the pool at Weight 1.0 (the
+       void-vs-tended ratio is the director's catalog dial).
+     - Still open: yard / orchard variants (cheap siblings once the look is ruled
+       on), bespoke promotions per the manifest.
 - [ ] **Player layout agency: RULED OUT beyond heading/order/assignment** (2026-06-11) —
   "rebuilding a lifetime hex by hex and discovering how they connect is part of the
   beauty." Not a city sim. Fully walkable + interactable (shops, quests) stays the bar —
@@ -159,10 +204,11 @@
   irregular slumped collapsed-building rim on `T_core_pit` (not a clean hex) + the
   −3 m zig-zag descent; now joined by the **ring-1 pour-in water tiles** (the river
   passing the wound) from the core-anchored evolution.
-- [ ] **Headless contact-sheet render** of the kit after each bake (visual diff artifact).
+- [x] ~~**Headless contact-sheet render**~~ ✅ tool live 2026-06-11
+  (`Tools/blender/render_contact.py` → `Docs/Images/ContactSheets/`; per-bake
+  auto-run still optional later).
 - [ ] ~~**`MeasureTileMask` tolerance → absolute**~~ ✅ done 2026-06-10 (250 uu).
-- [ ] **River material consolidation**: the river kit import minted per-mesh material
-  dupes under `HexTiles/River/` (Resistance #19); `setup_river.py` doesn't run the
-  consolidator and `hextile_materials.py` doesn't know `M_Water` yet. Add `M_Water` to
-  the masters map + run consolidate (or just run Tools ▸ Reimport Hex Tiles after the
-  next bake).
+- [x] ~~**River material consolidation**~~ ✅ fixed in code 2026-06-11: `M_Water` (+
+  the new `M_Green`) added to `hextile_materials.CANON`; the dupes fold into masters
+  on the next **Tools ▸ Reimport Hex Tiles** (then Recalibrate — the master keeps the
+  'Water' key the measurer reads).

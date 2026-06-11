@@ -116,16 +116,20 @@
 ## T6 — Diagnostics
 
 1. After any roll: Tools ▸ **Diagnose Last Roll**.
-   **Expect:** per-necklace histogram of the PLACED town (sums to 120 with water
-   counted in its own section), `water: N river cells, M bridges` + water necklaces +
+   **Expect:** per-necklace histogram of the PLACED town summing to 120, with a
+   **`water` row** after the 14 necklaces (pure river cells — road 0 + water;
+   **`blank` counts DRY ground only**, per the 2026-06-11 ruling: water is water,
+   blank is blank); then `water: N river cells, M bridges` + water necklaces +
    bridge pairs. Run after **Load Roll** too — it reads the placed network, not a
    re-grow.
 2. Tools ▸ **Hex Roll Sweep (200 rolls)** (~10 s).
-   **Expect:** per-necklace mean/std/p95 table; `sum(mean)=120.0`,
-   `mean unresolved 0.00`; **blank mean ≈ 36** (the wave-reseeding contract); WATER
-   block (river cells mean ~17, **bridges mean ~2.5**, center-clustered); **4 bridge
-   pair kinds** (the straight×bend pair is rare, ~0.4%, and may not appear in every
-   sweep); a CSV lands in `Design/Rolls/`. Compare against
+   **Expect:** per-necklace mean/std/p95 table with a `water` row;
+   `sum(mean)=120.0`, `mean unresolved 0.00`; **blank (dry) mean ≈ 28** and
+   **water mean ≈ 15** (at the StraightDecay 0.33 canyon-killer default —
+   straights ≈ 9, down from ≈ 11 at the old 0.8 decay); WATER block (river cells
+   mean ~17, **bridges mean ~2.2**, center-clustered); **up to 4 bridge pair
+   kinds, all authored** (the straight×bend pair is rare, ~0.4%, and may not
+   appear in every sweep); a CSV lands in `Design/Rolls/`. Compare against
    `Design/Rolls/Baseline.csv` after any growth change.
 
 ## T7 — The River
@@ -242,10 +246,12 @@ then grep the log: `Select-String -Path Saved\Logs\ModularHexMap.log -Pattern "P
 
 1. **River arms stop at ring 1.** The two ring-1 gate tiles carry water MASKS but no
    channel geometry yet — that's the director's pour-in art pass. Interim by design.
-2. **Bridgeless destinies are common** (bridges mean ≈ 0.4 since core-anchoring).
-   Healing rounds the core instead. Parked tuning knob, not a defect.
-3. **Blank share swings hard between rolls** (σ/μ ≈ 0.43) — known volatility;
-   min-block-size rule is the queued fix.
+2. **Bridgeless destinies still occur at the tails** (bridges mean ≈ 2.5 since the
+   Layer-1 growth fixes, but min 0 rolls exist). Healing rounds the core instead.
+   `SideBridgeChance` is the dial, not a defect.
+3. **Blank (dry) share swings between rolls** — known volatility; the curation
+   answer is the `blank` Max row in RollConstraints (layer 2) + garden-square
+   blank variants (layer 3). (Min-block-size rule was struck 2026-06-11.)
 4. **Bank split is lopsided** (~15/95) — geometry of the 60° bend; the wedge district
    is a feature.
 5. **`is_dirty` lies after scripted edits** in Blender (Resistance #31) and **a level

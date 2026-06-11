@@ -33,6 +33,9 @@
     "T_core_ring_2": { "enabled": true, "bespoke": false, "blend": null },
     "T_core_ring_3": { "enabled": true, "bespoke": false, "blend": null },
     "T_core_ring_4": { "enabled": true, "bespoke": false, "blend": null },
-    "T_core_ring_5": { "enabled": true, "bespoke": false, "blend": null }
+    "T_core_ring_5": { "enabled": true, "bespoke": false, "blend": null },
+    "T_blank_garden": { "enabled": true, "bespoke": false, "blend": null },
+    "T_blank_green": { "enabled": true, "bespoke": false, "blend": null },
+    "T_blank_allotment": { "enabled": true, "bespoke": false, "blend": null }
   }
 }

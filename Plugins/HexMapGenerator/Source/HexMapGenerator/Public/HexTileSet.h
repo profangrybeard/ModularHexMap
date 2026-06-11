@@ -7,6 +7,8 @@
 #include "HexTileTypes.h"
 #include "HexTileSet.generated.h"
 
+struct FRandomStream;
+
 /** Artist-editable catalog of hex tile types. */
 UCLASS(BlueprintType)
 class HEXMAPGENERATOR_API UHexTileSet : public UDataAsset
@@ -22,8 +24,18 @@ public:
 
 	/** Find a tile + rotation (0..5) whose rotated ROAD and WATER masks BOTH equal the
 	 *  targets under the same rotation (the layered-mask contract — Docs/Rivers.md §2).
-	 *  TargetWaterMask 0 = a dry cell, matched by dry tiles only. */
-	bool FindTileForMask(int32 TargetMask, int32 TargetWaterMask, int32& OutTileIndex, int32& OutRotation) const;
+	 *  TargetWaterMask 0 = a dry cell, matched by dry tiles only.
+	 *  When several catalog tiles resolve to the same masks (blank variants),
+	 *  VariantStream picks among them by FHexTileDef::Weight and rolls a free heading
+	 *  for mask-0 tiles; null keeps the legacy first-match (tools, previews). */
+	bool FindTileForMask(int32 TargetMask, int32 TargetWaterMask, int32& OutTileIndex, int32& OutRotation,
+		const FRandomStream* VariantStream = nullptr) const;
+
+	/** Shared weighted pick over parallel candidate arrays (used by both the authored
+	 *  resolver above and the generator's measured FindPlacement). Returns an index
+	 *  into Weights: candidate 0 when Stream is null or all weight is gone (legacy
+	 *  determinism), else a Weight-proportional draw from Stream. */
+	static int32 PickWeightedCandidate(TArrayView<const float> Weights, const FRandomStream* Stream);
 };
 
 /** One hardwired fixed-core cell: a bespoke mesh pinned at an axial coord (placed verbatim, yaw 0).

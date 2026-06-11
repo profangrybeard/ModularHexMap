@@ -10,6 +10,7 @@
 #include "Materials/MaterialInterface.h"
 #include "JsonObjectConverter.h"
 #include "Algo/Reverse.h"
+#include "Math/RandomStream.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
@@ -36,6 +37,18 @@ static int32 PopCount6(int32 M)
 	int32 N = 0;
 	for (int32 b = 0; b < 6; ++b) { if (M & (1 << b)) ++N; }
 	return N;
+}
+
+// Variant-pick seed for one cell of one destiny. Explicit spatial-hash arithmetic
+// (classic primes), NOT GetTypeHash: the same (roll seed, cell) must pick the same
+// blank variant forever, across engine versions and platforms — it's save-stable
+// town identity, derived instead of serialized.
+static int32 VariantSeedFor(int32 RollSeed, const FIntPoint& Axial)
+{
+	const uint32 H = (uint32)RollSeed * 73856093u
+		^ (uint32)(Axial.X * 19349663)
+		^ (uint32)(Axial.Y * 83492791);
+	return (int32)H;
 }
 
 void AHexShuffleGenerator::Clear()
@@ -166,8 +179,15 @@ void AHexShuffleGenerator::MeasureCalibration()
 	}
 }
 
-bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps) const
+bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, int32& OutTile, int32& OutYawSteps,
+	const FRandomStream* VariantStream) const
 {
+	// Collect every tile that can present the cell's masks, each at its first
+	// matching yaw. One candidate per necklace today; blank variants share (0, 0)
+	// and are disambiguated by the Weight-proportional pick below.
+	TArray<int32, TInlineAllocator<8>> CandTile;
+	TArray<int32, TInlineAllocator<8>> CandYaw;
+	TArray<float, TInlineAllocator<8>> CandWeight;
 	for (int32 i = 0; i < TileRealMask.Num(); ++i)
 	{
 		for (int32 k = 0; k < 6; ++k)
@@ -179,15 +199,30 @@ bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, in
 			if (HexGrid::RotateMask6(TileRealMask[i], Rot) == CellMask &&
 				HexGrid::RotateMask6(TileRealWaterMask[i], Rot) == CellWaterMask)
 			{
-				OutTile = i;
-				OutYawSteps = k;
-				return true;
+				CandTile.Add(i);
+				CandYaw.Add(k);
+				CandWeight.Add(TileSet && TileSet->Tiles.IsValidIndex(i) ? TileSet->Tiles[i].Weight : 1.f);
+				break;
 			}
 		}
 	}
-	OutTile = INDEX_NONE;
-	OutYawSteps = 0;
-	return false;
+	if (CandTile.Num() == 0)
+	{
+		OutTile = INDEX_NONE;
+		OutYawSteps = 0;
+		return false;
+	}
+
+	const int32 C = UHexTileSet::PickWeightedCandidate(CandWeight, VariantStream);
+	OutTile = CandTile[C];
+	OutYawSteps = CandYaw[C];
+	// A fully blank cell matches at every yaw, so the heading is free entropy: spin
+	// gardens/greens so repeats don't read as a stamped lattice.
+	if (CellMask == 0 && CellWaterMask == 0 && VariantStream)
+	{
+		OutYawSteps = VariantStream->RandRange(0, 5);
+	}
+	return true;
 }
 
 UInstancedStaticMeshComponent* AHexShuffleGenerator::GetOrCreateISM(UStaticMesh* Mesh)
@@ -341,11 +376,15 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 		}
 
 		// Frontier cell: resolve the grown masks (both layers) to a tile + rotation.
+		// Variant entropy is keyed on (roll seed, cell) — NOT a running stream — so
+		// LoadRoll and every healing rebuild re-place the exact same variant at the
+		// exact same heading: the destiny owns its gardens, no save-format change.
+		const FRandomStream VariantStream(VariantSeedFor(Seed, Cell.Axial));
 		int32 TileIdx = INDEX_NONE;
 		int32 YawSteps = 0;
 		const bool bFound = bUseMeasured
-			? FindPlacement(Cell.RoadMask, Cell.WaterMask, TileIdx, YawSteps)
-			: TileSet->FindTileForMask(Cell.RoadMask, Cell.WaterMask, TileIdx, YawSteps);
+			? FindPlacement(Cell.RoadMask, Cell.WaterMask, TileIdx, YawSteps, &VariantStream)
+			: TileSet->FindTileForMask(Cell.RoadMask, Cell.WaterMask, TileIdx, YawSteps, &VariantStream);
 
 		if (!bFound) { ++Unresolved; continue; }
 

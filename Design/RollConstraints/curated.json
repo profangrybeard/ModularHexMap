@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "description": "The blessed curated-town clamp (director, 2026-06-11) — git mirror of DT_RollConstraints_junction_mxBlank. junction/tee_c 1-3: scarce landmark intersections with snappy constrained rolls (~1-in-18 jointly at the 0.33-decay baseline). blank 2-40 in DRY terms: at least 2 dry cells so gardens always exist, at most 40 to cull the geography-strangled tail (dry p50 23 / p95 69). Plain-VOID scarcity (the 2-4 raw blanks) is NOT a census row — it's FHexTileDef.Weight 0.4 on the plain T_street_blank catalog row vs the three garden variants at 1.0.",
+
+  "junction": { "min": 1, "max": 3 },
+  "tee_c":    { "min": 1, "max": 3 },
+  "blank":    { "min": 2, "max": 40 }
+}

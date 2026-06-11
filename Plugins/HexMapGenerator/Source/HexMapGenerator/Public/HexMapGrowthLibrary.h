@@ -43,9 +43,12 @@ struct FHexGrowthParams
 
 	/** Stacking turn pressure: each consecutive straight segment multiplies the straight-continue
 	 *  chance by this, so long straight runs grow increasingly likely to kink — built-in
-	 *  visibility blocking. 1 = no decay (constant straightness); lower = turns sooner. */
+	 *  visibility blocking. 1 = no decay (constant straightness); lower = turns sooner.
+	 *  Default 0.33 is the director's tuned ruling (2026-06-11): kills multi-tile straight
+	 *  canyons walled by buildings on both sides (2nd straight ~24%, 3rd ~8% at the 0.72
+	 *  base bias); the original engineering default was 0.8. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "1"))
-	float StraightDecay = 0.8f;
+	float StraightDecay = 0.33f;
 
 	/** Hard cap on consecutive straight segments before a turn is forced (0 = no cap, rely on
 	 *  decay only). A guaranteed sightline limit for level design. */

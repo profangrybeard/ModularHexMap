@@ -236,6 +236,13 @@ from the prior prototype.)
 12. **The Pit's descend prompt / level transition is NOT this repo's scope** — it lives with
     the dungeon project. The town↔dungeon junction is a standing design goal the director
     manages across both projects; this repo only keeps the Pit tile + its anchor stable.
+13. **Water is water, blank is blank** (2026-06-11). A river cell hosts a *water* soul;
+    a blank cell hosts a soul whose **efforts and time exist in that blank** — open
+    ground is occupied ground (garden squares, greens, allotments), never void. The
+    two never share a census bucket or a curation clamp: `blank` counts DRY ground
+    only (road 0 AND water 0); pure-water cells census as `water`; bridges count as
+    their road necklace. Blank variants stay fully walkable and will eventually host
+    their souls' interactions.
 
 ## Open
 

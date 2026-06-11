@@ -1,5 +1,116 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (close) — The landing: curated clamp wired, proven, shipped
+
+Director's picks arrived as a screenshot (junction 2/2, tee_c 2/2, blank 2/4) —
+two clarifications turned them into the blessed set:
+- **"blank 2–4" meant plain VOID lots**, not dry cells (dry never rolls below 6).
+  That's the **Weight dial, not a census row**: plain `T_street_blank` Weight
+  **0.4** vs the three gardens at 1.0 → ~12% of dry cells stay void (~3/town,
+  deterministic per destiny). The census row became **blank 2–40** (≥2 dry so
+  gardens always exist; ≤40 culls the strangled tail).
+- **Exact-2s loosened to 1–3** (junction, tee_c): same scarce-landmark read,
+  jointly ~1-in-18 instead of ~1-in-500.
+`_land_constraints.py` (one-shot) rewrote the table via CSV-fill (NB: 5.7 returns
+a bool, not an error list — caught live), set the Weight, and **proved the loop**:
+constrained satisfied at **seed 65, attempt 4/300**, placed-roll re-verify PASS,
+dressing census **voids=4, gardens 9/10/6, dry 29**. Mirror committed as
+`Design/RollConstraints/curated.json`. The "too much nothing" plan is **complete**
+— L1 growth (wave reseeding), L2 clamp (this), L3 gardens (the variants).
+
+## 2026-06-11 (cont.) — StraightDecay 0.33: the canyon-killer ruling
+
+Director walked the gardens (look approved: "this looks great"), then ruled on the
+**stacking turn pressure**: `StraightDecay` 0.8 → **0.33** — kills multi-tile
+straight runs walled by buildings on both sides (2nd straight ~24%, 3rd ~8% at the
+0.72 base bias). Promoted to the C++ default (the 0.22-meander precedent: the
+spoken round number is the ruling; the Details drag had left 0.3464 slider noise —
+`_normalize_decay.py` pinned the instance to exactly 0.33 and saved ShuffleLab, so
+**instance = default = baseline**). Chain re-run (build 15 s → sweep): **Baseline
+re-anchored at decay 0.33**:
+- straights 11.3 → **8.9** (−21%, the intent); bends/curves up; junction 6.5;
+  tee_c 0.69 (p50 still 0).
+- **Cost surfaced: dry blank mean 23.4 → 27.8** (p50 23, p95 69) — wiggle wastes
+  reach, the budget covers less ground. Accepted trade: blanks are tended ground
+  now (the gardens absorb it); the blank-Max clamp guidance moved to ~35–40.
+- Bridges 2.2; **bridge-pair census still census-complete** — same 3 authored
+  kinds in 200 rolls (the rare straight×bend 4th kind absent, as documented), so
+  the wiggle ruling required NO new bridge authoring.
+- sum(mean) = 120.0 exact; 0 unresolved. Gates hold.
+
+Also this stretch: a false "we died" alarm — the editor session had simply never
+run the sweep (zero RollDiag lines); the director's level save at 21:29 was what
+persisted the decay edit. Diagnosis path: log forensics over guessing.
+
+## 2026-06-11 (later night) — Water is water, blank is blank; the gardens are staged
+
+Two rulings landed and got built in one pass:
+
+**1. Dry-blank semantics (census + constraints).** Resuming the layer-2 clamp, the
+labels didn't add up: the staged reference rolls' "blank 30/45/60" decomposed as
+**dry 15/24/36 + pure river cells 15/21/24** — the census bucketed by ROAD mask only,
+so the river counted as blank, and a `blank Max` clamp would have culled the long
+meanders preferentially. Director ruled: *water is water (hosts a water soul), blank
+is blank (hosts a soul whose efforts live in that blank).* Fix in
+`roll_diagnostics.py` (Python-only; menu auto-reload means no restart):
+- `blank` = road 0 AND water 0 everywhere (histogram / sweep / CSV / constraints);
+  pure-water cells get a `water` pseudo-bucket (sentinel 0x40) — so `sum(mean)` still
+  accounts for all 120 souls, and `water` is now a legal constraint row (a
+  river-length clamp, free). Bridges stay under their road necklace.
+- Verified offline by executing the module with a stubbed `unreal` against the three
+  reference rolls: dry counts exact, totals 120, `blank max 5` fails at 36 while a
+  `water` row resolves. Testing.md T6 + oddities #2/#3 trued; RollConstraints README
+  documents the semantics; **Baseline.csv re-anchor pending** (one sweep click — old
+  census numbers don't compare raw).
+- **The Max=5 finding:** `DT_RollConstraints_junction_mxBlank` (committed at the
+  previous session close; rows lowercase-correct) can never pass at census Max 5
+  (floor was 12 — the river alone exceeds 5), and Constrained Randomize on
+  exhaustion returns None and leaves the level unchanged — so the "good results"
+  were unconstrained Layer-1 rolls. Re-pick N from the dry re-anchored sweep
+  (workable band likely ≈ 25–35 dry); the Details-panel Max edit was unsaved.
+
+**2. Layer 3 staged: open ground is occupied ground.** Engine + kit + wiring written,
+two gates left (build + editor pass):
+- **Engine (built same session — 21 s clean):**
+  `FHexTileDef.Weight` returns with its consumer. Both resolvers collect ALL
+  mask-matching tiles and pick Weight-proportionally from a per-cell
+  `FRandomStream(VariantSeedFor(Seed, Axial))` (spatial-hash primes, engine-stable);
+  mask-0 cells also roll a free heading so gardens don't stamp. Deterministic per
+  destiny — LoadRoll re-places identical variants (Seed restored before Build);
+  healing/ghosts consistent (RefreshPresentation funnels through Build);
+  `FHexRoll` unchanged. Single-candidate masks behave exactly as before.
+- **Kit:** `gen_blank_variants.py` → `T_blank_garden` (railed circular green, two
+  gate gaps at edges 0/3, centre monument, shrubs), `T_blank_green` (off-centre
+  lawn, bezier desire-line, one tree, mound lenses), `T_blank_allotment` (5 raised
+  timber beds, shed standing on the sixth plot, compost). Street-kit canvas
+  imported from `gen_curved_tiles` (can't drift); new `M_Green` master (no
+  'Road'/'Water' in any name — tiles measure 0/0); baked + verified via the new
+  **`render_contact.py`** (the contact-sheet ToDo, now a keeper tool;
+  `Docs/Images/ContactSheets/`). Registry + manifest entries live.
+- **Wiring:** `setup_blank_variants.py` (one-shot GUI editor; `blank_kit.json` →
+  catalog rows incl. Weight). **ORDER MATTERS: run only after the C++ build** —
+  `weight` doesn't exist in the old binaries' reflection. Plain blank stays in the
+  pool at Weight 1.0 (the void:tended ratio = catalog dial).
+- **Materials rider:** `M_Water` + `M_Green` added to `hextile_materials.CANON` —
+  the river-dupes ToDo closes on the next Reimport (then Recalibrate).
+
+**The chain ran same session (editor closed, all green):** `Build.ps1` (21 s) →
+`setup_blank_variants` one-shot (3 imported, **24 catalog rows**, saved) →
+consolidate commandlet (**masters `M_Water` + `M_Green` created; 32 slots rebound,
+44 dupes deleted, 10 folders pruned** — river-dupe ToDo closed) → `verify_shuffle`
+(calibration OK **24 tiles**, 127 cells / 0 unresolved / souls=120, dry histogram
+live) → 200-roll sweep → **Baseline.csv re-anchored dry**: blank mean 23.4 / p50 19
+/ p95 64 / max 87; water mean 14.3; river 16.9 / bridges 2.52; sum(mean) = 120.0
+exact; 0 unresolved.
+
+**Verify also decoded the committed constraints table** (`junction_mxBlank`):
+junction **Max 2**, tee_c **Min 1**, blank **Max 5** — all three infeasible-to-rare
+against the post-Layer-1 distribution (junction mean 7.3 since densification;
+tee_c p50 = 0; blank dry min 7). Constrained Randomize bounced 100/100 on blank.
+**Director's picks outstanding:** blank Max (dry terms — the layer-2 N), junction
+Max (or accept that 6-way scarcity is a growth/landmark pass, not a constraint),
+tee_c Min. Then SAVE the table + mirror a JSON preset.
+
 ## 2026-06-11 (night) — The "too much nothing" hunt: three diagnoses, one real cause
 
 Director ruled: congestion fine, blanks kill it, no player layout agency ever
