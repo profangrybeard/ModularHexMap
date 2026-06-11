@@ -99,6 +99,17 @@
 6. **Phase 5 — Buildings facade continuity + min-block-size rule** (per-edge
    `M_BuildingBack` variation, party-wall pilaster, landmark slots; growth-side block
    guarantee).
+7. **Phase 6 — The Rim (ring 7)** — **PLAN DELIVERED 2026-06-11 → [Rim.md](Rim.md)**.
+   The bowl that holds the town: 42-cell boundary ring (zero souls, eternal, derived
+   from the network's boundary state — save format untouched), artery exits into
+   gated mountain tunnels (the named roads leave town), the river closing its
+   hydrology into a ring waterway (recommended) with an outfall weir + intake, the
+   Range silhouette backdrop with authored ray notches, and UE 5.7's Day Sequence
+   day/night with the sun anchored to the destiny's river axis — dawn fog / noon
+   diorama / golden-hour alpenglow / short lamplit night as the four acceptance
+   moments. Phases B1–B4 with census gates; **six open rulings in Rim.md §8**
+   (waterway-vs-caves, sun anchor, Range lighting, night share, ghost-glow,
+   names). Implementation slots on the director's priority call vs Phase 5.
 
 ## Captured ToDos (do not lose)
 
