@@ -1,5 +1,20 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (evening) — Full test pass, red-herring pruning, the meander ruling
+
+- **Director ran Testing.md end-to-end: every step passed.**
+- **Tweakables audit** (director: "avoid red herrings"): every Growth field is live
+  except `bCardinalArteries` (≡ `NumArteries=0`) — removed. Calibration was the real
+  nest: `bAutoCalibrate` removed (OFF silently ignored the glTF mirror — foot-gun;
+  always-on now, distrust-fallback retained), `ExtraYawDeg` removed (relic),
+  `bInvertYawShift` → AdvancedDisplay (the Resistance #12 escape hatch, demoted).
+- **Aesthetic ruling: `RiverStraightBias` 0.8 → 0.22 default** — the director tuned
+  live and called the oxbow meander gorgeous. Census at 0.22: river mean 16.7 cells,
+  74.5% curve necklaces; same 3 bridge pairs (dominant: straight-over-curve).
+  **Prediction tested + wrong:** meander did NOT fix the bridge drought (0.41 → 0.47);
+  options stay parked. `Baseline.csv` re-anchored to the 0.22 default.
+- **`Roll_seed17.json` committed** — the reference-beauty roll (seed 17 @ bias 0.216).
+
 ## 2026-06-11 (later) — Rivers R4: core-anchored river, player heading, banks
 
 Director design evolution mid-R4: the river is **designed into the core** — it passes
