@@ -63,16 +63,11 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Hex Shuffle")
 	int32 Souls = 0;
 
-	/** Measure each tile's real road edges from its geometry (immune to import orientation). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Calibration")
-	bool bAutoCalibrate = true;
-
-	/** Optional manual yaw nudge added to every tile (normally 0 once auto-calibrated). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Calibration")
-	float ExtraYawDeg = 0.f;
-
-	/** Flip if turns/curves come out mirrored (accounts for UE's yaw direction). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Shuffle|Calibration")
+	/** ESCAPE HATCH ONLY (Resistance #12) — flip if a future importer change makes every
+	 *  turn/curve come out mirrored. Calibration itself is always-on (the resolver
+	 *  measures real geometry per tile; popcount mismatch falls back to authored
+	 *  sockets with a warning). Lives under Advanced so it never reads as a daily knob. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "Hex Shuffle|Calibration")
 	bool bInvertYawShift = false;
 
 	/** Reroll: advance to the next seed, grow a fresh network, rebuild the tiles. */

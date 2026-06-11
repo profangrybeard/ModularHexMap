@@ -147,7 +147,7 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 	// 1. Cardinal arteries: a straight spine off the core along each chosen axis, then bend/divide
 	//    past ArteryStraightRadius out to the map edge. Cells along the way become branch seeds.
 	TArray<FIntPoint> Seeds;
-	const int32 Axes = P.bCardinalArteries ? FMath::Clamp(P.NumArteries, 0, 3) : 0;
+	const int32 Axes = FMath::Clamp(P.NumArteries, 0, 3);
 	for (int32 a = 0; a < Axes; ++a)
 	{
 		const int32 Dirs[2] = { a, (a + 3) % 6 };
@@ -367,7 +367,7 @@ TArray<FHexCellResult> UHexMapGrowthLibrary::MakePlaceholderCore(const FHexGrowt
 
 	// On each chosen artery axis, give the boundary core cell a straight road: inward toward the
 	// Pit (a street that dead-ends at the rim) + outward to meet the frontier artery.
-	const int32 Axes = P.bCardinalArteries ? FMath::Clamp(P.NumArteries, 0, 3) : 0;
+	const int32 Axes = FMath::Clamp(P.NumArteries, 0, 3);
 	for (int32 a = 0; a < Axes; ++a)
 	{
 		const int32 Dirs[2] = { a, (a + 3) % 6 };

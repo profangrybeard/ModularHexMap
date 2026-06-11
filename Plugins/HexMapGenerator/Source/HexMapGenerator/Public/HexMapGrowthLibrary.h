@@ -22,11 +22,8 @@ struct FHexGrowthParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0"))
 	int32 CoreRadius = 1;
 
-	/** Lay a straight backbone road along each hex axis, center -> map edge. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth")
-	bool bCardinalArteries = true;
-
-	/** How many of the 3 hex axes get a backbone artery (0-3). */
+	/** How many of the 3 hex axes get a backbone artery, center -> map edge (0-3).
+	 *  0 = no arteries: streets seed from the core boundary instead (degenerate dev mode). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth", meta = (ClampMin = "0", ClampMax = "3"))
 	int32 NumArteries = 3;
 
@@ -73,10 +70,12 @@ struct FHexGrowthParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River")
 	bool bRiver = true;
 
-	/** River momentum: chance to continue straight each step (loves crossing, hates
-	 *  branching — v1 never branches). Lower = lazier meander. */
+	/** River momentum: chance to continue straight each step (never branches).
+	 *  Lower = lazier meander. Default 0.22 is the director's tuned ruling
+	 *  (2026-06-11, "this river layout is gorgeous" — full oxbow character);
+	 *  the original engineering default was 0.8 (canal-straight). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River", meta = (ClampMin = "0", ClampMax = "1"))
-	float RiverStraightBias = 0.8f;
+	float RiverStraightBias = 0.22f;
 
 	/** The player's river choice at destiny-roll time: the OUTFLOW heading (0-5;
 	 *  -1 = rolled from the seed). The river is CORE-ANCHORED through-flow: it enters

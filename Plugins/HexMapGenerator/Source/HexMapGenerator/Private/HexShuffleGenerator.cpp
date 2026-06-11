@@ -248,7 +248,7 @@ void AHexShuffleGenerator::BuildFromSeed(int32 InSeed)
 		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: no TileSet assigned."));
 		return;
 	}
-	if (bAutoCalibrate && !bCalibrated)
+	if (!bCalibrated)
 	{
 		MeasureCalibration();
 	}
@@ -333,7 +333,7 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 				}
 				FTransform X;
 				X.SetLocation(FVector(XY.X, XY.Y, 0.f));
-				X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg + 60.f * CoreYaw, 0.f)));
+				X.SetRotation(FQuat(FRotator(0.f, 60.f * CoreYaw, 0.f)));
 				ISM->AddInstance(X, /*bWorldSpace=*/false);
 				++CorePlaced;
 			}
@@ -354,7 +354,7 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 
 		FTransform X;
 		X.SetLocation(FVector(XY.X, XY.Y, 0.f));
-		X.SetRotation(FQuat(FRotator(0.f, ExtraYawDeg + 60.f * YawSteps, 0.f)));
+		X.SetRotation(FQuat(FRotator(0.f, 60.f * YawSteps, 0.f)));
 
 		if (bGhost)
 		{
@@ -719,7 +719,7 @@ void AHexShuffleGenerator::LoadRoll()
 		UE_LOG(LogTemp, Warning, TEXT("HexShuffle: no TileSet assigned — cannot rebuild roll."));
 		return;
 	}
-	if (bAutoCalibrate && !bCalibrated)
+	if (!bCalibrated)
 	{
 		MeasureCalibration();
 	}

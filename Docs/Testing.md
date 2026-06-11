@@ -42,7 +42,8 @@
 
 ## T1 — Calibration & the dev roll
 
-1. Select the generator. Details ▸ Calibration: `bAutoCalibrate` ON. Click **Recalibrate**.
+1. Select the generator. Click **Recalibrate** (calibration is always-on; this forces a
+   fresh measure).
    **Expect:** one log line per catalog tile (20), each ending **OK** — road AND water
    masks measured (`road measured=… | water measured=…`), then
    `calibration OK (20 tiles measured from geometry)`. ANY `MISMATCH` = fail.
