@@ -77,6 +77,13 @@ struct FHexGrowthParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River", meta = (ClampMin = "0", ClampMax = "1"))
 	float RiverStraightBias = 0.22f;
 
+	/** Chance a blocked side-street tip dares a one-deck crossing (transverse only,
+	 *  same rules as the avenues) instead of dying at the bank. 0 = lanes never bridge
+	 *  (avenues only — the pre-2026-06-11 doctrine). The reconnection lever for the
+	 *  pockets a meandering river fences off. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Growth|River", meta = (ClampMin = "0", ClampMax = "1"))
+	float SideBridgeChance = 0.35f;
+
 	/** The player's river choice at destiny-roll time: the OUTFLOW heading (0-5;
 	 *  -1 = rolled from the seed). The river is CORE-ANCHORED through-flow: it enters
 	 *  from the map edge, passes the wound through two adjacent ring-1 story tiles

@@ -1,5 +1,30 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (night) — The "too much nothing" hunt: three diagnoses, one real cause
+
+Director ruled: congestion fine, blanks kill it, no player layout agency ever
+(min-block-size struck as vestigial). Layer-1 fix became a census-driven hunt —
+two plausible mechanisms were real but SMALL; the third was the cause:
+
+| Stage | blank mean | bridges mean |
+| --- | --- | --- |
+| 0.22 meander baseline (strangled avenues) | 83.7 | 0.47 |
+| + **bridge-at-the-gate** (avenues cross transverse arms at their gate; the river's own two axes stay properly dead) | 81.0 | 0.77 |
+| + **daring lanes** (`SideBridgeChance` 0.35 — blocked side-street tips may throw a one-deck transverse crossing) | 80.0 | 1.11 |
+| + **wave reseeding** (between waves every street may sprout a fresh tip until RoadBudget spends or the map saturates) | **36.5** | **2.54** |
+
+The dominant cause was **subcritical growth stranding the budget**: tips die against
+water walls and decay, the pool drains, and growth used to halt with ~150 of 174
+budget unspent — the town starved with money in the bank. Wave reseeding makes
+`RoadBudget` the actual density contract (the director's one honest dial). Bridges
+landed back at the original 2–3 design read, clustered near the center (London-style),
+without bending any character knobs. Gates ALL PASS throughout; 0 unresolved over
+every 200-roll census. Densified streets surfaced a 4th bridge pair
+(straight × bend-water, 0.4%) — authored per kit discipline (`T_bridge_09_06`),
+catalog now 21 tiles. Remaining tail (blank p95 = 68, max 107 = geography-strangled
+rolls) is layer 2's clamp — the director picks N from reference rolls. Layer 3
+(garden-square blank variants) queued.
+
 ## 2026-06-11 (evening) — Full test pass, red-herring pruning, the meander ruling
 
 - **Director ran Testing.md end-to-end: every step passed.**

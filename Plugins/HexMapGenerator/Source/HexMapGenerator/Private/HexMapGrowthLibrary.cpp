@@ -158,9 +158,30 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 			int32 Adv = 100;
 			while (InR(C) && InCore(C) && --Adv > 0) { C = Neighbor(C, d); }
 			if (!InR(C)) { continue; } // axis runs off the map while still inside the core
-			if (IsWater(C)) { continue; } // the river took this avenue (an arm runs out this gate)
-			// Inward connector toward the core (the artery continues out of the core's stub).
-			Mask[C] |= (1 << ((d + 3) % 6));
+			if (IsWater(C))
+			{
+				// A river arm sits on this avenue's gate. If the water runs TRANSVERSE
+				// to the axis (neither water bit on d / d+3), the avenue CROSSES right
+				// here — one deck over the gate cell, the authored core stub as the
+				// approach — and marches on. Bridges cluster near the center, where
+				// London keeps hers. If the water runs ALONG the axis (the river's own
+				// two gate avenues), the avenue is properly dead: the river replaced it.
+				const FIntPoint Land = Neighbor(C, d);
+				const int32 AxisBits = (1 << d) | (1 << ((d + 3) % 6));
+				if (!InR(Land) || IsWater(Land) || Mask[C] != 0 || (Water[C] & AxisBits) != 0)
+				{
+					continue;                              // un-crossable -> this avenue yields
+				}
+				Mask[C] |= AxisBits;                       // the deck (straight through)
+				Mask[Land] |= (1 << ((d + 3) % 6));        // landing return edge
+				Seeds.AddUnique(Land);                     // far side seeds side streets
+				C = Land;                                  // march on from the far bank
+			}
+			else
+			{
+				// Inward connector toward the core (the artery continues out of the core's stub).
+				Mask[C] |= (1 << ((d + 3) % 6));
+			}
 			int32 CurDir = d;
 			int32 Guard = 1000;
 			while (InR(C) && --Guard > 0)
@@ -261,7 +282,36 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		}
 	}
 
+	// The walk runs in WAVES. Tips die easily (water walls, collisions, decayed
+	// momentum), which used to strand most of RoadBudget unspent — the town starved
+	// with money in the bank (blank ~80/120 at the 0.22 meander). Between waves,
+	// every existing street cell may sprout a fresh tip, until the budget is spent
+	// or the map saturates — RoadBudget is the actual density contract again.
 	int32 Guard = 100000;
+	for (int32 Wave = 0; Wave < 8 && Budget > 0 && Guard > 0; ++Wave)
+	{
+	if (Wave > 0)
+	{
+		TArray<FIntPoint> RoadCells;
+		for (const FIntPoint& C : Region)
+		{
+			if (!InCore(C) && !IsWater(C) && Mask[C] != 0) { RoadCells.Add(C); }
+		}
+		RoadCells.Sort([](const FIntPoint& A, const FIntPoint& B)
+			{ return (A.X != B.X) ? (A.X < B.X) : (A.Y < B.Y); });
+		for (const FIntPoint& C : RoadCells)
+		{
+			if (Budget <= 0) { break; }
+			if (Rng.FRand() >= P.BranchChance) { continue; }
+			const int32 e = Rng.RandRange(0, 5);
+			if ((Mask[C] & (1 << e)) == 0 && MarkRoad(C, e))
+			{
+				Frontier.Add({ Neighbor(C, e), (e + 3) % 6, 0 });
+				--Budget;
+			}
+		}
+		if (Frontier.Num() == 0) { break; }   // nothing can sprout: saturated
+	}
 	while (Frontier.Num() > 0 && Budget > 0 && --Guard > 0)
 	{
 		const int32 Idx = Rng.RandRange(0, Frontier.Num() - 1);
@@ -305,8 +355,29 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 				Frontier.Add({ Neighbor(T.Cell, e), (e + 3) % 6, NextRun });
 				--Budget;
 			}
+			else if (P.SideBridgeChance > 0.f)
+			{
+				// The lane hit water. With a little daring it crosses — one deck,
+				// transverse only, exactly the avenue rules — and keeps growing on
+				// the far side. This is what re-opens the pockets the meander fences
+				// off; bridge scarcity stays a dial (SideBridgeChance).
+				const FIntPoint W = Neighbor(T.Cell, e);
+				const FIntPoint Land = Neighbor(W, e);
+				const int32 AxisBits = (1 << e) | (1 << ((e + 3) % 6));
+				if (InR(W) && IsWater(W) && Mask[W] == 0 && (Water[W] & AxisBits) == 0
+					&& InR(Land) && !IsWater(Land) && !InCore(Land)
+					&& Rng.FRand() < P.SideBridgeChance)
+				{
+					Mask[T.Cell] |= (1 << e);
+					Mask[W] |= AxisBits;
+					Mask[Land] |= (1 << ((e + 3) % 6));
+					Frontier.Add({ Land, (e + 3) % 6, 0 });
+					--Budget;
+				}
+			}
 		}
 	}
+	}   // wave loop
 
 	// 3. Prune dangling road ends so the grown network reads clean. A frontier road edge is kept
 	//    ONLY if its in-region neighbour carries the matching return road; otherwise it runs off the

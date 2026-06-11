@@ -65,9 +65,12 @@ EDGE_SETS = {
 # joint-canonical pairs — the complete bridge inventory. Names carry the two masks in
 # hex so the catalog wiring is mechanical.
 BRIDGE_SETS = {
-    "bridge_09_24": ([0, 3], [2, 5]),   # straight over straight, 120deg crossing (45.7%)
-    "bridge_09_12": ([0, 3], [1, 4]),   # straight over straight,  60deg crossing (43.8%)
-    "bridge_09_14": ([0, 3], [2, 4]),   # straight over curving water             (10.5%)
+    "bridge_09_24": ([0, 3], [2, 5]),   # straight over straight, 120deg crossing
+    "bridge_09_12": ([0, 3], [1, 4]),   # straight over straight,  60deg crossing
+    "bridge_09_14": ([0, 3], [2, 4]),   # straight over curving water
+    "bridge_09_06": ([0, 3], [1, 2]),   # straight over bend water (rare: ~0.4% of
+                                        # crossings once wave-reseeding densified
+                                        # streets, 2026-06-11 census)
 }
 
 

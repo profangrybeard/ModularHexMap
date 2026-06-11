@@ -1,0 +1,46 @@
+name,edges,mask_bin,mean,std,min,max,p50,p95,p99,pool_p95
+blank,0,0b000000,79.9500,14.3663,36,107,82.5000,101.0000,106.0100,101
+deadend,1,0b000001,7.8050,2.8509,2,16,7.0000,13.0000,16.0000,13
+bend,2,0b000011,0.7900,0.8119,0,4,1.0000,2.0000,2.0100,2
+curve,2,0b000101,5.8500,2.9887,0,16,5.0000,11.0000,14.0100,11
+straight,2,0b001001,14.8350,4.3245,4,28,14.0000,22.0000,27.0100,22
+tee,3,0b000111,0.3850,0.6922,0,4,0.0000,2.0000,3.0000,2
+tee_a,3,0b001011,2.9000,2.1478,0,10,3.0000,7.0000,8.0100,7
+tee_b,3,0b001101,2.8600,2.2818,0,15,2.0000,7.0000,9.0100,7
+tee_c,3,0b010101,0.4950,0.7367,0,4,0.0000,2.0000,3.0000,2
+quad,4,0b001111,0.4000,0.8565,0,5,0.0000,2.0000,4.0000,2
+quad_b,4,0b010111,0.7450,1.1518,0,6,0.0000,3.0000,5.0100,3
+quad_c,4,0b011011,1.8850,2.1622,0,10,1.0000,6.0000,8.0200,6
+penta,5,0b011111,0.8350,1.3847,0,8,0.0000,4.0000,7.0000,4
+junction,6,0b111111,0.2650,0.9160,0,8,0.0000,1.0500,4.0200,2
+
+# Sweep totals
+# rolls,200
+# base_seed,0
+# mean_frontier_cells,120.0000
+# mean_unresolved,0.0000
+# sum_mean,120.0000
+# sum_pool_p95,184
+
+# Growth params (provenance)
+# radius,6
+# core_radius,1
+# num_arteries,3
+# road_budget,174
+# branch_chance,0.2093
+# straight_bias,0.7200
+# straight_decay,0.8000
+# max_straight_run,0
+# artery_straight_radius,3
+# artery_kink_chance,0.3500
+# artery_fork_chance,0.1200
+
+# Water census (aggregate over all rolls)
+# mean_river_cells,16.7000
+# mean_bridges,1.1100
+# water_bend,22
+# water_curve,2487
+# water_straight,831
+# bridge_0b001001x0b010100,121
+# bridge_0b001001x0b100100,57
+# bridge_0b001001x0b010010,44

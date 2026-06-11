@@ -113,8 +113,31 @@
   - **Party-wall pilaster** at tile boundaries where two building tiles abut — Victorian
     terraces read continuous because of shared party walls and repeated bays, not
     building size. One extra mesh.
-- [ ] **Min-block-size rule** in `GrowRoadNetwork` (refuse a road edge that would shrink
-  an enclosed block below N cells) — the durable fix for blank volatility (σ/μ ≈ 0.43).
+- [x] ~~**Min-block-size rule**~~ **STRUCK 2026-06-11** (director discussion): conceived
+  for the dead multi-hex-footprint era; congestion is explicitly FINE ("the city street
+  and river flow work even with extreme congested rolls"); never a player rule (players
+  don't draw roads — enforcement philosophy is curation-of-offers, not policing).
+- [ ] **The "too much nothing" plan** (director: "all the blank tiles kill it"):
+  1. ✅ **Layer 1 COMPLETE 2026-06-11** — three structural fixes, census-proven
+     (full table in Worklog): bridge-at-the-gate + daring lanes (`SideBridgeChance`,
+     default 0.35 — the bridge-scarcity dial) + **wave reseeding** (the dominant fix:
+     growth was stranding ~85% of RoadBudget; budget is now the real density
+     contract). Blank mean 83.7 → **36.5**; bridges 0.47 → **2.54** (the original
+     design read, center-clustered). 4th bridge pair authored from the census
+     (`T_bridge_09_06`, straight × bend-water; catalog = 21).
+  2. **Curated clamp (NEXT — director's eyeball)**: `blank: {max: N}` constraint row
+     culls the geography-strangled tail (p95 = 68, max 107). Generate reference rolls
+     at blank ≈ 30 / 45 / 60, walk them, pick N where airy tips into dead.
+  3. **Open ground is occupied ground** (the read fix): blank VARIANTS — garden squares,
+     greens, allotments, yards, orchard plots (Bloomsbury garden-square energy; every
+     blank is a SOUL's home, so absence should read as tended ground, not void). 3–5
+     parametric blockout variants via the existing kit discipline; bespoke promotions
+     per the manifest later; needs a seeded weighted-variant pick in the resolver
+     (reintroduces what `Weight` was for — removed as dead, returns with its consumer).
+- [ ] **Player layout agency: RULED OUT beyond heading/order/assignment** (2026-06-11) —
+  "rebuilding a lifetime hex by hex and discovering how they connect is part of the
+  beauty." Not a city sim. Fully walkable + interactable (shops, quests) stays the bar —
+  blank variants must stay walkable and eventually host their souls' interactions.
 - [ ] **Master-clean guard**: `HexBase.blend` pollution shipped committed once (fixed in
   `e63eb75`). Add a guard — pre-commit check that flags the master when its LFS size
   changes, and/or an addon Build-path warning when non-CANON objects exist outside
