@@ -1,5 +1,29 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (reverted) — Rim B2 first attempt: the sandwich that blocked the view
+
+A full B2 pass landed and was **reverted same session on the director's walk**
+("massive vis blockers" — we weren't on the same page). What was built: rim
+tiles notched for a waterway band + hills lowered 20 → 8.5 m, a single closed
+42-station waterway loop (`gen_waterway.py`), 3 gaussian-peak ridge meshes ×9
+instances (`gen_range.py` + `setup_scenery.py`), gate bridges at exits, hidden
+underwater mouth keys, RimKey sunk below the bed. All gates were green
+(verify_rim_b1 30/30 after the rework) — **the failure was not correctness, it
+was sight lines**: from street eye height (~2.4 m), ANY continuous ring of
+~8 m hills 12–25 m away subtends more sky than 50–120 m mountains at 300–400 m.
+The sandwich read from the orbit camera and vanished at eye level — the near
+layer fully occluded the far one. **Lesson recorded: run the sight-line math
+from PLAYER eye height before baking scenery layers; orbit-view contact sheets
+do not accept stagecraft.**
+
+Reverted surgically to the gated B1 state (`9fcaaec` — the sequencer conflicted
+on this very file; explicit checkout from `2fd9524` + removal of B2-only files;
+staging re-baked; B1 gate re-run below). The waterway/Range generators live in
+git history (`69a7e52`/`b0ca6f7`) for salvage — the loop geometry and ridge
+silhouettes were sound; the COMPOSITION needs the re-brief. Awaiting the
+director's direction on the depth model (candidates: low-and-broken near layer;
+or a flat ring 7 with two-depth Range layers; or both).
+
 ## 2026-06-11 (the bowl) — Rim B1: ring 7 closes, every destiny
 
 Director ruled the Rim **the priority** (facades = his hands-on Blender pass,
