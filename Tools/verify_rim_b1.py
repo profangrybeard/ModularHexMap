@@ -43,9 +43,13 @@ if not prop(gen, ("b_calibrated", "bCalibrated", "calibrated")):
                      "yaw guess. ABORT.")
     raise SystemExit
 
-RIM_MESHES = {"T_rim_water_a", "T_rim_water_b", "T_rim_water_c",
-              "T_rim_water_wide", "T_rim_bridge"}
-EXIT_MESHES = {"T_rim_bridge"}
+# The two-ring seam kit: ring 7 = land7/river7/exit7 (42 stations), ring 8 =
+# bank8 (48). The river mouth is a REAL tile again (river7 == 2 every destiny).
+RING7_MESHES = {"T_rim_land7", "T_rim_river7", "T_rim_exit7"}
+RING8_MESHES = {"T_rim_bank8"}
+RIM_MESHES = RING7_MESHES | RING8_MESHES
+EXIT_MESHES = {"T_rim_exit7"}
+MOUTH_MESHES = {"T_rim_river7"}
 DQ = [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0)]   # HexCoordinates.h
 RADIUS_UU = 1000.0
 
@@ -65,13 +69,14 @@ def rot6(mask, r):
 
 
 def inward_edge(q, r):
-    """WORLD-distance pick — mirrors BuildRim exactly (hex distance ties on
-    side stations and a tie-break skews the tile 60 degrees)."""
+    """WORLD-distance pick with the SAME 1-uu^2 epsilon tie-break as BuildRim
+    (corner-adjacent stations differ by ~2 uu^2 in 1e8 — float order must be
+    deterministic and identical on both sides)."""
     best_d, best = 1e30, 0
     for e in range(6):
         nx, ny = world_xy(q + DQ[e][0], r + DQ[e][1])
         d = nx * nx + ny * ny
-        if d < best_d:
+        if d < best_d - 1.0:
             best_d, best = d, e
     return best
 
@@ -79,38 +84,27 @@ def inward_edge(q, r):
 radius = prop(gen.get_editor_property("growth"), ("radius", "Radius"))
 b_invert = bool(prop(gen, ("b_invert_yaw_shift", "bInvertYawShift"), False))
 
-# mesh name -> the tile's FLANK-RULE reference edge, derived from the catalog's
-# authored water mask (set to the measured pattern, so this matches what the
-# engine derives from TileRealWaterMask). The flank rule: two seam-crossing
-# water bits flank the true inward edge — transform-invariant ground truth,
-# unlike the key marker (which the engine and gate trusted in lockstep while
-# both were uniformly wrong).
+# mesh name -> MEASURED water mask (the orientation witness: the measured mask
+# IS the actual M_Water geometry — authored masks differ from it by the import
+# transform, so asserting with authored flags correct placements as wrong).
 tile_set = gen.get_editor_property("tile_set")
-mesh_ref = {}
-for t in tile_set.get_editor_property("tiles"):
+real_water = list(prop(gen, ("tile_real_water_mask", "TileRealWaterMask"), []))
+mesh_water = {}
+for i, t in enumerate(tile_set.get_editor_property("tiles")):
     m = t.get_editor_property("mesh")
     mm = m.get_asset() if hasattr(m, "get_asset") else m
-    if not mm:
-        continue
-    wm = int(t.get_editor_property("water_mask")) & 0x3F
-    bits = [e for e in range(6) if wm & (1 << e)]
-    ref = None
-    if len(bits) == 2:
-        gap = (bits[1] - bits[0]) % 6
-        if gap == 2:
-            ref = (bits[0] + 1) % 6
-        elif gap == 4:
-            ref = (bits[1] + 1) % 6
-    if ref is not None:
-        mesh_ref[mm.get_name()] = ref
+    if mm and i < len(real_water):
+        mesh_water[mm.get_name()] = int(real_water[i]) & 0x3F
 
-# ring stations + their inward edges (fixed geometry, destiny-independent)
+# both rings' stations: world key -> (inward edge, ring index 0/1)
 stations = {}
-ring = (radius or 6) + 1
-for q in range(-ring, ring + 1):
-    for r in range(-ring, ring + 1):
-        if hexdist(q, r) == ring:
-            stations[(round(world_xy(q, r)[0]), round(world_xy(q, r)[1]))] = inward_edge(q, r)
+for ring_idx in (0, 1):
+    ring = (radius or 6) + 1 + ring_idx
+    for q in range(-ring, ring + 1):
+        for r in range(-ring, ring + 1):
+            if hexdist(q, r) == ring:
+                wx, wy = world_xy(q, r)
+                stations[(round(wx), round(wy))] = (inward_edge(q, r), ring_idx)
 
 fails = 0
 for i in range(N_SEEDS):
@@ -137,43 +131,64 @@ for i in range(N_SEEDS):
             if wm & (1 << e):
                 exp_mouths += 1
 
-    total = exits = orient_bad = 0
+    t7 = t8 = exits = mouths = orient_bad = 0
     for comp in gen.get_components_by_class(unreal.InstancedStaticMeshComponent):
         m = comp.get_editor_property("static_mesh")
         if not m or m.get_name() not in RIM_MESHES:
             continue
         name = m.get_name()
-        ref = mesh_ref.get(name)
+        wmask = mesh_water.get(name, 0)
         for j in range(comp.get_instance_count()):
             xf = comp.get_instance_transform(j, True)
             loc = xf.translation
-            wkey = (round(loc.x), round(loc.y))
-            st = stations.get(wkey)
+            st = stations.get((round(loc.x), round(loc.y)))
             if st is None:
                 orient_bad += 1
                 continue
-            total += 1
+            inward, ring_idx = st
+            if ring_idx == 0:
+                t7 += 1
+            else:
+                t8 += 1
+            # Ring identity: a ring-7 mesh on a ring-8 station (or vice versa)
+            # is a placement failure even when masks happen to fit.
+            if (ring_idx == 0) != (name in RING7_MESHES):
+                orient_bad += 1
+                if i == 0:
+                    unreal.log_error("[RimB1]   WRONG-RING: %s on ring%d at (%d,%d)"
+                                     % (name, 7 + ring_idx, round(loc.x), round(loc.y)))
+                continue
             if name in EXIT_MESHES:
                 exits += 1
-            # Bridges face their road; everyone else faces the geometric inward —
-            # the SAME rule BuildRim applies, checked via the flank-rule reference.
-            expect = road_edge.get(wkey, st)
+            if name in MOUTH_MESHES:
+                mouths += 1
+            # ORIENTATION: the placed rotation must map the tile's authored
+            # water onto the required seam edge — OUTWARD for ring 7, INWARD
+            # for ring 8. The water is the content; no proxy can drift.
+            need = (inward + 3) % 6 if ring_idx == 0 else inward
             k = int(round(((xf.rotation.rotator().yaw % 360) + 360) % 360 / 60.0)) % 6
             rot = (6 - k) % 6 if b_invert else k
-            if ref is None or not (rot6(1 << ref, rot) & (1 << expect)):
+            if not (rot6(wmask, rot) & (1 << need)):
                 orient_bad += 1
+                if i == 0:   # name the offenders once, with full numbers
+                    unreal.log_error(
+                        "[RimB1]   offender: %s at (%d,%d) ring%d inward=%d "
+                        "need=%d k=%d rot=%d wmask=0x%02X rotated=0x%02X"
+                        % (name, round(loc.x), round(loc.y), 7 + ring_idx,
+                           inward, need, k, rot, wmask, rot6(wmask, rot)))
 
     souls = gen.get_editor_property("souls")
-    ok = (total == 42 and exits == exp_exits and exp_mouths == 2
+    ok = (t7 == 42 and t8 == 48 and exits == exp_exits and mouths == exp_mouths == 2
           and orient_bad == 0 and souls == 120)
     if not ok:
         fails += 1
         unreal.log_error(
-            "[RimB1] seed=%d FAIL: rim=%d/42 bridges=%d (exp %d) river-bits=%d "
-            "(exp 2) BAD-ORIENT=%d souls=%d"
-            % (BASE + i, total, exits, exp_exits, exp_mouths, orient_bad, souls))
+            "[RimB1] seed=%d FAIL: r7=%d/42 r8=%d/48 exits=%d (exp %d) mouths=%d "
+            "(exp %d==2) BAD-ORIENT=%d souls=%d"
+            % (BASE + i, t7, t8, exits, exp_exits, mouths, exp_mouths,
+               orient_bad, souls))
     else:
-        unreal.log("[RimB1] seed=%d ok: rim=42 bridges=%d orient=42/42 souls=120"
+        unreal.log("[RimB1] seed=%d ok: r7=42 r8=48 exits=%d mouths=2 orient-clean souls=120"
                    % (BASE + i, exits))
 
 if fails == 0:

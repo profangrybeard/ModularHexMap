@@ -1,39 +1,38 @@
-"""Rim-tile generator — ring 7 IS the water (Docs/Rim.md B2, the Ringwater).
+"""Rim-tile generator — the two-ring seam waterway (Docs/Rim.md, director's design
+2026-06-12: "ring 7 is land on the city side, blank, river on the edge; ring 8 is
+water on the inside edge completing the river bank, land blending to horizon —
+a standard loop solves the water connectivity, then swap in the water and street
+connection points.")
 
     blender --background Source_Art/Blender/HexBase.blend \
             --python Tools/blender/gen_rim_tiles.py
 
-Director's ruling (2026-06-12, after the per-tile notch cuts failed to read as
-one body of water): "design the entire ring 7 as a continuous waterway that can
-be rerolled to match any water connection. The waterway can grow, shrink and
-eat almost all of the ring-7 tiles. Ring seven is just to host this waterway
-and make the city's boundary look nice."
+THE SEAM CHANNEL: each ring contributes ONE BANK. Ring-7 tiles carry a
+half-channel at their OUTWARD edge; ring-8 tiles carry the mirror half at their
+INWARD edge. Every 7<->8 edge pairing is water-meets-water by construction —
+water connectivity IS edge-socket matching, the grammar the whole kit already
+lives by. The connection points are ordinary mask-matched variants: the river
+mouth is a water "straight" (channel through, inward->outward), the street exit
+is a bridge (road through + deck over the half-channel).
 
-THE RINGWATER MODEL — water from the INWARD EDGE outward:
-  * Every ring-7 tile's water surface TOUCHES its inward edge (ring 6's slab
-    face is the quay, exactly like the in-town river banks). Because the whole
-    ring is water at the seam, ANY river mouth connects ANYWHERE, on every
-    reroll, by construction — the "match any water connection" requirement is
-    structural, not special-cased. (Engine side: BuildRim forces the inward
-    water bit on every station — the ring water law.)
-  * The OUTER bankline meanders per tile: gentle arc, lazy S, double bulge, or
-    the wide variant that eats ~85% of the tile. Variants are Weight-pooled and
-    seeded per destiny — rerolling the town rerolls the water's shape.
-  * THE CONTINUITY CONTRACT (what the notch cuts lacked): the bankline crosses
-    each SIDE edge at ONE canonical point (2.0 m down the side edge from the
-    inward vertex), and all meander happens between the crossings. Any tile
-    therefore meets any tile with an unbroken waterline. The crossing point
-    sits ~3.0 m from the side-edge MIDPOINT, outside the 250 uu measure radius,
-    so side-edge water never pollutes the measured masks.
-  * Exits = the bridge tile: full-width water + a gate-bridge deck (M_Road —
-    the edge-0 road measure) landing on the outer bank, gate posts, and the
-    road running off the outward edge into the haze (B3's fog owns the rest).
-  * RETIRED: the notched slab, the separate loop mesh (gen_waterway.py), and
-    the whole land grammar (banks/berms/knoll/tunnel/adit/pass/mouth works) —
-    ring 7 hosts the water, the parallax lives in the off-grid Range rings.
+ORIENTATION IS THE MASK: every rim tile's water pattern is rotation-asymmetric,
+so the resolver's normal measure-and-rotate places it — the M_RimKey marker and
+the flank inference are DELETED (both could disagree with reality while agreeing
+with themselves; a single measured water bit cannot).
 
-Writes rim_kit.json for Tools/setup_rim.py (which prunes the retired rows and
-deletes their orphaned assets). NEVER saves the master. Idempotent.
+Authoring convention: edge 0 = the WATER edge (the engine rotates it outward for
+ring 7, inward for ring 8). The channel half is 2.2 m deep at the side corners
+(side-edge midpoints stay >2.5 m clear — the measured mask stays single-bit) and
+bulges to ~3.8 m mid-edge for an organic waterline. Cross-section matches the
+river kit (surface -0.9, floor -2.0) so town-river mouths meet the loop flush.
+
+Tiles (T_rim_<key>):
+  land7    ring 7: town-side blank canvas + the outward half-channel      (1.0)
+  river7   ring 7: the town river flows THROUGH into the loop (water 0,3) (1.0)
+  exit7    ring 7: artery crosses on a deck + gateposts (road 0,3)        (1.0)
+  bank8    ring 8: inward half-channel + low horizon land (<= 2.5 m)      (1.0)
+
+Writes rim_kit.json for Tools/setup_rim.py. NEVER saves the master. Idempotent.
 """
 
 import os
@@ -57,31 +56,18 @@ PAVE_TOP = _street.PAVE_TOP
 INR      = _street.INR
 HW       = _street.HW
 
-WATER_Z  = _river.WATER_Z        # -0.9 (the river's surface — flush at mouths)
-FLOOR_Z  = _river.FLOOR_Z        # -2.0
+WATER_Z  = _river.WATER_Z          # -0.9
+FLOOR_Z  = _river.FLOOR_Z          # -2.0
+BAND_D   = 2.2                     # half-channel depth at the side corners
+BAND_MID = 3.8                     # mid-edge bulge (side midpoints stay clear)
 ROCK_RGBA = (0.23, 0.205, 0.18, 1.0)
 
-# Canonical side crossing: 5.5 m down the side edge from the inward vertex —
-# the water occupies that whole 5.5 m stretch of every shared edge, so the
-# waterline crosses seams at FULL WIDTH (the 2 m pinch of the first draft read
-# as separate ponds). Legal since the rim resolver compares the INWARD edge
-# only; side-edge water never participates in resolution.
-# Side edge runs (5, INR) -> (10, 0); unit (0.5, -0.866).
-CROSS = (5.0 + 5.5 * 0.5, INR - 5.5 * 0.86602540378)   # (7.75, 3.90)
-
-# (road_mask, water_mask, weight). The authored water mask is the HONEST mirror
-# of what calibration MEASURES in-engine (the popcount law): the two side-edge
-# seam crossings register (the inward surface sits at the tolerance boundary
-# post-import and does not), so measured water = 2 bits on every ring tile —
-# authored 0x14 to match. Rim resolution doesn't read the water mask at all
-# (key + road only; the ring water law makes every station water by design).
-# Bridge: deck + landing road = road on edges 0 and 3 (0b001001 = 9).
+# (road_mask, water_mask, weight) in the AUTHORED frame (edge 0 = the water edge).
 VARIANTS = {
-    "water_a":    (0, 20, 1.0),   # gentle arc bank, boulders
-    "water_b":    (0, 20, 1.0),   # lazy S bank, reed posts
-    "water_c":    (0, 20, 0.7),   # double bulge, a worn jetty
-    "water_wide": (0, 20, 0.5),   # eats ~85% — a sliver of far bank
-    "bridge":     (9, 20, 1.0),   # artery exit: deck over the ring
+    "land7":  (0, 1, 1.0),
+    "river7": (0, 9, 1.0),     # water through: edges 0 and 3
+    "exit7":  (9, 1, 1.0),     # road through (0,3) + the half-channel at 0
+    "bank8":  (0, 1, 1.0),
 }
 
 
@@ -97,135 +83,154 @@ def rock_material():
     return m
 
 
-def rimkey_material():
-    m = bpy.data.materials.get("M_RimKey")
-    if m is None:
-        m = bpy.data.materials.new("M_RimKey")
-        m.use_fake_user = True
-    return m
-
-
-def _rimkey(name):
-    """Orientation marker at the inward edge midpoint, sunk below the bed."""
-    bm = bmesh.new()
-    v = [bm.verts.new(p) for p in ((-0.4, INR - 0.05, -2.1),
-                                   (0.4, INR - 0.05, -2.1),
-                                   (0.0, INR - 0.45, -2.1))]
-    bm.faces.new(v)
-    return _blank._new_obj(name, bm, rimkey_material())
+def _band_y(x, key):
+    """The bankline of the half-channel, measured from the WATER edge (edge 0 at
+    y=+INR): water occupies y in [bank(x), INR]. 2.2 m at the side corners
+    (|x| -> 5), bulging mid-tile; the river/exit tiles keep a straight channel
+    margin where their through-feature crosses."""
+    u = max(-1.0, min(1.0, x / 5.0))
+    d = BAND_D + (BAND_MID - BAND_D) * (1.0 - u * u)
+    if key == "river7":
+        d = max(d, 0.0)                     # the through-channel carves anyway
+    return INR - d
 
 
 def _top_edge(x):
-    """The tile boundary on the inward side: edge 0 for |x|<=5, then the upper
-    side edges out to the lateral vertices."""
     if abs(x) <= 5.0:
         return INR
     return INR - (abs(x) - 5.0) * (INR / 5.0)
 
 
-def _bot_edge(x):
-    """The tile boundary on the outward side (mirror)."""
-    return -_top_edge(x)
-
-
-def _bankline(key, x):
-    """Outer bankline y(x) between the canonical side crossings (±7.75, 3.90).
-    All meander lives between the crossings; the seam water is the full 5.5 m
-    edge stretch, so width varies smoothly tile-to-tile instead of pinching."""
-    u = max(-1.0, min(1.0, x / CROSS[0]))
-    end_y = CROSS[1]                              # 3.90 at u = ±1
-    t = 1.0 - u * u                               # 0 at crossings, 1 mid-tile
-    if key == "water_a":
-        mid = 2.0
-    elif key == "water_b":
-        mid = 3.0 - 2.6 * math.sin(u * 2.6)       # lazy S
-    elif key == "water_c":
-        mid = 2.4 - 2.2 * math.cos(u * 3.4)       # double bulge
-    elif key == "water_wide":
-        mid = -5.9    # eats almost everything (clamped: the bankline must stay
-                      # >2.5 m from the OUTWARD edge midpoint or the measured
-                      # water gains a 4th bit and calibration distrusts again)
-    else:                                          # bridge: generous, steady
-        mid = 1.0
-    return end_y + (mid - end_y) * t
-
-
-def _water_body(key, objs, mats):
-    """Water surface + bed + bank wall + outer bank land, as column strips.
-    |x| <= 6 (between the canonical crossings): water from the inward boundary
-    to the bankline, land from the bankline to the outer boundary. |x| > 6 (the
-    lateral wedges toward the side vertices): land only, full span — the water
-    pinches to the crossing exactly, so neighbouring tiles' waterlines meet at
-    one shared point per seam. Clean, manifold-enough blockout."""
+def _half_channel(key, objs, mats):
+    """Water + bed + bank wall along the edge-0 side. THE WATER IS CLOSED SOLID
+    GEOMETRY — the saga's mechanical lesson (2026-06-12): the river kit's water
+    has measured flawlessly forever because _swept_slab makes closed slabs; my
+    open single-sided ribbons measured erratically (only their end columns
+    registered). M_Water and M_Road must always be closed solids; unmeasured
+    materials may stay ribbons. Band ends clip at |x| 5.8 so the side-edge
+    midpoints stay >2.5 m clear (single measured bit), while the SURFACE still
+    overshoots the water edge (+0.3) to seam with the ring-8 mirror half."""
     surf = bmesh.new()
+    N = 16
+    for i in range(N):
+        x0 = -5.8 + 11.6 * i / N
+        x1 = -5.8 + 11.6 * (i + 1) / N
+        xm = (x0 + x1) / 2.0
+        ty = min(_top_edge(x0), _top_edge(x1)) + 0.3
+        by = max(_band_y(x0, key), _band_y(x1, key)) + 0.1
+        if by > ty - 0.2:
+            by = ty - 0.2
+        _blank._box_into(surf, xm, (ty + by) / 2.0, (x1 - x0) + 0.02, ty - by,
+                         WATER_Z - 0.06, WATER_Z)
+    objs.append(_blank._new_obj(key + "_water", surf, mats["water"]))
+
     bed = bmesh.new()
-    land = bmesh.new()
     wall = bmesh.new()
-    N = 40
-    xs = [-9.99 + 19.98 * i / N for i in range(N + 1)]
+    M = 30
     prev = None
-    for x in xs:
-        in_water = abs(x) <= CROSS[0]
-        ty = _top_edge(x) + (0.3 if abs(x) <= 5.0 else 0.0)   # inward overshoot
-        by = _bankline(key, x) if in_water else ty            # wedge: land from the top
-        ly = _bot_edge(x)
+    for j in range(M + 1):
+        x = -6.4 + 12.8 * j / M
+        ty = _top_edge(x) + (0.3 if abs(x) <= 5.0 else 0.0)
+        by = min(_band_y(x, key), ty - 0.15)
         cur = {
-            "in_water": in_water,
-            "s0": surf.verts.new((x, ty, WATER_Z)), "s1": surf.verts.new((x, by + 0.12, WATER_Z)),
             "b0": bed.verts.new((x, ty, FLOOR_Z)),  "b1": bed.verts.new((x, by, FLOOR_Z)),
             "w0": wall.verts.new((x, by, FLOOR_Z)), "w1": wall.verts.new((x, by, PAVE_TOP)),
-            "l0": land.verts.new((x, by, PAVE_TOP)), "l1": land.verts.new((x, ly, PAVE_TOP)),
-            "lw0": land.verts.new((x, ly, PAVE_TOP)), "lw1": land.verts.new((x, ly, 0.0)),
         }
         if prev is not None:
-            if prev["in_water"] and cur["in_water"]:
-                surf.faces.new([prev["s0"], prev["s1"], cur["s1"], cur["s0"]])
-                bed.faces.new([prev["b0"], prev["b1"], cur["b1"], cur["b0"]])
-                wall.faces.new([prev["w0"], prev["w1"], cur["w1"], cur["w0"]])
-            land.faces.new([prev["l0"], prev["l1"], cur["l1"], cur["l0"]])
-            land.faces.new([prev["lw0"], prev["lw1"], cur["lw1"], cur["lw0"]])
+            bed.faces.new([prev["b0"], prev["b1"], cur["b1"], cur["b0"]])
+            wall.faces.new([prev["w0"], prev["w1"], cur["w1"], cur["w0"]])
         prev = cur
-    for bmx, nm, mat in ((surf, "_water", mats["water"]), (bed, "_bed", mats["grnd"]),
-                         (wall, "_bankwall", mats["grnd"]), (land, "_bank", mats["pave"])):
+    for bmx, nm in ((bed, "_bed"), (wall, "_bankwall")):
         bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces)
-        objs.append(_blank._new_obj(key + nm, bmx, mat))
+        objs.append(_blank._new_obj(key + nm, bmx, mats["grnd"]))
 
 
-def _dressing(key, objs, mats):
-    if key == "water_a":
-        bm = bmesh.new()
-        for x, y, r in ((-2.4, 1.4, 0.7), (3.0, 2.2, 0.55)):
-            _blank._blob_into(bm, x, y, PAVE_TOP + r * 0.4, r, z_squash=0.7, segs=8)
-        objs.append(_blank._new_obj(key + "_boulders", bm, mats["rock"]))
-    elif key == "water_b":
-        bm = bmesh.new()
-        for i, (x, y) in enumerate(((-3.6, 3.2), (-3.0, 2.6), (4.0, 1.8))):
-            _blank._box_into(bm, x, y, 0.12, 0.12, WATER_Z, PAVE_TOP + 0.9)
-        objs.append(_blank._new_obj(key + "_reeds", bm, mats["green"]))
-    elif key == "water_c":
-        bm = bmesh.new()                          # a worn jetty over the water
-        _blank._box_into(bm, 1.2, 4.6, 1.1, 3.2, WATER_Z + 0.55, WATER_Z + 0.75)
-        _blank._box_into(bm, 0.8, 3.4, 0.16, 0.16, FLOOR_Z, WATER_Z + 0.75)
-        _blank._box_into(bm, 1.6, 5.6, 0.16, 0.16, FLOOR_Z, WATER_Z + 0.75)
-        objs.append(_blank._new_obj(key + "_jetty", bm, mats["border"]))
-    elif key == "bridge":
-        bm = bmesh.new()                          # deck: inward edge -> outer bank
-        _street.sweep_into(bm, [(0.0, INR + 0.3), (0.0, 0.6)], HW,
-                           TOP - _river.DECK_T, TOP + 0.01)
-        objs.append(_blank._new_obj(key + "_deck", bm, mats["road"]))
-        bm = bmesh.new()
-        for side in (-1, 1):
-            _blank._box_into(bm, side * (HW + _river.PARAPET_W / 2), (INR + 0.6) / 2,
-                             _river.PARAPET_W, INR + 0.3 - 0.6, TOP, TOP + _river.PARAPET_H)
-        objs.append(_blank._new_obj(key + "_parapets", bm, mats["pave"]))
-        bm = bmesh.new()                          # landing road off the outward edge
-        _street.sweep_into(bm, [(0.0, 0.8), (0.0, -INR - 0.3)], HW,
-                           TOP - 0.02, TOP + 0.01)
-        objs.append(_blank._new_obj(key + "_outroad", bm, mats["road"]))
-        bm = bmesh.new()                          # gate posts at the landing
-        _blank._box_into(bm, -2.0, 0.2, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.6)
-        _blank._box_into(bm, 2.0, 0.2, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.6)
-        objs.append(_blank._new_obj(key + "_gate", bm, mats["border"]))
+def _land_slab(key, objs, mats, z_top=PAVE_TOP):
+    """The tile's land: the hex MINUS the channel band — built as column strips
+    from the bankline to the far boundary, with skirts to z=0."""
+    N = 40
+    xs = [-9.99 + 19.98 * i / N for i in range(N + 1)]
+    land = bmesh.new()
+    prev = None
+    for x in xs:
+        by = min(_band_y(x, key), _top_edge(x) - 0.15)
+        ly = -_top_edge(x)
+        cur = {
+            "l0": land.verts.new((x, by, z_top)), "l1": land.verts.new((x, ly, z_top)),
+            "k0": land.verts.new((x, ly, z_top)), "k1": land.verts.new((x, ly, 0.0)),
+            "j0": land.verts.new((x, by, z_top)), "j1": land.verts.new((x, by, 0.0)),
+        }
+        if prev is not None:
+            land.faces.new([prev["l0"], prev["l1"], cur["l1"], cur["l0"]])
+            land.faces.new([prev["k0"], prev["k1"], cur["k1"], cur["k0"]])
+        prev = cur
+    bmesh.ops.recalc_face_normals(land, faces=land.faces)
+    objs.append(_blank._new_obj(key + "_land", land, mats["pave"]))
+
+
+def _masses_land7(objs, key, mats):
+    bm = bmesh.new()
+    _blank._disc_into(bm, -1.6, -2.0, 3.4, PAVE_TOP - 0.02, PAVE_TOP + 0.05, segs=18)
+    objs.append(_blank._new_obj(key + "_green", bm, mats["green"]))
+    bm = bmesh.new()
+    for x, y, r in ((2.8, -1.2, 0.6), (-4.6, -4.4, 0.5)):
+        _blank._blob_into(bm, x, y, PAVE_TOP + r * 0.4, r, z_squash=0.7, segs=8)
+    objs.append(_blank._new_obj(key + "_boulders", bm, mats["rock"]))
+
+
+def _masses_river7(objs, key, mats):
+    # The town river flows through: a straight 5 m channel from the inward edge
+    # (edge 3, y=-INR) into the half-channel — the river kit's exact section.
+    chw = _river.CH_HW
+    y0, y1 = -INR - 0.3, _band_y(0.0, key) + 0.6
+    bm = bmesh.new()
+    _street.sweep_into(bm, [(0.0, y0), (0.0, y1)], chw - _river.WATER_INSET,
+                       WATER_Z - _river.WATER_T, WATER_Z)
+    objs.append(_blank._new_obj(key + "_chwater", bm, mats["water"]))
+    bm = bmesh.new()
+    _street.sweep_into(bm, [(0.0, y0), (0.0, y1)], chw, FLOOR_Z, FLOOR_Z + _river.FLOOR_T)
+    for side in (-1, 1):
+        _blank._box_into(bm, side * (chw + 0.15), (y0 + y1) / 2, 0.3, y0 - y1,
+                         FLOOR_Z, PAVE_TOP)
+    objs.append(_blank._new_obj(key + "_chworks", bm, mats["grnd"]))
+
+
+def _masses_exit7(objs, key, mats):
+    # The artery crosses: road inward edge (3) -> over the half-channel on a
+    # deck -> off the water edge (0) onto ring 8.
+    bm = bmesh.new()
+    _street.sweep_into(bm, [(0.0, -INR - 0.3), (0.0, INR + 0.3)], HW,
+                       TOP - _river.DECK_T, TOP + 0.01)
+    objs.append(_blank._new_obj(key + "_deck", bm, mats["road"]))
+    bm = bmesh.new()
+    y0, y1 = _band_y(0.0, key) - 1.0, INR + 0.3
+    for side in (-1, 1):
+        _blank._box_into(bm, side * (HW + _river.PARAPET_W / 2), (y0 + y1) / 2,
+                         _river.PARAPET_W, y1 - y0, TOP, TOP + _river.PARAPET_H)
+    objs.append(_blank._new_obj(key + "_parapets", bm, mats["pave"]))
+    bm = bmesh.new()
+    _blank._box_into(bm, -2.0, _band_y(0.0, key) - 1.6, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.6)
+    _blank._box_into(bm, 2.0, _band_y(0.0, key) - 1.6, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.6)
+    objs.append(_blank._new_obj(key + "_gate", bm, mats["border"]))
+
+
+def _masses_bank8(objs, key, mats):
+    # Horizon land: a low rolled rise away from the water (eye-height law:
+    # under 2.5 m — the Range rings own the silhouette).
+    bm = bmesh.new()
+    for cx, cy, r, h in ((-2.4, -3.6, 4.0, 2.2), (3.2, -5.0, 3.0, 1.6)):
+        sq = 0.3
+        cz = PAVE_TOP + h - r * sq
+        _blank._blob_into(bm, cx, cy, max(cz, 0.05 + r * sq), r, z_squash=sq, segs=10)
+    objs.append(_blank._new_obj(key + "_rise", bm, mats["green"]))
+    bm = bmesh.new()
+    for x, y, r in ((0.6, -2.2, 0.55), (-4.8, -5.2, 0.5)):
+        _blank._blob_into(bm, x, y, PAVE_TOP + r * 0.4, r, z_squash=0.7, segs=8)
+    objs.append(_blank._new_obj(key + "_boulders", bm, mats["rock"]))
+
+
+_MASSES = {"land7": _masses_land7, "river7": _masses_river7,
+           "exit7": _masses_exit7, "bank8": _masses_bank8}
 
 
 def build_tile_obj(key, edges=None):
@@ -239,11 +244,10 @@ def build_tile_obj(key, edges=None):
         "border": _street.border_material(),
     }
     name = "T_rim_" + key
-    # No slab canvas: the tile IS its water body + outer bank.
     objs = []
-    _water_body(key, objs, mats)
-    _dressing(key, objs, mats)
-    objs.append(_rimkey(key + "_key"))
+    _half_channel(key, objs, mats)
+    _land_slab(key, objs, mats)
+    _MASSES[key](objs, key, mats)
 
     base = objs[0]
     base.name = name
@@ -274,7 +278,8 @@ def make_tile(key):
 
 def write_kit_json():
     kit = {"tiles": {("T_rim_%s" % k): {"road_mask": rm, "water_mask": wm,
-                                        "weight": w, "family": "Rim"}
+                                        "weight": w,
+                                        "family": "Rim8" if k.endswith("8") else "Rim"}
                      for k, (rm, wm, w) in VARIANTS.items()}}
     path = os.path.join(_street.out_dir(), "rim_kit.json")
     with open(path, "w") as f:
@@ -290,7 +295,7 @@ def main():
         bespoke = tile_common.bespoke_tile_names()
     except Exception:
         bespoke = set()
-    print("=== gen_rim_tiles (the Ringwater): writing to %s ===" % _street.out_dir())
+    print("=== gen_rim_tiles (two-ring seam): writing to %s ===" % _street.out_dir())
     for key in VARIANTS:
         tile = "T_rim_%s" % key
         if tile in bespoke:

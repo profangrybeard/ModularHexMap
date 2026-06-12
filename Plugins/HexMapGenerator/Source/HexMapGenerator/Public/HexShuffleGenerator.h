@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "HexMapGrowthLibrary.h"
+#include "HexTileTypes.h"
 #include "HexShuffleGenerator.generated.h"
 
 class UDataTable;
@@ -173,10 +174,14 @@ private:
 
 	// Calibration cache: each tile's true ROAD and WATER masks (edges each layer's
 	// geometry reaches), at yaw 0. Layers measured independently from material sections.
-	UPROPERTY(Transient)
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug", meta = (AllowPrivateAccess = "true"))
 	TArray<int32> TileRealMask;
 
-	UPROPERTY(Transient)
+	// Reflection-readable: the orientation gate must assert placed yaws against
+	// the MEASURED masks (the actual geometry — authored masks differ by the
+	// import transform, and asserting with them flagged 88/90 correct
+	// placements as wrong, 2026-06-12).
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug", meta = (AllowPrivateAccess = "true"))
 	TArray<int32> TileRealWaterMask;
 
 	// Third measured layer, rim tiles only: the M_RimKey marker triangle at the
@@ -217,7 +222,8 @@ private:
 	 *  ghosted, never restored). No-op when the catalog has no Rim rows. */
 	void BuildRim(const FHexNetwork& Net);
 	bool ResolveRimTile(int32 RoadBits, int32 WaterBits, int32 InwardEdge,
-		const FRandomStream* VariantStream, int32& OutTile, int32& OutYawSteps) const;
+		EHexTileFamily Family, const FRandomStream* VariantStream,
+		int32& OutTile, int32& OutYawSteps) const;
 	void RefreshPresentation();
 	bool BuildRiverPath(TArray<FVector2D>& OutPts) const;
 	UInstancedStaticMeshComponent* GetOrCreateISM(UStaticMesh* Mesh);

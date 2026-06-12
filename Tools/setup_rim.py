@@ -75,7 +75,8 @@ for tile, spec in kit.items():
     d.set_editor_property("edges", socks)
     d.set_editor_property("water_mask", int(spec["water_mask"]))
     d.set_editor_property("weight", float(spec.get("weight", 1.0)))
-    d.set_editor_property("family", unreal.HexTileFamily.RIM)
+    fam = unreal.HexTileFamily.RIM8 if spec.get("family") == "Rim8" else unreal.HexTileFamily.RIM
+    d.set_editor_property("family", fam)
     if existing:
         tiles[by_name[row_name]] = d
         updated += 1
@@ -90,7 +91,7 @@ kept = []
 for t in tiles:
     fam = t.get_editor_property("family")
     nm = str(t.get_editor_property("name"))
-    if fam == unreal.HexTileFamily.RIM and nm not in kit_rows:
+    if fam in (unreal.HexTileFamily.RIM, unreal.HexTileFamily.RIM8) and nm not in kit_rows:
         pruned.append(nm)
     else:
         kept.append(t)

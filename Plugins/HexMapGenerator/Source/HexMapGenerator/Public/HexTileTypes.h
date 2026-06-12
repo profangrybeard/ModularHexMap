@@ -24,7 +24,11 @@ UENUM(BlueprintType)
 enum class EHexTileFamily : uint8
 {
 	Street,
-	Rim
+	Rim,     // ring Radius+1: town-side land, half-channel OUTWARD
+	Rim8     // ring Radius+2: mirror half-channel INWARD, horizon land.
+	         // A separate family because the two rings' plain tiles are
+	         // mask-identical (one water bit) — without it the resolver
+	         // cross-places them and the rings interleave (2026-06-12).
 };
 
 /**

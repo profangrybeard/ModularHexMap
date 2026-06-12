@@ -52,7 +52,7 @@ def hexdist(q, r):
     return (abs(q) + abs(-q - r) + abs(r)) // 2
 
 
-def ring_stations(ring=7):
+def ring_stations(ring):
     q, r = AXIAL_DIR[4][0] * ring, AXIAL_DIR[4][1] * ring
     out = []
     for d in range(6):
@@ -137,20 +137,18 @@ def build_world():
     town = bpy.context.active_object
     town.data.materials.append(grey("M_TownStandin", (0.42, 0.40, 0.38, 1.0)))
 
-    # The Ringwater: every station is a water tile (variant mix); the exit at
-    # station 0 is a bridge (camera looks at it in shot 2).
-    stations = ring_stations(7)
-    for i, (q, r) in enumerate(stations):
-        if i == 0:
-            name = "T_rim_bridge"
-        elif i % 5 == 2:
-            name = "T_rim_water_wide"
-        elif i % 3 == 1:
-            name = "T_rim_water_c"
-        else:
-            name = "T_rim_water_a" if i % 2 else "T_rim_water_b"
+    # The two-ring seam: ring 7 land tiles (exit at station 0, river mouths at
+    # 10/31) with their half-channel OUTWARD; ring 8 banks with the mirror half
+    # INWARD. Authored water edge is 0; ring 7 rotates it outward (+180 from the
+    # inward yaw), ring 8 rotates it inward.
+    for i, (q, r) in enumerate(ring_stations(7)):
+        name = "T_rim_exit7" if i == 0 else (
+            "T_rim_river7" if i in (10, 31) else "T_rim_land7")
         x, y = world_xy(q, r)
-        place(name, x, y, inward_yaw(q, r))
+        place(name, x, y, inward_yaw(q, r) + math.pi)
+    for (q, r) in ring_stations(8):
+        x, y = world_xy(q, r)
+        place("T_rim_bank8", x, y, inward_yaw(q, r))
 
     for name, radius, heading, scale in RANGE_TABLE:
         a = math.radians(heading)

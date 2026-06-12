@@ -37,10 +37,9 @@
     "T_blank_garden": { "enabled": true, "bespoke": false, "blend": null },
     "T_blank_green": { "enabled": true, "bespoke": false, "blend": null },
     "T_blank_allotment": { "enabled": true, "bespoke": false, "blend": null },
-    "T_rim_water_a": { "enabled": true, "bespoke": false, "blend": null },
-    "T_rim_water_b": { "enabled": true, "bespoke": false, "blend": null },
-    "T_rim_water_c": { "enabled": true, "bespoke": false, "blend": null },
-    "T_rim_water_wide": { "enabled": true, "bespoke": false, "blend": null },
-    "T_rim_bridge": { "enabled": true, "bespoke": false, "blend": null }
+    "T_rim_land7": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_river7": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_exit7": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_bank8": { "enabled": true, "bespoke": false, "blend": null }
   }
 }

@@ -234,8 +234,17 @@ bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, in
 }
 
 bool AHexShuffleGenerator::ResolveRimTile(int32 RoadBits, int32 WaterBits, int32 InwardEdge,
-	const FRandomStream* VariantStream, int32& OutTile, int32& OutYawSteps) const
+	EHexTileFamily Family, const FRandomStream* VariantStream,
+	int32& OutTile, int32& OutYawSteps) const
 {
+	// TWO-RING SEAM RESOLUTION (director's design, 2026-06-12): plain
+	// measure-and-rotate against the cared edges. RoadBits/WaterBits are FULL
+	// target masks; InwardEdge carries the care axis (inward + outward edges are
+	// constrained, sides free). Orientation comes from the masks THEMSELVES —
+	// the water geometry is its own witness; the key marker and the flank
+	// inference are gone (both were proxies that could agree with the engine
+	// while disagreeing with reality).
+	const int32 Care = (1 << InwardEdge) | (1 << ((InwardEdge + 3) % 6));
 	// Rim resolution is a THREE-layer match under one rotation: the RimKey marker
 	// must land on the station's inward edge (orientation — mask-(0,0) faces have
 	// nothing else to orient them), and the road/water layers must equal the
@@ -251,47 +260,15 @@ bool AHexShuffleGenerator::ResolveRimTile(int32 RoadBits, int32 WaterBits, int32
 	for (int32 i = 0; i < TileSet->Tiles.Num(); ++i)
 	{
 		const FHexTileDef& T = TileSet->Tiles[i];
-		if (T.Family != EHexTileFamily::Rim) { continue; }
+		if (T.Family != Family) { continue; }
 		const int32 Road  = bMeasured ? TileRealMask[i]      : UHexTileSet::TileMask(T);
 		const int32 Water = bMeasured ? TileRealWaterMask[i] : (T.WaterMask & 0x3F);
-
-		// THE FLANK RULE (2026-06-12, after the key marker placed a uniform-but-
-		// wrong ring): orientation comes from geometry that CANNOT lie. The
-		// Ringwater's two measured seam-crossing bits flank the tile's true
-		// inward edge by construction, and that relationship is invariant under
-		// ANY import transform — unlike the M_RimKey marker, whose measurement
-		// proved untrustworthy while remaining internally consistent (the gate
-		// agreed with the engine and both were 180 degrees off). The tile's own
-		// water is its orientation witness; the key remains only as a fallback
-		// for hypothetical waterless rim tiles.
-		int32 RefEdge = INDEX_NONE;
-		{
-			int32 BitsFound[2] = { -1, -1 };
-			int32 NumBits = 0;
-			for (int32 e = 0; e < 6 && NumBits <= 2; ++e)
-			{
-				if (Water & (1 << e)) { if (NumBits < 2) { BitsFound[NumBits] = e; } ++NumBits; }
-			}
-			if (NumBits == 2)
-			{
-				const int32 Gap = (BitsFound[1] - BitsFound[0] + 6) % 6;
-				if (Gap == 2)      { RefEdge = (BitsFound[0] + 1) % 6; }
-				else if (Gap == 4) { RefEdge = (BitsFound[1] + 1) % 6; }
-			}
-		}
-		if (RefEdge == INDEX_NONE)
-		{
-			const int32 Key = bMeasured ? TileRealRimKey[i] : 1;
-			if (Key != 0) { RefEdge = FMath::CountTrailingZeros((uint32)Key); }
-		}
-		if (RefEdge == INDEX_NONE) { continue; }
 
 		for (int32 k = 0; k < 6; ++k)
 		{
 			const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
-			const int32 Bit = (1 << InwardEdge);
-			if ((HexGrid::RotateMask6(1 << RefEdge, Rot) & Bit) != 0 &&
-				(HexGrid::RotateMask6(Road, Rot) & Bit) == (RoadBits & Bit))
+			if ((HexGrid::RotateMask6(Road, Rot) & Care) == (RoadBits & Care) &&
+				(HexGrid::RotateMask6(Water, Rot) & Care) == (WaterBits & Care))
 			{
 				CandTile.Add(i);
 				CandYaw.Add(k);
@@ -322,83 +299,95 @@ void AHexShuffleGenerator::BuildRim(const FHexNetwork& Net)
 	}
 	if (!bHasRim) { return; } // pre-rim catalog: the bowl isn't authored yet — silent no-op
 
-	const int32 RimRing = Growth.Radius + 1;
+	// THE TWO-RING SEAM (director's design, 2026-06-12): ring 7 is town-side land
+	// with the half-channel at its OUTWARD edge; ring 8 completes the channel at
+	// its INWARD edge and rolls away as horizon land. Every 7<->8 edge is
+	// water-meets-water by law — connectivity IS edge-socket matching, the kit's
+	// native grammar. Connection points are ordinary mask-matched tiles: a river
+	// mouth is a water-through tile, a street exit is a road-through deck.
 	TMap<FIntPoint, const FHexCellResult*> CellOf;
 	for (const FHexCellResult& C : Net.Cells) { CellOf.Add(C.Axial, &C); }
 
 	int32 Placed = 0, Unresolved = 0, Exits = 0, Mouths = 0;
-	// Bounding-box scan over the ring (tiny at this radius; simple and complete).
-	for (int32 q = -RimRing; q <= RimRing; ++q)
+	for (int32 RingIdx = 0; RingIdx < 2; ++RingIdx)
 	{
-		for (int32 r = -RimRing; r <= RimRing; ++r)
+		const int32 Ring = Growth.Radius + 1 + RingIdx;
+		for (int32 q = -Ring; q <= Ring; ++q)
 		{
-			const FIntPoint S(q, r);
-			if (HexGrid::Distance(S) != RimRing) { continue; }
-
-			// Derive the station's marks from its in-town neighbors' outward bits
-			// (artery exits survive the prune; river arms always wrote theirs).
-			// Inward pick is WORLD distance, not hex-ring distance: a SIDE station
-			// has TWO ring-6 neighbors at equal hex distance, and a first-wins tie
-			// break skews the tile +/-60 degrees — which is exactly a broken
-			// waterline at every seam (2026-06-12). World distance is unique.
-			int32 RoadBits = 0, WaterBits = 0;
-			int32 InwardEdge = 0;
-			float BestDistSq = TNumericLimits<float>::Max();
-			for (int32 e = 0; e < 6; ++e)
+			for (int32 r = -Ring; r <= Ring; ++r)
 			{
-				const FIntPoint N = HexGrid::Neighbor(S, e);
-				const float D = HexGrid::WorldXY(N, HexCircumradiusUU).SizeSquared();
-				if (D < BestDistSq) { BestDistSq = D; InwardEdge = e; }
-				if (const FHexCellResult* const* Cell = CellOf.Find(N))
+				const FIntPoint S(q, r);
+				if (HexGrid::Distance(S) != Ring) { continue; }
+
+				// Inward pick is WORLD distance (hex distance TIES on side
+				// stations and a tie-break skews the tile 60 degrees).
+				int32 InwardEdge = 0;
+				float BestDistSq = TNumericLimits<float>::Max();
+				int32 TownRoad = 0, TownWater = 0;   // marks from ring-6 (ring 7 only)
+				for (int32 e = 0; e < 6; ++e)
 				{
-					const int32 Toward = (e + 3) % 6; // N's edge pointing at S
-					if (((*Cell)->RoadMask  & (1 << Toward)) != 0) { RoadBits  |= (1 << e); }
-					if (((*Cell)->WaterMask & (1 << Toward)) != 0) { WaterBits |= (1 << e); }
+					const FIntPoint N = HexGrid::Neighbor(S, e);
+					const float D = HexGrid::WorldXY(N, HexCircumradiusUU).SizeSquared();
+					// Epsilon tie-break (corner-adjacent stations differ by ~2 uu^2
+					// in 10^8 — float order must be deterministic and identical in
+					// the Python gate): a strict improvement of 1 uu^2 or first-wins.
+					if (D < BestDistSq - 1.0f) { BestDistSq = D; InwardEdge = e; }
+					if (const FHexCellResult* const* Cell = CellOf.Find(N))
+					{
+						const int32 Toward = (e + 3) % 6;
+						if (((*Cell)->RoadMask  & (1 << Toward)) != 0) { TownRoad  |= (1 << e); }
+						if (((*Cell)->WaterMask & (1 << Toward)) != 0) { TownWater |= (1 << e); }
+					}
 				}
-			}
-			// Bridges rotate to their ROAD (the deck must meet the artery, even
-			// off-axis). Water stations ALWAYS keep the geometric ring alignment:
-			// the Ringwater carries water across the inward edge AND both side
-			// crossings, so an off-axis river mouth still meets water — rotating
-			// the tile toward the river (the old override) broke the ring seam at
-			// every mouth (2026-06-12, found by the orientation gate).
-			if (RoadBits) { InwardEdge = FMath::CountTrailingZeros(RoadBits); }
+				const int32 OutwardEdge = (InwardEdge + 3) % 6;
 
-			// THE RING WATER LAW (director, 2026-06-12): ring 7 IS the waterway.
-			// Every station carries water on its inward edge, so any river mouth
-			// connects anywhere by construction, and every rim tile is a water
-			// tile (Docs/Rim.md). River-mouth bits are subsumed; exits become
-			// bridge tiles (road + water on the same inward edge).
-			WaterBits |= (1 << InwardEdge);
+				int32 RoadTarget = 0, WaterTarget = 0;
+				if (RingIdx == 0)
+				{
+					// Ring 7: the half-channel ALWAYS at the outward edge; the
+					// town river continues through where it arrives; artery
+					// exits cross inward->outward on a deck.
+					WaterTarget = (1 << OutwardEdge) | (TownWater ? (1 << InwardEdge) : 0);
+					RoadTarget  = TownRoad ? ((1 << InwardEdge) | (1 << OutwardEdge)) : 0;
+					if (TownRoad)  { ++Exits; }
+					if (TownWater) { ++Mouths; }
+				}
+				else
+				{
+					// Ring 8: the mirror half-channel at the INWARD edge; plain
+					// horizon land otherwise (exit continuation is a B3 item —
+					// the deck currently ends at the seam gate).
+					WaterTarget = (1 << InwardEdge);
+				}
 
-			// Same per-(seed, cell) determinism as the town: the destiny owns its rim.
-			const FRandomStream VariantStream(VariantSeedFor(Seed, S));
-			int32 TileIdx = INDEX_NONE;
-			int32 YawSteps = 0;
-			if (!ResolveRimTile(RoadBits, WaterBits, InwardEdge, &VariantStream, TileIdx, YawSteps))
-			{
-				++Unresolved;
-				continue;
-			}
-			UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
-			if (!Mesh) { ++Unresolved; continue; }
+				const FRandomStream VariantStream(VariantSeedFor(Seed, S));
+				int32 TileIdx = INDEX_NONE;
+				int32 YawSteps = 0;
+				const EHexTileFamily RingFamily =
+					(RingIdx == 0) ? EHexTileFamily::Rim : EHexTileFamily::Rim8;
+				if (!ResolveRimTile(RoadTarget, WaterTarget, InwardEdge, RingFamily, &VariantStream, TileIdx, YawSteps))
+				{
+					++Unresolved;
+					continue;
+				}
+				UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
+				if (!Mesh) { ++Unresolved; continue; }
 
-			const FVector2D XY = HexGrid::WorldXY(S, HexCircumradiusUU);
-			FTransform X;
-			X.SetLocation(FVector(XY.X, XY.Y, 0.f));
-			X.SetRotation(FQuat(FRotator(0.f, 60.f * YawSteps, 0.f)));
-			// Always SOLID — the bowl is eternal: never ghosted, never restored.
-			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh))
-			{
-				ISM->AddInstance(X, /*bWorldSpace=*/false);
-				++Placed;
-				if (RoadBits)  { ++Exits; }
-				if (WaterBits) { ++Mouths; }
+				const FVector2D XY = HexGrid::WorldXY(S, HexCircumradiusUU);
+				FTransform X;
+				X.SetLocation(FVector(XY.X, XY.Y, 0.f));
+				X.SetRotation(FQuat(FRotator(0.f, 60.f * YawSteps, 0.f)));
+				// Always SOLID — the bowl is eternal: never ghosted, never restored.
+				if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh))
+				{
+					ISM->AddInstance(X, /*bWorldSpace=*/false);
+					++Placed;
+				}
 			}
 		}
 	}
-	UE_LOG(LogTemp, Display, TEXT("HexShuffle: rim %d placed, %d unresolved (ring %d), exits=%d, water mouths=%d."),
-		Placed, Unresolved, RimRing, Exits, Mouths);
+	UE_LOG(LogTemp, Display, TEXT("HexShuffle: rim %d placed (rings %d+%d), %d unresolved, exits=%d, river mouths=%d."),
+		Placed, Growth.Radius + 1, Growth.Radius + 2, Unresolved, Exits, Mouths);
 }
 
 UInstancedStaticMeshComponent* AHexShuffleGenerator::GetOrCreateISM(UStaticMesh* Mesh)
