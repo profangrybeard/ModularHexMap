@@ -99,19 +99,25 @@
 6. **Phase 5 — Buildings facade continuity + min-block-size rule** (per-edge
    `M_BuildingBack` variation, party-wall pilaster, landmark slots; growth-side block
    guarantee).
-7. **Phase 6 — The Rim (ring 7)** — **RULED THE PRIORITY 2026-06-11** (ahead of
+7. **Phase 6 — The Rim (rings 7–8)** — **RULED THE PRIORITY 2026-06-11** (ahead of
    Phase 5 facades, which are "a Blender back-and-forth and myopically detailed" —
-   the director's hands-on pass, later). **PLAN → [Rim.md](Rim.md)**; B1 underway.
-   The bowl that holds the town: 42-cell boundary ring (zero souls, eternal, derived
-   from the network's boundary state — save format untouched), artery exits into
-   gated mountain tunnels (the named roads leave town), the river closing its
-   hydrology into a ring waterway (recommended) with an outfall weir + intake, the
-   Range silhouette backdrop with authored ray notches, and UE 5.7's Day Sequence
-   day/night with the sun anchored to the destiny's river axis — dawn fog / noon
-   diorama / golden-hour alpenglow / short lamplit night as the four acceptance
-   moments. Phases B1–B4 with census gates; **six open rulings in Rim.md §8**
-   (waterway-vs-caves, sun anchor, Range lighting, night share, ghost-glow,
-   names). Implementation slots on the director's priority call vs Phase 5.
+   the director's hands-on pass, later). **PLAN → [Rim.md](Rim.md)**; **B1 + B2
+   LANDED 2026-06-11/12.** The rim is two rings and they ARE the waterway:
+   90 cells (zero souls, eternal, derived from the network's boundary state —
+   save format untouched), one bank per ring so every 7↔8 edge is
+   water-meets-water by construction; river mouths and artery exit decks are
+   ordinary mask-matched tiles; the Range carries the skyline off-grid. Gate:
+   `verify_rim_b1.py` four layers ALL PASS 30/30; director's walk passed
+   ("the promise of the first pass held") — polish gaps in capture. **Next:
+   B3** — UE 5.7 Day Sequence day/night, sun anchored to the destiny's river
+   axis, fog instruments, ray notches — dawn fog / noon diorama / golden-hour
+   alpenglow / short lamplit night as the four acceptance moments; plus B2.1
+   (one-body channel rebake v2.1 — BAKED, in-engine walk pending) and the
+   named debts: exit-deck continuation onto ring 8 (B3), bankline meander
+   variants (B2.1's second bake).
+   **Five open rulings in Rim.md §8** (sun anchor, Range lighting, night
+   share, ghost-glow, names — waterway-vs-caves RESOLVED: the rings are the
+   waterway). Implementation slots on the director's priority call vs Phase 5.
 
 ## Platform answers — sooner, not later (director's mandate 2026-06-11)
 

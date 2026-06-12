@@ -187,11 +187,13 @@ def shoot(label, cam_xy, look_azim_deg, fov_deg=70.0):
     print("  Eyeline_%s.png" % label)
 
 
-def shoot_plan(label, center_xy, height=90.0):
+def shoot_plan(label, center_xy, height=90.0, fov=70.0):
     """Top-down continuity check — the second read the gate owes the director
-    (the Ringwater's waterline must read as ONE body from above)."""
+    (the waterline must read as ONE body from above). Close-up calls (low
+    height) exist because the 90 m frame could not see a 3 m corner pool —
+    the bead necklace shipped under this gate (B2.1, 2026-06-12)."""
     cam = bpy.data.objects.new("Plan_" + label, bpy.data.cameras.new("P"))
-    cam.data.angle = math.radians(70)
+    cam.data.angle = math.radians(fov)
     cam.location = (center_xy[0], center_xy[1], height)
     cam.rotation_euler = (0.0, 0.0, math.atan2(center_xy[1], center_xy[0]) + math.pi / 2)
     bpy.context.scene.collection.objects.link(cam)
@@ -213,6 +215,21 @@ def main():
     shoot("town_center", (0.0, 2.0), 90.0)
     shoot("rim_road", (sx * 0.82, sy * 0.82), tun_az + 38.0)
     shoot_plan("plan_ring", (sx * 0.86, sy * 0.86))
+
+    # Seam close-ups: over a mid-side radial seam and over a map-corner turn —
+    # the two junctions where bead-to-bead continuity can die.
+    s7 = [world_xy(*qr) for qr in ring_stations(7)]
+
+    def seam_cam(i, j, push=8.0):
+        mx, my = (s7[i][0] + s7[j][0]) / 2.0, (s7[i][1] + s7[j][1]) / 2.0
+        d = math.hypot(mx, my)
+        return (mx * (d + push) / d, my * (d + push) / d)
+
+    shoot_plan("seam_side", seam_cam(3, 4), height=22.0, fov=60.0)
+    shoot_plan("seam_corner", seam_cam(13, 15), height=28.0, fov=60.0)
+    # The junction itself: the outward vertex of one radial seam, ~12 m frame —
+    # bead-to-bead continuity lives or dies in these few meters.
+    shoot_plan("seam_junction", seam_cam(3, 4, push=5.2), height=11.0, fov=55.0)
 
 
 print("=== render_eyeline: the eye-height gate ===")

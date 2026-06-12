@@ -1,5 +1,92 @@
 # Worklog — session memory, newest first
 
+## 2026-06-12 (the gap pass) — one body of water, three instruments deep
+
+The director's v2.2-walk verdict on the two-ring seam: it works, but the water
+doesn't sing — the loop read as a NECKLACE of 42 lens ponds (v1's parabolic
+bank dove steepest exactly at the seams; bead-to-bead water was a ~1 m stepped
+thread), plus a corner sawtooth (axis-aligned box strips staircasing on the
+sloped corner edges). The fix train then broke three instruments in a row,
+each failure buying a law:
+1. **v2.1 (wide corner pools)** put water 1.74 m from the side-edge midpoints
+   — inside the measurer's 2.5 m sampling disc → measured 3-bit vs 1 authored
+   → calibration distrusted the catalog → authored-fallback yaw → the
+   director photographed every water edge REVERSED. Laws: **the sampler's
+   exclusion discs are part of the authoring contract** (Source_Art/README's
+   measurement law); `gen_rim_tiles.py` runs the engine's sampler arithmetic
+   as a HARD BAKE GATE; T12 opens with step 0 (Reimport → Recalibrate → the
+   log must say `calibration OK`).
+2. **v2.2 (pools hug the discs)** — bake gate green, GLB provably clean
+   (M_Water prim 0, 420 verts, parsed from the GLB JSON directly) — and the
+   engine STILL measured land7/bank8 water 0x00: INVISIBLE. The probe
+   (`Tools/probe_rim_materials.py`) found the water section holding **26 of
+   420 verts** in-engine: **render LOD0 is PRESENTATION** — Nanite fallback /
+   LOD reduction decimates it freely, and v2.2's slender swept strips are
+   what a simplifier eats first (v1's chunky boxes had survived by accident
+   all along). Law: **measure the source, not the presentation** —
+   `MeasureTileMask` now reads the imported MeshDescription (render data =
+   cooked-runtime fallback) and slot lookup is the UNION of every
+   key-matching slot, never first-match. Resistance #33. (The step-0 log
+   check from failure 1 caught this one BEFORE a walk — the discipline held.)
+3. The probe's first version LOCKED the editor: out-of-range section reads
+   return EMPTY, not an exception, so its unbounded loop never broke. Bounded
+   now; the director paid a session for it.
+Recovery ran unattended (probe → fresh reimport → probe → gate):
+**calibration OK (28 tiles measured from geometry); verify_rim_b1 ALL PASS
+30/30** (counts / trust / ring identity / per-instance orientation). The
+v2.2 channel as landed: quartic plateau 3.8 → 3.4 m, corner pools at the
+sampler's legal maximum, one closed swept solid. Director's in-engine walk:
+pending. Escalation if junctions read thin: water-specific sampler radius
+(250 → ~150 uu), costed in Rim.md §7 B2.1.
+
+## 2026-06-12 (the two-ring seam) — the director's design lands
+
+The rotation war ended with a redesign, not another fix. The director: "ring 7
+is land on the city side, blank, river on the edge; ring 8 is water on the
+inside edge completing the river bank, land blending to horizon — a standard
+loop solves the water connectivity, then swap in the water and street
+connection points." Each ring contributes ONE BANK — ring 7 carries a
+half-channel at its OUTWARD edge, ring 8 the mirror half at its INWARD edge —
+so every 7↔8 edge is water-meets-water by construction: **connectivity IS
+edge-socket matching**, the grammar the kit already lives by. Connection
+points are ordinary mask-matched tiles (`river7` water-through, `exit7`
+road-through on a deck). The M_RimKey marker AND the flank inference are
+deleted — **orientation is the mask** (a measured water bit cannot disagree
+with reality; every proxy we invented did). Kit = 4 tiles
+(land7/river7/exit7/bank8); catalog = 28.
+
+What the build surfaced, each now law:
+1. **Water must be CLOSED SOLIDS to measure** — the river kit always was; open
+   ribbons measure erratically.
+2. **land7/bank8 are mask-identical** → ring 8 gets its own family (`Rim8`) or
+   the rings interleave.
+3. **Corner-adjacent stations need a 1-uu² epsilon tie-break** on the
+   world-distance inward pick (they differ by ~2 uu² in 10⁸ — float order must
+   be deterministic and identical in engine, gate, and eyeline mock).
+4. **The gate asserts MEASURED masks, not authored** — authored masks differ
+   by the import transform; asserting with them flags correct placements wrong.
+Gate layers now: counts (r7 42 / r8 48 / exits / mouths==2), calibration
+trust, ring identity, per-instance orientation vs measured geometry —
+**ALL PASS 30/30** (~2,700 instances/run). Context maxed at the commit; docs
+trued later the same day. Director's walk: **passed — "it isn't good yet but
+the promise of the first pass held"**; polish gaps being captured from
+screenshots. Known debt promoted from a code comment to paper: **the exit
+deck ENDS at the seam — ring 8 doesn't continue the road yet** (B3), and one
+variant per role at Weight 1.0 (bankline meander variants pending the gap
+review).
+
+## 2026-06-12 (the flank rule) — orientation from the water, not a marker
+
+The key marker measured wrong while staying internally consistent — engine and
+gate agreed with each other and were uniformly 180° off; the director's
+screenshots were the only honest instrument. The fix derived orientation from
+geometry that cannot lie: the Ringwater's two measured seam-crossing bits
+flank the tile's true inward edge under ANY import transform; the key demoted
+to fallback. ALL PASS 30/30. The flank inference itself lived about three
+hours — the two-ring seam (entry above) deleted it along with the key — but
+its lesson IS the surviving design: derive orientation from the water itself.
+Kept here because the lesson outlived the code.
+
 ## 2026-06-12 (orientation has teeth) — two more yaw bugs, found by the gate this time
 
 The director caught broken seams AGAIN after the calibration fix ("not one

@@ -1,14 +1,20 @@
 # verify_rim_b1.py — the Rim gate (GUI editor one-shot):
 #   UnrealEditor.exe <uproject> -ExecutePythonScript="<repo>/Tools/verify_rim_b1.py"
 #
-# Three layers of teeth (each added after a failure the previous layer missed):
-#   1. COUNTS  — rim 42/42, bridges == mask-derived exits, souls == 120.
+# Four layers of teeth (each added after a failure the previous layers missed):
+#   1. COUNTS  — ring 7 42/42 + ring 8 48/48, exits == mask-derived,
+#                mouths == 2, souls == 120.
 #   2. TRUST   — hard-abort if calibration is distrusted (counts can't see that
 #                every yaw silently fell back to authored guesses).
-#   3. ORIENTATION — for EVERY placed rim instance, read its actual yaw and
-#                prove the measured RimKey lands on the station's inward edge
-#                (counts and trust together still couldn't see a wrong rotation
-#                convention or a bad inward pick — 2026-06-12, twice).
+#   3. RING IDENTITY — a ring-7 mesh on a ring-8 station (or vice versa) fails
+#                even when the masks happen to fit (land7/bank8 are
+#                mask-identical; only the family keeps the rings apart).
+#   4. ORIENTATION — for EVERY placed rim instance, read its actual yaw and
+#                prove its MEASURED water mask lands on the required seam edge
+#                (OUTWARD for ring 7, INWARD for ring 8). Measured, not
+#                authored — authored masks differ by the import transform.
+#                (Counts and trust together couldn't see a wrong rotation
+#                convention or a bad inward pick — 2026-06-12, twice.)
 import math
 import unreal
 

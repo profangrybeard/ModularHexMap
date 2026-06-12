@@ -21,10 +21,13 @@ the flank inference are DELETED (both could disagree with reality while agreeing
 with themselves; a single measured water bit cannot).
 
 Authoring convention: edge 0 = the WATER edge (the engine rotates it outward for
-ring 7, inward for ring 8). The channel half is 2.2 m deep at the side corners
-(side-edge midpoints stay >2.5 m clear — the measured mask stays single-bit) and
-bulges to ~3.8 m mid-edge for an organic waterline. Cross-section matches the
-river kit (surface -0.9, floor -2.0) so town-river mouths meet the loop flush.
+ring 7, inward for ring 8). The channel half holds ~3.8 m through the mid-edge
+(quartic plateau, not a parabola — the v1 lens pinched at every seam and the
+loop read as 42 beads; B2.1 gap pass 2026-06-12) easing to 2.6 m at the side
+corners, where the band runs to |x| 6.1 so the RADIAL seams carry a deliberate
+shared corner pool (side-edge midpoints stay ~2.8 m clear — the measured mask
+stays single-bit). Cross-section matches the river kit (surface -0.9, floor
+-2.0) so town-river mouths meet the loop flush.
 
 Tiles (T_rim_<key>):
   land7    ring 7: town-side blank canvas + the outward half-channel      (1.0)
@@ -58,8 +61,19 @@ HW       = _street.HW
 
 WATER_Z  = _river.WATER_Z          # -0.9
 FLOOR_Z  = _river.FLOOR_Z          # -2.0
-BAND_D   = 2.2                     # half-channel depth at the side corners
-BAND_MID = 3.8                     # mid-edge bulge (side midpoints stay clear)
+BAND_D   = 3.4                     # half-channel depth target (v2 gap pass — v1's 2.2 lens
+                                   # pinched every seam into a pothole; near-constant width
+                                   # is what reads as ONE river)
+BAND_MID = 3.8                     # gentle mid-edge swell (life, not a lens)
+BAND_CLIP = 6.1                    # band x-extent: the corner pool across the radial seam
+MEAS_R   = 2.5                     # MeasureTileMask's NearDist (250 uu): ANY water vertex
+                                   # within this EUCLIDEAN radius of an edge midpoint sets
+                                   # that edge's measured bit. v2.1 ignored this and the
+                                   # measured mask went 3-bit -> popcount mismatch ->
+                                   # calibration DISTRUSTED the catalog -> authored-fallback
+                                   # yaw -> every water edge flipped (director's screenshots,
+                                   # 2026-06-12). The sampler discs are part of the contract.
+MEAS_MARGIN = 0.25                 # authoring margin outside the sampler disc
 ROCK_RGBA = (0.23, 0.205, 0.18, 1.0)
 
 # (road_mask, water_mask, weight) in the AUTHORED frame (edge 0 = the water edge).
@@ -85,11 +99,22 @@ def rock_material():
 
 def _band_y(x, key):
     """The bankline of the half-channel, measured from the WATER edge (edge 0 at
-    y=+INR): water occupies y in [bank(x), INR]. 2.2 m at the side corners
-    (|x| -> 5), bulging mid-tile; the river/exit tiles keep a straight channel
-    margin where their through-feature crosses."""
+    y=+INR): water occupies y in [bank(x), INR]. Quartic PLATEAU: holds near
+    BAND_MID through the middle and eases to BAND_D only near the corners — the
+    v1 parabola dove steepest exactly at the seams, which is what beaded the
+    loop (B2.1). The river/exit tiles keep a straight channel margin where
+    their through-feature crosses."""
     u = max(-1.0, min(1.0, x / 5.0))
-    d = BAND_D + (BAND_MID - BAND_D) * (1.0 - u * u)
+    d = BAND_D + (BAND_MID - BAND_D) * (1.0 - u ** 4)
+    # Hug the measurer's exclusion discs: the side-edge midpoints sit at
+    # (±7.5, INR/2); water inside MEAS_R of one would flip the measured mask
+    # multi-bit and distrust the whole calibration. The bank sweeps around
+    # the disc instead — the corner pool keeps every meter the sampler allows.
+    r = MEAS_R + MEAS_MARGIN
+    for mx in (-7.5, 7.5):
+        dx2 = (x - mx) ** 2
+        if dx2 < r * r:
+            d = min(d, INR * 0.5 - math.sqrt(r * r - dx2))
     if key == "river7":
         d = max(d, 0.0)                     # the through-channel carves anyway
     return INR - d
@@ -107,21 +132,36 @@ def _half_channel(key, objs, mats):
     has measured flawlessly forever because _swept_slab makes closed slabs; my
     open single-sided ribbons measured erratically (only their end columns
     registered). M_Water and M_Road must always be closed solids; unmeasured
-    materials may stay ribbons. Band ends clip at |x| 5.8 so the side-edge
-    midpoints stay >2.5 m clear (single measured bit), while the SURFACE still
-    overshoots the water edge (+0.3) to seam with the ring-8 mirror half."""
+    materials may stay ribbons. The surface is ONE closed strip following the
+    bankline — the v1 axis-aligned box strips staircased against the sloped
+    corner edges (the director's sawtooth screenshot, B2.1). Band ends clip at
+    |x| BAND_CLIP so the radial seams carry the shared corner pool while the
+    side-edge midpoints stay ~2.8 m clear (single measured bit); the surface
+    overshoots its boundary edges (+0.3) to seam with the mirrored halves."""
     surf = bmesh.new()
-    N = 16
-    for i in range(N):
-        x0 = -5.8 + 11.6 * i / N
-        x1 = -5.8 + 11.6 * (i + 1) / N
-        xm = (x0 + x1) / 2.0
-        ty = min(_top_edge(x0), _top_edge(x1)) + 0.3
-        by = max(_band_y(x0, key), _band_y(x1, key)) + 0.1
+    N = 40
+    cols = []
+    for j in range(N + 1):
+        x = -BAND_CLIP + 2.0 * BAND_CLIP * j / N
+        ty = _top_edge(x) + 0.3
+        by = _band_y(x, key) + 0.1
         if by > ty - 0.2:
             by = ty - 0.2
-        _blank._box_into(surf, xm, (ty + by) / 2.0, (x1 - x0) + 0.02, ty - by,
-                         WATER_Z - 0.06, WATER_Z)
+        cols.append({
+            "tb": surf.verts.new((x, by, WATER_Z)),
+            "tt": surf.verts.new((x, ty, WATER_Z)),
+            "bb": surf.verts.new((x, by, WATER_Z - 0.06)),
+            "bt": surf.verts.new((x, ty, WATER_Z - 0.06)),
+        })
+    for a, b in zip(cols, cols[1:]):
+        surf.faces.new([a["tb"], a["tt"], b["tt"], b["tb"]])   # top
+        surf.faces.new([a["bb"], a["bt"], b["bt"], b["bb"]])   # bottom
+        surf.faces.new([a["tt"], a["bt"], b["bt"], b["tt"]])   # outer wall
+        surf.faces.new([a["tb"], a["bb"], b["bb"], b["tb"]])   # bank wall
+    surf.faces.new([cols[0]["tb"], cols[0]["tt"], cols[0]["bt"], cols[0]["bb"]])
+    surf.faces.new([cols[-1]["tb"], cols[-1]["tt"], cols[-1]["bt"], cols[-1]["bb"]])
+    bmesh.ops.recalc_face_normals(surf, faces=surf.faces)
+    bmesh.ops.remove_doubles(surf, verts=surf.verts, dist=1e-4)
     objs.append(_blank._new_obj(key + "_water", surf, mats["water"]))
 
     bed = bmesh.new()
@@ -263,8 +303,56 @@ def build_tile_obj(key, edges=None):
     return base
 
 
+def _measured_mask(obj, key_sub):
+    """The engine's MeasureTileMask, reimplemented on the authored mesh: any
+    vertex of a keyed-material face within MEAS_R (Euclidean, XY) of an edge
+    midpoint sets that edge's bit. Popcount is rotation-invariant, so this is
+    exactly the calibration trust check — run BEFORE anything ships."""
+    mids = [(INR * math.cos(math.radians(90.0 - 60.0 * e)),
+             INR * math.sin(math.radians(90.0 - 60.0 * e))) for e in range(6)]
+    slots = set(i for i, ms in enumerate(obj.material_slots)
+                if ms.material and key_sub in ms.material.name)
+    if not slots:
+        return 0
+    mask = 0
+    me = obj.data
+    r2 = MEAS_R * MEAS_R
+    for poly in me.polygons:
+        if poly.material_index not in slots:
+            continue
+        for vi in poly.vertices:
+            co = me.vertices[vi].co
+            for e, (mx, my) in enumerate(mids):
+                if not (mask & (1 << e)) and \
+                        (co.x - mx) ** 2 + (co.y - my) ** 2 < r2:
+                    mask |= 1 << e
+    return mask
+
+
+def _bake_gate(base, key):
+    """HARD-FAIL the bake on a popcount lie. The v2.1 pools put water 1.74 m
+    from the side-edge midpoints; the engine measured 3 bits against 1
+    authored, distrusted the WHOLE catalog, and every rim tile flipped to an
+    authored-guess yaw (the director's reversed-water screenshots,
+    2026-06-12). The bake now runs the engine's own arithmetic first."""
+    road_a, water_a, _w = VARIANTS[key]
+
+    def pop(m):
+        return bin(m & 0x3F).count("1")
+
+    mr, mw = _measured_mask(base, "Road"), _measured_mask(base, "Water")
+    print("  bake-gate %-7s road 0x%02X(%d) authored 0x%02X(%d) | "
+          "water 0x%02X(%d) authored 0x%02X(%d)"
+          % (key, mr, pop(mr), road_a, pop(road_a),
+             mw, pop(mw), water_a, pop(water_a)))
+    if pop(mr) != pop(road_a) or pop(mw) != pop(water_a):
+        raise SystemExit("BAKE GATE FAIL: %s measured popcount != authored — "
+                         "the engine would distrust calibration." % key)
+
+
 def make_tile(key):
     base = build_tile_obj(key)
+    _bake_gate(base, key)
     path = os.path.join(_street.out_dir(), "T_rim_%s.glb" % key)
     bpy.ops.object.select_all(action='DESELECT')
     base.select_set(True)

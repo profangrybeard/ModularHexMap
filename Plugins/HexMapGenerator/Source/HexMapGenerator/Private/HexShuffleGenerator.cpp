@@ -7,6 +7,8 @@
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
 #include "StaticMeshResources.h"
+#include "MeshDescription.h"
+#include "StaticMeshAttributes.h"
 #include "Materials/MaterialInterface.h"
 #include "JsonObjectConverter.h"
 #include "Algo/Reverse.h"
@@ -76,27 +78,6 @@ void AHexShuffleGenerator::Recalibrate()
 int32 AHexShuffleGenerator::MeasureTileMask(UStaticMesh* Mesh, const TCHAR* MaterialKey) const
 {
 	if (!Mesh) { return 0; }
-	const FStaticMeshRenderData* RD = Mesh->GetRenderData();
-	if (!RD || RD->LODResources.Num() == 0) { return 0; }
-	const FStaticMeshLODResources& LOD = RD->LODResources[0];
-
-	// Locate the keyed material slot.
-	int32 RoadSlot = INDEX_NONE;
-	const TArray<FStaticMaterial>& Mats = Mesh->GetStaticMaterials();
-	for (int32 i = 0; i < Mats.Num(); ++i)
-	{
-		const FString SlotName = Mats[i].MaterialSlotName.ToString();
-		const FString MatName = Mats[i].MaterialInterface ? Mats[i].MaterialInterface->GetName() : FString();
-		if (SlotName.Contains(MaterialKey) || MatName.Contains(MaterialKey))
-		{
-			RoadSlot = i;
-			break;
-		}
-	}
-	if (RoadSlot == INDEX_NONE) { return 0; } // no such section -> layer absent on this tile
-
-	const FPositionVertexBuffer& PVB = LOD.VertexBuffers.PositionVertexBuffer;
-	FIndexArrayView Indices = LOD.IndexBuffer.GetArrayView();
 
 	const float Inr = HexCircumradiusUU * 0.86602540378f;
 	FVector2D EdgeMid[6];
@@ -111,10 +92,91 @@ int32 AHexShuffleGenerator::MeasureTileMask(UStaticMesh* Mesh, const TCHAR* Mate
 	// below any non-connected road geometry (the junction hub edge is ~640 uu from a midpoint).
 	const float NearDist = 250.f;
 
+	// Locate the keyed material slots — ALL of them, by every name the asset
+	// carries. Reimport can reorder slots, rename them, or split a material
+	// across slots; measuring only the FIRST match silently measures the wrong
+	// section. The key's geometry is the union of every matching slot.
+	const TArray<FStaticMaterial>& Mats = Mesh->GetStaticMaterials();
+	auto SlotMatchesKey = [&](const FStaticMaterial& SM) -> bool
+	{
+		const FString MatName = SM.MaterialInterface ? SM.MaterialInterface->GetName() : FString();
+		return SM.MaterialSlotName.ToString().Contains(MaterialKey)
+			|| SM.ImportedMaterialSlotName.ToString().Contains(MaterialKey)
+			|| MatName.Contains(MaterialKey);
+	};
+
+#if WITH_EDITORONLY_DATA
+	// SOURCE-GEOMETRY PATH (the calibration contract): render LOD0 is
+	// PRESENTATION — build-time welding, LOD reduction, and the Nanite fallback
+	// decimate it at the engine's whim. The v2.2 rim water authored 420 verts,
+	// LOD0 kept 26, and the measurer read 0x00 while the GLB was provably clean
+	// (2026-06-12). Calibration asks what was AUTHORED, so measure the imported
+	// MeshDescription; the render path below remains for cooked runtime.
+	if (const FMeshDescription* MD = Mesh->GetMeshDescription(0))
+	{
+		FStaticMeshConstAttributes Attrs(*MD);
+		TVertexAttributesConstRef<FVector3f> Positions = Attrs.GetVertexPositions();
+		TPolygonGroupAttributesConstRef<FName> GroupSlots = Attrs.GetPolygonGroupMaterialSlotNames();
+
+		TSet<FPolygonGroupID> KeyGroups;
+		for (const FPolygonGroupID GroupID : MD->PolygonGroups().GetElementIDs())
+		{
+			const FName GroupSlot = GroupSlots[GroupID];
+			bool bKeyed = GroupSlot.ToString().Contains(MaterialKey);
+			if (!bKeyed)
+			{
+				for (const FStaticMaterial& SM : Mats)
+				{
+					if (SM.ImportedMaterialSlotName == GroupSlot || SM.MaterialSlotName == GroupSlot)
+					{
+						bKeyed = SlotMatchesKey(SM);
+						break;
+					}
+				}
+			}
+			if (bKeyed) { KeyGroups.Add(GroupID); }
+		}
+		if (KeyGroups.Num() == 0) { return 0; } // layer absent on this tile
+
+		int32 Mask = 0;
+		for (const FTriangleID Tri : MD->Triangles().GetElementIDs())
+		{
+			if (!KeyGroups.Contains(MD->GetTrianglePolygonGroup(Tri))) { continue; }
+			for (const FVertexID V : MD->GetTriangleVertices(Tri))
+			{
+				const FVector3f P = Positions[V];
+				const FVector2D XY((float)P.X, (float)P.Y);
+				for (int32 e = 0; e < 6; ++e)
+				{
+					if ((Mask & (1 << e)) == 0 && FVector2D::Distance(XY, EdgeMid[e]) < NearDist)
+					{
+						Mask |= (1 << e);
+					}
+				}
+			}
+		}
+		return Mask;
+	}
+#endif // WITH_EDITORONLY_DATA
+
+	// PRESENTATION FALLBACK (cooked runtime: no MeshDescription payload).
+	TArray<int32, TInlineAllocator<4>> KeySlots;
+	for (int32 i = 0; i < Mats.Num(); ++i)
+	{
+		if (SlotMatchesKey(Mats[i])) { KeySlots.Add(i); }
+	}
+	if (KeySlots.Num() == 0) { return 0; } // no such section -> layer absent on this tile
+
+	const FStaticMeshRenderData* RD = Mesh->GetRenderData();
+	if (!RD || RD->LODResources.Num() == 0) { return 0; }
+	const FStaticMeshLODResources& LOD = RD->LODResources[0];
+	const FPositionVertexBuffer& PVB = LOD.VertexBuffers.PositionVertexBuffer;
+	FIndexArrayView Indices = LOD.IndexBuffer.GetArrayView();
+
 	int32 Mask = 0;
 	for (const FStaticMeshSection& Sec : LOD.Sections)
 	{
-		if (Sec.MaterialIndex != RoadSlot) { continue; }
+		if (!KeySlots.Contains(Sec.MaterialIndex)) { continue; }
 		const uint32 End = Sec.FirstIndex + Sec.NumTriangles * 3;
 		for (uint32 ii = Sec.FirstIndex; ii < End; ++ii)
 		{

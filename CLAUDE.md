@@ -11,12 +11,12 @@
 | **CLAUDE.md** (this) | *Context* — identity, commands, file map | resuming cold |
 | [Docs/Roadmap.md](Docs/Roadmap.md) | *Direction* — locked decisions, execution queue, ToDos | deciding what's next |
 | [Docs/Worklog.md](Docs/Worklog.md) | *Memory* — dated session records | "what happened / when / why" |
-| [Docs/Resistance.md](Docs/Resistance.md) | *Resistance* — 31 gotchas with diagnostics + fixes | **before** fighting glTF/Blender/UE-Python/git/build |
+| [Docs/Resistance.md](Docs/Resistance.md) | *Resistance* — 33 gotchas with diagnostics + fixes | **before** fighting glTF/Blender/UE-Python/git/build |
 
 Deeper references: [Docs/Design.md](Docs/Design.md) (the vision + resolved design law),
 [Docs/Pipeline.md](Docs/Pipeline.md) (Blender→UE flow), [Docs/Buildings.md](Docs/Buildings.md)
 (building-tile pipeline), [Docs/Rivers.md](Docs/Rivers.md) (the water layer),
-[Docs/Rim.md](Docs/Rim.md) (ring 7: the boundary bowl + day/night playscape plan),
+[Docs/Rim.md](Docs/Rim.md) (rings 7–8: the seam waterway + day/night playscape plan),
 [Docs/Testing.md](Docs/Testing.md) (**the user testing script** — run it instead of
 intuition; exact steps + expected values for every feature),
 [Source_Art/README.md](Source_Art/README.md) (the tile contract),
@@ -58,7 +58,7 @@ commands below run from the **repo root** and stay machine-neutral.
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_blank_variants.py" # 3 blank variants (gardens)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
-  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_rim_tiles.py"      # 8 rim tiles (the bowl)
+  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_rim_tiles.py"      # 4 rim tiles (the two-ring seam)
 
 # Contact-sheet renders of staged tiles (visual check after a bake; trailing args filter by substring)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background --factory-startup `
@@ -79,7 +79,7 @@ Diagnose Last Roll / Hex Roll Sweep / Constrained Randomize**. `Recalibrate` aft
 reimporting tiles. Day-to-day tile authoring runs through the **"Hex Tiles" Blender
 addon** (`Tools/blender/tile_pipeline.py`) — see Docs/Pipeline.md.
 
-## Status snapshot (2026-06-11)
+## Status snapshot (2026-06-12)
 
 Works end-to-end, all gates green: **127 cells / core=7 / 0 unresolved / souls=120**.
 The town is a playable loop in `ShuffleLab` (saved with **restoration mode ON**):
@@ -99,11 +99,19 @@ walled straights structurally dead; Baseline.csv anchored there: dry blank mean
 Run [Docs/Testing.md](Docs/Testing.md) T0–T12 to verify everything. The **"too
 much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp, L3 garden
 variants; `StraightDecay` 0.33). **The Rim is the ruled priority**
-([Docs/Rim.md](Docs/Rim.md)): **B1 + B2 landed** — ring 7 closes every destiny (42/42), and **ring 7 IS the
-water**: the Ringwater (water_a/b/c/wide + bridge, Weight-pooled, full-width
-seam contract; any river mouth connects anywhere by the ring water law; exits =
-bridge tiles); **two Range rings** at 250/500 m carry the parallax in the sky
-band; catalog = 29. Hard lessons institutionalized: **all scenery composition
+([Docs/Rim.md](Docs/Rim.md)): **B1 + B2 landed** — the Rim is **two rings (7+8, 90 cells) and
+they ARE the waterway**: each ring carries one bank (ring 7 the OUTWARD
+half-channel, ring 8 the INWARD mirror), so every 7↔8 edge is
+water-meets-water by construction — connectivity IS edge-socket matching;
+river mouths (`river7`) and artery exits (`exit7`, deck + gateposts) are
+ordinary mask-matched tiles; orientation from MEASURED water masks (key
+marker + flank inference deleted); the four-layer gate (counts / calibration
+trust / ring identity / per-instance orientation) ALL PASS 30/30; **B2.1 gap
+pass v2.2 in-engine** (one-body channel: quartic plateau + corner pools at
+the sampler's legal max; the measurer reads SOURCE geometry, not render LOD —
+Resistance #33), director's walk pending; exit-deck ring-8 continuation a
+named B3 debt; **two Range rings** at 250/500 m carry the parallax in the sky
+band; catalog = 28. Hard lessons institutionalized: **all scenery composition
 passes the eye-height + plan-view gate** (`Tools/blender/render_eyeline.py`)
 before the engine, and off-grid transforms live in ONE table
 (`Tools/scenery_table.json`). **Next: B3** (Day Sequence day/night, river-axis
@@ -129,8 +137,8 @@ answers (navmesh first) in Roadmap.md.
 | `Tools/blender/gen_pit_core.py` | pit-core generator (7-tile radial star; manifest-aware; writes `core_layout.json`) |
 | `Tools/blender/gen_buildings.py` | building-tile generator (walls/roof/interior/doors; manifest-aware) — see Docs/Buildings.md |
 | `Tools/blender/gen_blank_variants.py` | blank-variant generator (garden/green/allotment — tended open ground; manifest-aware; writes `blank_kit.json`) |
-| `Tools/blender/gen_rim_tiles.py` | rim-kit generator (ring-7 bowl: faces/adit/tunnel/pass/mouths on the shared flank contract; writes `rim_kit.json`) — see Docs/Rim.md |
-| `Tools/setup_rim.py` / `Tools/verify_rim_b1.py` | (GUI editor) rim import + catalog rows with Family / the B1 gate (30 seeds, bowl closes) |
+| `Tools/blender/gen_rim_tiles.py` | rim-kit generator (the two-ring seam: land7/river7/exit7 + bank8, one bank per ring; in-bake calibration gate; writes `rim_kit.json`) — see Docs/Rim.md |
+| `Tools/setup_rim.py` / `Tools/verify_rim_b1.py` | (GUI editor) rim import + catalog rows with Family / the rim gate (30 seeds × 4 layers: counts/trust/ring/orientation) |
 | `Tools/blender/render_contact.py` | headless contact-sheet renders of staged .glbs → `Docs/Images/ContactSheets/` |
 | `Tools/blender/tile_pipeline.py` | the "Hex Tiles" Blender addon (export toggles, preview, Promote to Bespoke) |
 | `Tools/blender/tile_registry.py` / `tile_common.py` | single tile list pulled from the generators / shared paths+export+manifest plumbing |
@@ -155,6 +163,6 @@ answers (navmesh first) in Roadmap.md.
 - **1 tile = 1 soul** — the pipeline's law (Design.md). No occupancy sums anywhere.
 - **Edge anchor contract** — roads cross edge midpoints perpendicular (Source_Art/README).
 - **Procedural vs bespoke = file ownership** via `tile_manifest.json` (Resistance #18/#30).
-- **Never place an imported tile at a hardcoded yaw** — measure-and-rotate (Resistance #16).
+- **Never place an imported tile at a hardcoded yaw** — measure-and-rotate, from SOURCE geometry, never render LOD (Resistance #16/#33).
 - **Build only via `Tools/Build.ps1`** (Resistance #29); editor closed for C++ (#4/#24).
 - The master `HexBase.blend` stays canonical: 9 objects, 3 materials, ~101.5 KB (#30).

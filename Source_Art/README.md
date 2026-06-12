@@ -57,6 +57,28 @@ join cleanly because both place roads at the shared edge's anchor. Tile
 *categories* are defined by which anchors are connected (e.g. `straight` = 0↔3,
 `curve` = 0↔2, `tee`, `junction`, `deadend`, `none`).
 
+### The measurement law (how the engine reads a tile)
+
+The engine never trusts authored rotation: `MeasureTileMask` samples the
+imported mesh and sets edge bit *e* when **any vertex of a keyed-material face
+(`Road`, `Water`) lies within 2.5 m (Euclidean, XY) of edge *e*'s midpoint**.
+Two consequences are part of the authoring contract:
+
+- A through-feature that claims an edge must put keyed geometry near that
+  edge's midpoint (roads and river channels do this naturally).
+- **The 2.5 m discs around the midpoints of UNCLAIMED edges are no-road /
+  no-water zones.** Geometry drifting inside one flips the measured mask, the
+  popcount stops matching the authored mask, and calibration distrusts the
+  ENTIRE catalog — every tile falls back to authored-guess yaw (the
+  reversed-water failure, 2026-06-12). `gen_rim_tiles.py` runs this exact
+  arithmetic as a hard bake gate; new generators should copy it.
+- The engine measures the imported **source geometry** (`MeshDescription`),
+  NOT render LOD0 — presentation data (Nanite fallback, LOD reduction,
+  welding) is decimated at the engine's whim and once silently erased a
+  water layer entirely (420 authored verts → 26 in LOD0 → measured 0x00;
+  Resistance #33). Authored geometry is the contract; what survives
+  simplification is not.
+
 ### Neighbor spacing (placement)
 
 All six neighbors sit **17.321 m** (= R√3) center-to-center. A hex can't put both axes on

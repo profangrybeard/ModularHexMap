@@ -155,3 +155,20 @@
     it for an earlier gate's PASS line silently finds nothing. **Fix:** read the
     backups (`ls -t Saved/Logs/ModularHexMap-backup-*.log`) for all but the final
     session of a chain. *(Bit twice during the 2026-06-11 gate chains.)*
+33. **Render LOD0 is PRESENTATION, not the authored mesh — UE decimates it freely
+    (Nanite fallback / LOD reduction / welding), and anything measuring it inherits the
+    decimation.** The v2.2 rim water authored 420 verts; the GLB carried all 420 (provable
+    by parsing the GLB JSON chunk directly); UE's LOD0 kept **26** — so `MeasureTileMask`
+    read water=0x00, popcount mismatched authored, calibration distrusted the WHOLE catalog,
+    and every rim tile silently fell to authored-guess yaw (the reversed-water walk,
+    2026-06-12). Fine/slender geometry (thin swept strips) decimates FIRST — v1's chunky
+    boxes had survived by accident all along. **Diagnostics:** `Tools/probe_rim_materials.py`
+    (in-editor: slot tables + per-section verts + sampler masks — 420→26 is the tell;
+    NOTE its loop is bounded because out-of-range section reads return EMPTY, not an
+    exception — the unbounded version locked the editor) and the in-bake gate in
+    `gen_rim_tiles.py` (the engine's sampler arithmetic on the authored mesh; hard-fails
+    the bake on a popcount lie). **Fix (landed):** `MeasureTileMask` measures the imported
+    **MeshDescription** (the source payload) and uses render data only when no source
+    exists (cooked runtime); slot lookup is the UNION of all key-matching slots (slot
+    name + imported slot name + material name), never first-match. Measure the source,
+    not the presentation.
