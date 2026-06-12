@@ -182,7 +182,9 @@ private:
 	// Third measured layer, rim tiles only: the M_RimKey marker triangle at the
 	// authored inward edge. Orientation for mask-(0,0) rim faces, which the road/
 	// water layers can't orient (Docs/Rim.md §3). Street tiles measure 0 here.
-	UPROPERTY(Transient)
+	// Reflection-readable so verify_rim_b1's ORIENTATION assertion can prove the
+	// placed yaws end-to-end (2026-06-12: counts couldn't see two rotation bugs).
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug", meta = (AllowPrivateAccess = "true"))
 	TArray<int32> TileRealRimKey;
 
 	// Readable by the gates (AllowPrivateAccess, the LastNetwork precedent):

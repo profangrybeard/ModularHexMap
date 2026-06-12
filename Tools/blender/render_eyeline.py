@@ -64,12 +64,13 @@ def ring_stations(ring=7):
 
 def inward_yaw(q, r):
     """Yaw (rad) turning the tile's +Y (edge 0) toward its inward neighbor —
-    the same geometric first-wins pick the engine uses."""
+    WORLD-distance pick, in lockstep with BuildRim (hex distance TIES on side
+    stations; the tie-break skewed half the ring 60 degrees, 2026-06-12)."""
     cx, cy = world_xy(q, r)
-    best_d, best = 10 ** 9, 0
+    best_d, best = 1e30, 0
     for e in range(6):
-        nq, nr = q + AXIAL_DIR[e][0], r + AXIAL_DIR[e][1]
-        d = hexdist(nq, nr)
+        nx, ny = world_xy(q + AXIAL_DIR[e][0], r + AXIAL_DIR[e][1])
+        d = nx * nx + ny * ny
         if d < best_d:
             best_d, best = d, e
     ex, ey = world_xy(q + AXIAL_DIR[best][0], r + AXIAL_DIR[best][1])

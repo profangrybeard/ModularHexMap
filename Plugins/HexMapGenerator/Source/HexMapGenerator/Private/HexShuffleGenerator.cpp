@@ -314,14 +314,18 @@ void AHexShuffleGenerator::BuildRim(const FHexNetwork& Net)
 
 			// Derive the station's marks from its in-town neighbors' outward bits
 			// (artery exits survive the prune; river arms always wrote theirs).
+			// Inward pick is WORLD distance, not hex-ring distance: a SIDE station
+			// has TWO ring-6 neighbors at equal hex distance, and a first-wins tie
+			// break skews the tile +/-60 degrees — which is exactly a broken
+			// waterline at every seam (2026-06-12). World distance is unique.
 			int32 RoadBits = 0, WaterBits = 0;
 			int32 InwardEdge = 0;
-			int32 BestDist = MAX_int32;
+			float BestDistSq = TNumericLimits<float>::Max();
 			for (int32 e = 0; e < 6; ++e)
 			{
 				const FIntPoint N = HexGrid::Neighbor(S, e);
-				const int32 D = HexGrid::Distance(N);
-				if (D < BestDist) { BestDist = D; InwardEdge = e; }
+				const float D = HexGrid::WorldXY(N, HexCircumradiusUU).SizeSquared();
+				if (D < BestDistSq) { BestDistSq = D; InwardEdge = e; }
 				if (const FHexCellResult* const* Cell = CellOf.Find(N))
 				{
 					const int32 Toward = (e + 3) % 6; // N's edge pointing at S
@@ -329,10 +333,13 @@ void AHexShuffleGenerator::BuildRim(const FHexNetwork& Net)
 					if (((*Cell)->WaterMask & (1 << Toward)) != 0) { WaterBits |= (1 << e); }
 				}
 			}
-			// A marked edge IS the functional inward edge (a bridge faces its road,
-			// a mouth faces its water); plain stations use the geometric inward pick.
-			if (RoadBits)       { InwardEdge = FMath::CountTrailingZeros(RoadBits); }
-			else if (WaterBits) { InwardEdge = FMath::CountTrailingZeros(WaterBits); }
+			// Bridges rotate to their ROAD (the deck must meet the artery, even
+			// off-axis). Water stations ALWAYS keep the geometric ring alignment:
+			// the Ringwater carries water across the inward edge AND both side
+			// crossings, so an off-axis river mouth still meets water — rotating
+			// the tile toward the river (the old override) broke the ring seam at
+			// every mouth (2026-06-12, found by the orientation gate).
+			if (RoadBits) { InwardEdge = FMath::CountTrailingZeros(RoadBits); }
 
 			// THE RING WATER LAW (director, 2026-06-12): ring 7 IS the waterway.
 			// Every station carries water on its inward edge, so any river mouth

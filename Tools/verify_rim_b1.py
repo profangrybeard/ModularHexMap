@@ -1,13 +1,15 @@
-# verify_rim_b1.py — the Rim B1 gate (GUI editor one-shot):
+# verify_rim_b1.py — the Rim gate (GUI editor one-shot):
 #   UnrealEditor.exe <uproject> -ExecutePythonScript="<repo>/Tools/verify_rim_b1.py"
 #
-# Over N seeds: the bowl must CLOSE on every destiny —
-#   * rim instance total == 42 (ring 7 fully resolved, 0 unresolved)
-#   * exit tiles (tunnel+pass instances) == artery outward bits on ring-6 cells
-#   * water-mouth tiles (outfall+intake) == river outward bits (always 2)
-#   * souls == 120, town unresolved == 0 (the rim is invisible to the soul law)
-# Expected counts re-derive in Python from the actor's LastNetwork boundary cells,
-# so the gate cross-checks the C++ derivation rather than trusting it.
+# Three layers of teeth (each added after a failure the previous layer missed):
+#   1. COUNTS  — rim 42/42, bridges == mask-derived exits, souls == 120.
+#   2. TRUST   — hard-abort if calibration is distrusted (counts can't see that
+#                every yaw silently fell back to authored guesses).
+#   3. ORIENTATION — for EVERY placed rim instance, read its actual yaw and
+#                prove the measured RimKey lands on the station's inward edge
+#                (counts and trust together still couldn't see a wrong rotation
+#                convention or a bad inward pick — 2026-06-12, twice).
+import math
 import unreal
 
 N_SEEDS = 30
@@ -25,85 +27,143 @@ if gen is None:
     unreal.log_error("[RimB1] no HexShuffleGenerator in ShuffleLab")
     raise SystemExit
 
+
+def prop(obj, names, default=None):
+    for n in names:
+        try:
+            return obj.get_editor_property(n)
+        except Exception:
+            continue
+    return default
+
+
 gen.recalibrate()
-# Distrusted calibration = authored-guess rotations = a level full of garbage
-# yaws that instance COUNTS can't see. Hard-fail immediately (2026-06-12).
-# (UE Python's name mapping for bool UPROPERTYs varies — try the spellings.)
-_cal = None
-for _n in ("b_calibrated", "bCalibrated", "calibrated"):
-    try:
-        _cal = gen.get_editor_property(_n)
-        break
-    except Exception:
-        continue
-if _cal is None:
-    unreal.log_error("[RimB1] cannot read bCalibrated (reflection name?) — ABORT.")
-    raise SystemExit
-if not _cal:
-    unreal.log_error("[RimB1] CALIBRATION DISTRUSTED — popcount mismatch somewhere "
-                     "in the catalog; every placement below would be a yaw guess. ABORT.")
+if not prop(gen, ("b_calibrated", "bCalibrated", "calibrated")):
+    unreal.log_error("[RimB1] CALIBRATION DISTRUSTED — every placement would be a "
+                     "yaw guess. ABORT.")
     raise SystemExit
 
-def sf(s, n):
-    v = getattr(s, n, None)
-    return v if v is not None else s.get_editor_property(n)
+RIM_MESHES = {"T_rim_water_a", "T_rim_water_b", "T_rim_water_c",
+              "T_rim_water_wide", "T_rim_bridge"}
+EXIT_MESHES = {"T_rim_bridge"}
+DQ = [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0)]   # HexCoordinates.h
+RADIUS_UU = 1000.0
+
+
+def world_xy(q, r):
+    inr = RADIUS_UU * 0.86602540378
+    return (1.5 * RADIUS_UU * q, inr * q + 2.0 * inr * r)
+
 
 def hexdist(q, r):
     return (abs(q) + abs(-q - r) + abs(r)) // 2
 
-# The Ringwater kit: every rim tile is a water tile; exits are bridges. River
-# mouths have no distinct tile (the whole ring is water — any mouth connects by
-# construction), so the gate logs the expected mouth count but asserts only on
-# totals, bridges and souls.
-RIM_MESHES = {"T_rim_water_a", "T_rim_water_b", "T_rim_water_c",
-              "T_rim_water_wide", "T_rim_bridge"}
-EXIT_MESHES = {"T_rim_bridge"}
 
-radius = sf(gen.get_editor_property("growth"), "radius")
+def rot6(mask, r):
+    r %= 6
+    return ((mask << r) | (mask >> (6 - r))) & 0x3F
+
+
+def inward_edge(q, r):
+    """WORLD-distance pick — mirrors BuildRim exactly (hex distance ties on
+    side stations and a tie-break skews the tile 60 degrees)."""
+    best_d, best = 1e30, 0
+    for e in range(6):
+        nx, ny = world_xy(q + DQ[e][0], r + DQ[e][1])
+        d = nx * nx + ny * ny
+        if d < best_d:
+            best_d, best = d, e
+    return best
+
+
+radius = prop(gen.get_editor_property("growth"), ("radius", "Radius"))
+b_invert = bool(prop(gen, ("b_invert_yaw_shift", "bInvertYawShift"), False))
+
+# mesh name -> catalog index (for the measured-key lookup)
+tile_set = gen.get_editor_property("tile_set")
+mesh_index = {}
+for i, t in enumerate(tile_set.get_editor_property("tiles")):
+    m = t.get_editor_property("mesh")
+    mm = m.get_asset() if hasattr(m, "get_asset") else m
+    if mm:
+        mesh_index[mm.get_name()] = i
+rim_keys = list(prop(gen, ("tile_real_rim_key", "TileRealRimKey"), []))
+
+# ring stations + their inward edges (fixed geometry, destiny-independent)
+stations = {}
+ring = (radius or 6) + 1
+for q in range(-ring, ring + 1):
+    for r in range(-ring, ring + 1):
+        if hexdist(q, r) == ring:
+            stations[(round(world_xy(q, r)[0]), round(world_xy(q, r)[1]))] = inward_edge(q, r)
+
 fails = 0
 for i in range(N_SEEDS):
     gen.build_from_seed(BASE + i)
     net = gen.get_editor_property("last_network")
-    cells = list(sf(net, "cells"))
+    cells = list(getattr(net, "cells", None) or net.get_editor_property("cells"))
 
-    # expected exits/mouths: ring-Radius cells with bits pointing out of region
     exp_exits = exp_mouths = 0
+    road_edge = {}    # station world key -> the edge its bridge must face
     for c in cells:
-        ax = sf(c, "axial")
+        ax = c.get_editor_property("axial")
         if hexdist(ax.x, ax.y) != radius:
             continue
-        rm, wm = int(sf(c, "road_mask")), int(sf(c, "water_mask"))
+        rm = int(c.get_editor_property("road_mask"))
+        wm = int(c.get_editor_property("water_mask"))
         for e in range(6):
-            # neighbor axial in flat-top axial space (mirror of HexGrid::Neighbor)
-            DQ = [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0)]
-            nq, nr = ax.x + DQ[e][0], ax.y + DQ[e][1]
-            if hexdist(nq, nr) <= radius:
+            sq, sr = ax.x + DQ[e][0], ax.y + DQ[e][1]
+            if hexdist(sq, sr) <= radius:
                 continue
             if rm & (1 << e):
                 exp_exits += 1
+                sx, sy = world_xy(sq, sr)
+                road_edge[(round(sx), round(sy))] = (e + 3) % 6
             if wm & (1 << e):
                 exp_mouths += 1
 
-    counts = {}
+    total = exits = orient_bad = 0
     for comp in gen.get_components_by_class(unreal.InstancedStaticMeshComponent):
         m = comp.get_editor_property("static_mesh")
-        if m and m.get_name() in RIM_MESHES:
-            counts[m.get_name()] = counts.get(m.get_name(), 0) + comp.get_instance_count()
-    total = sum(counts.values())
-    exits = sum(v for k, v in counts.items() if k in EXIT_MESHES)
-    souls = gen.get_editor_property("souls")
+        if not m or m.get_name() not in RIM_MESHES:
+            continue
+        name = m.get_name()
+        idx = mesh_index.get(name, -1)
+        key = rim_keys[idx] if 0 <= idx < len(rim_keys) else 0
+        for j in range(comp.get_instance_count()):
+            xf = comp.get_instance_transform(j, True)
+            loc = xf.translation
+            wkey = (round(loc.x), round(loc.y))
+            st = stations.get(wkey)
+            if st is None:
+                orient_bad += 1
+                continue
+            total += 1
+            if name in EXIT_MESHES:
+                exits += 1
+            # Bridges face their road; everyone else faces the geometric inward —
+            # the SAME rule BuildRim applies.
+            expect = road_edge.get(wkey, st)
+            k = int(round(((xf.rotation.rotator().yaw % 360) + 360) % 360 / 60.0)) % 6
+            rot = (6 - k) % 6 if b_invert else k
+            if not (rot6(key, rot) & (1 << expect)):
+                orient_bad += 1
 
-    ok = (total == 42 and exits == exp_exits and exp_mouths == 2 and souls == 120)
+    souls = gen.get_editor_property("souls")
+    ok = (total == 42 and exits == exp_exits and exp_mouths == 2
+          and orient_bad == 0 and souls == 120)
     if not ok:
         fails += 1
         unreal.log_error(
-            "[RimB1] seed=%d FAIL: rim=%d/42 bridges=%d (exp %d) river-bits=%d (exp 2) souls=%d  %s"
-            % (BASE + i, total, exits, exp_exits, exp_mouths, souls, counts))
+            "[RimB1] seed=%d FAIL: rim=%d/42 bridges=%d (exp %d) river-bits=%d "
+            "(exp 2) BAD-ORIENT=%d souls=%d"
+            % (BASE + i, total, exits, exp_exits, exp_mouths, orient_bad, souls))
     else:
-        unreal.log("[RimB1] seed=%d ok: rim=42 bridges=%d river-bits=2 souls=120"
+        unreal.log("[RimB1] seed=%d ok: rim=42 bridges=%d orient=42/42 souls=120"
                    % (BASE + i, exits))
 
 if fails == 0:
-    unreal.log_warning("=== verify_rim_b1: ALL PASS (%d seeds — the bowl closes) ===" % N_SEEDS)
+    unreal.log_warning("=== verify_rim_b1: ALL PASS (%d seeds — counts, trust, "
+                       "ORIENTATION) ===" % N_SEEDS)
 else:
     unreal.log_error("=== verify_rim_b1: %d/%d seeds FAILED ===" % (fails, N_SEEDS))

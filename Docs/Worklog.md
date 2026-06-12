@@ -1,5 +1,29 @@
 # Worklog — session memory, newest first
 
+## 2026-06-12 (orientation has teeth) — two more yaw bugs, found by the gate this time
+
+The director caught broken seams AGAIN after the calibration fix ("not one
+outer edge matches its neighbor"). The gate finally grew the layer it always
+needed: **verify_rim_b1 now reads every placed instance's actual yaw and proves
+the measured RimKey lands on the expected edge** (counts + calibration trust
+together still couldn't see rotation). It immediately found both remaining bugs
+from numbers, not screenshots:
+1. **The side-station tie-break skew**: side stations have TWO ring-6 neighbors
+   at equal HEX distance; first-wins picked a skewed inward on most of the ring
+   (±60°). Fix: the inward pick is WORLD distance (unique) — engine, gate, and
+   eyeline mock all on the same rule.
+2. **The water-override skew at mouths** (1–2 per destiny, exactly the failing
+   counts): a river bit used to override the inward pick, rotating mouth
+   stations toward wherever the river arrived. Vestigial AND harmful — the
+   Ringwater already carries water across the inward edge and both side
+   crossings, so off-axis mouths meet water without rotating anything. Removed;
+   only bridges rotate (to their road, which a deck physically must).
+ALL PASS 30/30 across counts + trust + orientation (1,260 instances proven).
+Also exposed `TileRealRimKey` to reflection for the gate. Standing lesson now
+fully institutional: **a placement gate must assert counts, calibration trust,
+AND per-instance orientation — each layer was added by a failure the previous
+layers could not see.**
+
 ## 2026-06-12 (the rotation mess) — distrusted calibration, the silent yaw killer
 
 The director opened the Ringwater and every rim tile sat at a garbage rotation
