@@ -37,32 +37,20 @@ night under a silhouette ridge.**
 ## 2. The three instruments
 
 The scale problem decides the architecture: a "mountain" on a 10 m hex footprint
-is a tooth, not a range. **B2 ruling (director, 2026-06-11): the parallax
-sandwich** — "we need depth and parallax and… distance. Ring waterway at ring
-6's edge with low hills modeled in (first parallax layer), then another ring of
-mountains at varying heights (second layer). This gives us depth for fog."
+is a tooth, not a range. So the rim is **two layers of theater plus the sky**:
 
-1. **The Rim ring (hex-true near stage).** 42 ring-7 tiles: the **waterway BAND**
-   occupies each tile's inward strip (`BAND_W` = 3.6 m, the slab/pavement are
-   notched away there) and **LOW hills** (~8.5 m, rippled crests) rise behind a
-   2.4 m far-bank walk. Tile contract holds (R=10 flat-top, RimKey orientation,
-   measure-and-rotate, manifest discipline). Exits cross the band on **gate
-   bridges** (river-kit deck + parapets); mouths carry bank works (spill steps /
-   intake grate). Low is the point: the near layer must not eat the far one.
-2. **The waterway loop (one mesh, in the seam).** The water itself is ONE closed
-   ring (`gen_waterway.py`: floor −2.0, far wall, surface −0.9 — the river's
-   exact cross-section) lofted through all 42 stations. Per-tile water can't
-   survive the ring's six 60° corners without doubling the kit; one loop means
-   the waterline never jogs. The NEAR bank wall is deliberately absent — ring
-   6's own slab faces are the town-side bank, so the two river mouths open into
-   the loop flush on ANY destiny with zero per-roll scenery changes. The
-   hydrology closes: river → loop → river.
-3. **The Range (far layer, off-grid).** Three ridge meshes (wide-based gaussian
-   peaks, deterministic varied heights 38–68 m baked) instanced ~9× around the
-   bowl at 300–400 m with varied yaw/scale (apparent peaks ~50–120 m), low
-   tapered ends so instances overlap. This is the dawn/dusk instrument; two
-   deliberate placement gaps are reserved as the B3 ray notches at the sun-path
-   headings.
+1. **The Rim ring (hex-true near stage).** 42 ring-7 tiles on the normal grid —
+   foothill faces, tunnel portals, river mouths. Tile contract holds (R=10
+   flat-top, inward edge anchors, measure-and-rotate, manifest discipline).
+   Masses rise outward to ~18–25 m: scree, crag, timber, rock face. Parallax-true,
+   fog-rooted, walk-up-able where a road runs out.
+2. **The Range (backdrop ring, off-grid).** One authored silhouette-ridge mesh
+   family (2–3 ridgeline meshes, instanced/rotated/scaled around the bowl at
+   apparent 200–800 m, peaks 60–150 m apparent). NOT hex-gridded — placed once by
+   the lab setup script. This is the dawn/dusk instrument: the sun rises and sets
+   against it. **2–3 authored notches** (low passes) are deliberate gaps for
+   crepuscular rays — the skyline's landmark tiles, same medicine as the
+   street-level landmark ToDo, applied at altitude.
 3. **The sky stack (the engine's built-ins).** Directional sun + SkyAtmosphere +
    SkyLight (real-time capture) + ExponentialHeightFog (volumetric) + optional
    Volumetric Clouds, driven by a day cycle (§6). Lumen makes time-of-day GI free.
@@ -228,15 +216,11 @@ at night before we decide; if bug, the ghost master gets a day-cycle dim param.
   == mask-derived expectation (2–6 observed), mouths == 2, souls == 120,
   0 unresolved; expectations re-derive from LastNetwork masks in Python so the
   gate cross-checks the C++ derivation rather than trusting it.
-- **B2 — The water answers + the parallax sandwich.** ✅ **GEOMETRY LANDED
-  2026-06-11** (the director's depth ruling): rim tiles reworked (notched band,
-  low hills, gate bridges, mouth bank works, RimKey sunk below the bed, hidden
-  water keys on mouths), `gen_waterway.py` (the 42-station loop),
-  `gen_range.py` + `setup_scenery.py` (9 ridge instances, deterministic table).
-  **Gate (pending the editor pass):** reimport + scenery placement + B1 re-gate,
-  then walk the ring-6 perimeter: waterway continuous all the way around, both
-  mouths open into the loop, gate bridges carry the exits, near hills sit LOW
-  under the Range silhouettes; LoadRoll reproduces the identical rim.
+- **B2 — The water answers.** The annulus waterway + outfall weir + intake lip +
+  gate bridges at exits (+ the culvert grates).
+  **Gate:** walk the ring-6 perimeter road: waterway continuous all the way
+  around, both mouths read, no z-fighting at the seam; LoadRoll reproduces the
+  identical rim.
 - **B3 — The sky works.** Day Sequence (or SunSky fallback) + `AHexDayCycle` +
   river-axis sun anchor + fog instruments + the Range placed with notches on the
   anchor headings.
@@ -250,9 +234,7 @@ at night before we decide; if bug, the ghost master gets a day-cycle dim param.
 
 ## 8. Open rulings (director — asked before they block)
 
-1. ~~**Waterway vs caves**~~ ✅ **RULED 2026-06-11: the ring waterway** — as the
-   first layer of the parallax sandwich (low hills behind it, the varied-height
-   Range beyond, "depth for fog"). Implemented B2.
+1. **Waterway vs caves**: annulus loop (recommended) or tunnel-mouth caves only?
 2. **Sun anchor**: river-axis default (recommended) or fixed east–west?
 3. **The Range's light**: pure silhouette (cheapest, always-dark cards) or
    lit-at-grazing faces (buys real alpenglow — recommended)?

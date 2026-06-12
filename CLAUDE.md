@@ -59,10 +59,6 @@ commands below run from the **repo root** and stay machine-neutral.
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_blank_variants.py" # 3 blank variants (gardens)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_rim_tiles.py"      # 8 rim tiles (the bowl)
-& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
-  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_waterway.py"       # the 42-station ring loop
-& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
-  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_range.py"          # 3 far-layer ridges
 
 # Contact-sheet renders of staged tiles (visual check after a bake; trailing args filter by substring)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background --factory-startup `
@@ -106,12 +102,9 @@ much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp —
 variants). **The Rim is the ruled priority** ([Docs/Rim.md](Docs/Rim.md)): **B1
 landed** — ring 7 closes the bowl every destiny (42/42, artery exits 2–6 into
 gated tunnels/passes, 2 river mouths, catalog = 32, `StraightDecay` 0.33);
-**B2 geometry landed** (the director's parallax-sandwich ruling: waterway band +
-low hills on ring 7, the one-mesh 42-station water loop in the seam, the Range's
-varied ridges behind — pending one editor pass: reimport + `setup_scenery` +
-re-gate); **next: B3** (Day Sequence day/night, river-axis sun, fog instruments,
-notch alignment) — five §8 rulings open, platform answers (navmesh first) in
-Roadmap.md.
+**next: B2** (ring waterway + gate bridges) **→ B3** (Day Sequence day/night,
+river-axis sun, fog instruments, the Range) — six §8 rulings open, platform
+answers list (navmesh first) in Roadmap.md.
 
 ## Architecture & file map
 
@@ -132,9 +125,8 @@ Roadmap.md.
 | `Tools/blender/gen_pit_core.py` | pit-core generator (7-tile radial star; manifest-aware; writes `core_layout.json`) |
 | `Tools/blender/gen_buildings.py` | building-tile generator (walls/roof/interior/doors; manifest-aware) — see Docs/Buildings.md |
 | `Tools/blender/gen_blank_variants.py` | blank-variant generator (garden/green/allotment — tended open ground; manifest-aware; writes `blank_kit.json`) |
-| `Tools/blender/gen_rim_tiles.py` | rim-kit generator (ring-7: waterway band + low hills + gate bridges/portals/mouth works; writes `rim_kit.json`) — see Docs/Rim.md |
-| `Tools/blender/gen_waterway.py` / `gen_range.py` | the parallax sandwich's off-grid layers: the 42-station water loop / 3 varied-peak ridges |
-| `Tools/setup_rim.py` / `setup_scenery.py` / `verify_rim_b1.py` | (GUI editor) rim catalog rows / waterway+Range placement into ShuffleLab / the B1 gate (30 seeds, bowl closes) |
+| `Tools/blender/gen_rim_tiles.py` | rim-kit generator (ring-7 bowl: faces/adit/tunnel/pass/mouths on the shared flank contract; writes `rim_kit.json`) — see Docs/Rim.md |
+| `Tools/setup_rim.py` / `Tools/verify_rim_b1.py` | (GUI editor) rim import + catalog rows with Family / the B1 gate (30 seeds, bowl closes) |
 | `Tools/blender/render_contact.py` | headless contact-sheet renders of staged .glbs → `Docs/Images/ContactSheets/` |
 | `Tools/blender/tile_pipeline.py` | the "Hex Tiles" Blender addon (export toggles, preview, Promote to Bespoke) |
 | `Tools/blender/tile_registry.py` / `tile_common.py` | single tile list pulled from the generators / shared paths+export+manifest plumbing |
