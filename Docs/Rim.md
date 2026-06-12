@@ -47,19 +47,27 @@ low ground, in the SKY BAND above the rooftops. Sight-line law at eye 2.4 m:
 berms ≤ 3°, near Range ~13°, far Range ~16° — everything visible, far stacking
 above near, from ring 6 and from the town's heart alike.
 
-1. **The Rim ring (hex-true, FLAT, broken).** 42 ring-7 tiles: the **waterway
-   band** (3.6 m, slab notched away — the loop mesh fills it) + flat **bank**
-   tiles (meadow with a waterside footpath / shingle with boulders) as the
-   majority, sparse **berm clusters** (≤ 2.8 m, gaps everywhere, ~⅓ of stations
-   by Weight) for near texture. The one tall thing is the tunnel **knoll**
-   (6 m, a single station — a portal needs a hill; the eye walks around it).
-   Exits cross the band on gate bridges; mouths are flat bank works (spill
-   steps / intake grate) + hidden underwater identity keys. The `pass` tile is
-   PARKED at Weight 0 (a flat rim has no ridge to notch).
-2. **The waterway loop (one mesh, in the seam).** Unchanged from the first
-   pass — it was sound: one closed ring through all 42 stations at the river's
-   exact cross-section; no near wall (ring 6's slabs are the town bank), so the
-   river's two mouths open into the loop flush on any destiny.
+1. **Ring 7 IS the water — the Ringwater** (director, 2026-06-12, after the
+   notched-band draft failed to read as one body: "design the entire ring 7 as
+   a continuous waterway that can be rerolled to match any water connection…
+   it can grow, shrink and eat almost all of the ring-7 tiles. Ring seven is
+   just to host this waterway and make the city's boundary look nice").
+   Every rim tile is a water tile: surface at the river's −0.9 from the INWARD
+   edge (ring 6's slab face is the quay) out to a **meandering outer bankline**
+   — gentle arc / lazy S / double bulge / the wide variant that eats ~85%.
+   Weight-pooled + seeded per destiny: rerolling the town rerolls the water.
+   **The seam contract:** the bankline crosses every side edge at ONE canonical
+   point 5.5 m down from the inward vertex — the waterline crosses seams at
+   full width (the first draft's 2 m pinch read as separate ponds; the plan-
+   view gate caught it). **The ring water law (engine):** `BuildRim` forces the
+   inward water bit on every station, so ANY river mouth connects ANYWHERE by
+   construction — no mouth tiles exist. Exits are **bridge tiles** (deck over
+   the ring, gate posts, the road running off the outward edge into the haze).
+   **Rim resolution compares the inward edge only** (key + road + water) —
+   full-mask equality was street-kit inheritance the rim never needed.
+2. **Retired:** the notched-band draft, the separate loop mesh
+   (`gen_waterway.py`), and the entire land grammar (banks/berms/knoll/adit/
+   tunnel/pass/mouth works) — pruned from the catalog with their assets.
 3. **The Range, TWICE (the parallax that survived).** Two off-grid ridge rings:
    **near ~250 m** (peaks ~38–75 m, 8 instances) and **far ~500 m** (peaks
    ~90–180 m, 6 instances, headings offset so far peaks rise in near saddles).

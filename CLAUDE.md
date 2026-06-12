@@ -99,15 +99,16 @@ walled straights structurally dead; Baseline.csv anchored there: dry blank mean
 Run [Docs/Testing.md](Docs/Testing.md) T0–T12 to verify everything. The **"too
 much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp, L3 garden
 variants; `StraightDecay` 0.33). **The Rim is the ruled priority**
-([Docs/Rim.md](Docs/Rim.md)): **B1 + B2 landed** — ring 7 closes every destiny
-(42/42; artery exits over gate bridges into knoll tunnels; 2 river mouths
-opening into the **one-mesh waterway loop**; flat banks + low broken berms;
-**two Range rings** at 250/500 m carrying the parallax in the sky band; catalog
-= 33). First B2 build was reverted off the director's walk — **all scenery
-composition now passes the eye-height gate** (`Tools/blender/render_eyeline.py`)
-before the engine. **Next: B3** (Day Sequence day/night, river-axis sun, fog in
-the three depth gaps, ray notches) — five §8 rulings open; platform answers
-(navmesh first) in Roadmap.md.
+([Docs/Rim.md](Docs/Rim.md)): **B1 + B2 landed** — ring 7 closes every destiny (42/42), and **ring 7 IS the
+water**: the Ringwater (water_a/b/c/wide + bridge, Weight-pooled, full-width
+seam contract; any river mouth connects anywhere by the ring water law; exits =
+bridge tiles); **two Range rings** at 250/500 m carry the parallax in the sky
+band; catalog = 29. Hard lessons institutionalized: **all scenery composition
+passes the eye-height + plan-view gate** (`Tools/blender/render_eyeline.py`)
+before the engine, and off-grid transforms live in ONE table
+(`Tools/scenery_table.json`). **Next: B3** (Day Sequence day/night, river-axis
+sun, fog in the depth gaps, ray notches) — five §8 rulings open; platform
+answers (navmesh first) in Roadmap.md.
 
 ## Architecture & file map
 

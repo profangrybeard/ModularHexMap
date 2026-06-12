@@ -21,7 +21,7 @@ TAG  = "RimScenery"
 log, warn = unreal.log, unreal.log_warning
 eal = unreal.EditorAssetLibrary
 
-NAMES = ["T_waterway", "T_range_a", "T_range_b", "T_range_c"]
+NAMES = ["T_range_a", "T_range_b", "T_range_c"]   # the water lives in the rim tiles now
 
 # 1) import
 tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -77,9 +77,6 @@ def spawn(mesh_name, loc, yaw_deg, scale):
 with open(os.path.join(REPO, "Tools", "scenery_table.json")) as f:
     table = json.load(f)
 
-ww = table["waterway"]
-spawn(ww["mesh"], unreal.Vector(0, 0, 0), 0.0, float(ww["scale"]))
-
 for row in table["range"]:
     rad = math.radians(float(row["heading_deg"]))
     radius_uu = float(row["radius_m"]) * 100.0
@@ -87,6 +84,13 @@ for row in table["range"]:
     spawn(row["mesh"], loc, float(row["heading_deg"]) + 90.0, float(row["scale"]))
 RANGE_TABLE = table["range"]   # for the count in the log line below
 
+# The retired waterway-loop asset leaves with its actor (Ringwater ruling:
+# the water lives in the rim tiles now).
+old_ww = DEST + "/T_waterway"
+if eal.does_directory_exist(old_ww):
+    if eal.delete_directory(old_ww):
+        log("[Scenery] deleted retired %s" % old_ww)
+
 les.save_current_level()
-log("[Scenery] placed 1 waterway + %d range instances; ShuffleLab saved" % len(RANGE_TABLE))
-warn("=== setup_scenery: done — the sandwich has its layers ===")
+log("[Scenery] placed %d range instances; ShuffleLab saved" % len(RANGE_TABLE))
+warn("=== setup_scenery: done — the Range stands ===")

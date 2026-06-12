@@ -34,11 +34,13 @@ def sf(s, n):
 def hexdist(q, r):
     return (abs(q) + abs(-q - r) + abs(r)) // 2
 
-RIM_MESHES = {"T_rim_bank_a", "T_rim_bank_b", "T_rim_berm_a", "T_rim_berm_b",
-              "T_rim_adit", "T_rim_tunnel", "T_rim_pass", "T_rim_outfall",
-              "T_rim_intake"}
-EXIT_MESHES = {"T_rim_tunnel", "T_rim_pass"}
-MOUTH_MESHES = {"T_rim_outfall", "T_rim_intake"}
+# The Ringwater kit: every rim tile is a water tile; exits are bridges. River
+# mouths have no distinct tile (the whole ring is water — any mouth connects by
+# construction), so the gate logs the expected mouth count but asserts only on
+# totals, bridges and souls.
+RIM_MESHES = {"T_rim_water_a", "T_rim_water_b", "T_rim_water_c",
+              "T_rim_water_wide", "T_rim_bridge"}
+EXIT_MESHES = {"T_rim_bridge"}
 
 radius = sf(gen.get_editor_property("growth"), "radius")
 fails = 0
@@ -72,18 +74,16 @@ for i in range(N_SEEDS):
             counts[m.get_name()] = counts.get(m.get_name(), 0) + comp.get_instance_count()
     total = sum(counts.values())
     exits = sum(v for k, v in counts.items() if k in EXIT_MESHES)
-    mouths = sum(v for k, v in counts.items() if k in MOUTH_MESHES)
     souls = gen.get_editor_property("souls")
 
-    ok = (total == 42 and exits == exp_exits and mouths == exp_mouths == 2
-          and souls == 120)
+    ok = (total == 42 and exits == exp_exits and exp_mouths == 2 and souls == 120)
     if not ok:
         fails += 1
         unreal.log_error(
-            "[RimB1] seed=%d FAIL: rim=%d/42 exits=%d (exp %d) mouths=%d (exp %d) souls=%d  %s"
-            % (BASE + i, total, exits, exp_exits, mouths, exp_mouths, souls, counts))
+            "[RimB1] seed=%d FAIL: rim=%d/42 bridges=%d (exp %d) river-bits=%d (exp 2) souls=%d  %s"
+            % (BASE + i, total, exits, exp_exits, exp_mouths, souls, counts))
     else:
-        unreal.log("[RimB1] seed=%d ok: rim=42 exits=%d mouths=2 souls=120"
+        unreal.log("[RimB1] seed=%d ok: rim=42 bridges=%d river-bits=2 souls=120"
                    % (BASE + i, exits))
 
 if fails == 0:

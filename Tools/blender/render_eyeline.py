@@ -84,7 +84,6 @@ with open(os.path.join(repo_root(), "Tools", "scenery_table.json")) as _f:
     _table = _json.load(_f)
 RANGE_TABLE = [(r["mesh"], float(r["radius_m"]), float(r["heading_deg"]),
                 float(r["scale"])) for r in _table["range"]]
-WATERWAY_SCALE = float(_table["waterway"]["scale"])
 
 
 _proto = {}
@@ -127,31 +126,28 @@ def build_world():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     _proto.clear()
 
-    # Town stand-in: a disc at pavement level out to the rim
-    bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=7.0 * 2.0 * INR - INR,
-                                        depth=0.65, location=(0, 0, 0.325))
+    # Town stand-in: a HEXAGONAL prism matching the ring's inner boundary (a
+    # circle at max radius buried the side stations' water — the inner boundary
+    # is a hexagon: corners at ~112.5 m, flats at ~97 m). Vertices point at the
+    # corner stations (first corner at -30 deg in this axial basis).
+    bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=112.0, depth=0.65,
+                                        location=(0, 0, 0.325),
+                                        rotation=(0, 0, math.radians(-30)))
     town = bpy.context.active_object
     town.data.materials.append(grey("M_TownStandin", (0.42, 0.40, 0.38, 1.0)))
 
-    place("T_waterway", 0.0, 0.0, 0.0, scale=WATERWAY_SCALE)
-
-    # Rim ring: representative variant mix at true transforms. Tunnel parked at
-    # station 0 (camera looks at it in shot 2); mouths at 10/31; berm clusters
-    # roughly every third station; banks elsewhere.
+    # The Ringwater: every station is a water tile (variant mix); the exit at
+    # station 0 is a bridge (camera looks at it in shot 2).
     stations = ring_stations(7)
     for i, (q, r) in enumerate(stations):
         if i == 0:
-            name = "T_rim_tunnel"
-        elif i == 10:
-            name = "T_rim_outfall"
-        elif i == 31:
-            name = "T_rim_intake"
+            name = "T_rim_bridge"
+        elif i % 5 == 2:
+            name = "T_rim_water_wide"
         elif i % 3 == 1:
-            name = "T_rim_berm_a" if i % 2 else "T_rim_berm_b"
-        elif i % 7 == 3:
-            name = "T_rim_adit"
+            name = "T_rim_water_c"
         else:
-            name = "T_rim_bank_a" if i % 2 else "T_rim_bank_b"
+            name = "T_rim_water_a" if i % 2 else "T_rim_water_b"
         x, y = world_xy(q, r)
         place(name, x, y, inward_yaw(q, r))
 
@@ -192,16 +188,32 @@ def shoot(label, cam_xy, look_azim_deg, fov_deg=70.0):
     print("  Eyeline_%s.png" % label)
 
 
+def shoot_plan(label, center_xy, height=90.0):
+    """Top-down continuity check — the second read the gate owes the director
+    (the Ringwater's waterline must read as ONE body from above)."""
+    cam = bpy.data.objects.new("Plan_" + label, bpy.data.cameras.new("P"))
+    cam.data.angle = math.radians(70)
+    cam.location = (center_xy[0], center_xy[1], height)
+    cam.rotation_euler = (0.0, 0.0, math.atan2(center_xy[1], center_xy[0]) + math.pi / 2)
+    bpy.context.scene.collection.objects.link(cam)
+    bpy.context.scene.camera = cam
+    sc = bpy.context.scene
+    sc.render.resolution_x, sc.render.resolution_y = 960, 720
+    sc.render.filepath = os.path.join(out_dir(), "Eyeline_%s.png" % label)
+    sc.render.image_settings.file_format = 'PNG'
+    bpy.ops.render.render(write_still=True)
+    print("  Eyeline_%s.png" % label)
+
+
 def main():
     build_world()
-    # Station 0 sits at axial (7,-7)*? — ring walk starts at AxialDir[4]*7 ->
-    # world (105, -60.6); its azimuth from origin:
     sx, sy = world_xy(*ring_stations(7)[0])
     tun_az = math.degrees(math.atan2(sy - 0, sx - 0))
     shoot("ring4_banks", (40.0, 30.0, ), math.degrees(math.atan2(30.0, 40.0)))
     shoot("ring4_tunnel", (sx * 0.55, sy * 0.55), tun_az)
     shoot("town_center", (0.0, 2.0), 90.0)
     shoot("rim_road", (sx * 0.82, sy * 0.82), tun_az + 38.0)
+    shoot_plan("plan_ring", (sx * 0.86, sy * 0.86))
 
 
 print("=== render_eyeline: the eye-height gate ===")

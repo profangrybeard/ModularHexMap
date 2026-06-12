@@ -1,5 +1,31 @@
 # Worklog — session memory, newest first
 
+## 2026-06-12 (the Ringwater) — ring 7 IS the water
+
+Director's ruling after the notched-band cuts failed ("only cut along one edge,
+do not connect, are not organic"): **the entire ring 7 is one continuous,
+rerollable waterway** — it can grow, shrink, and eat almost all of the ring;
+ring 7 exists to host it and make the boundary look nice. Built and gated:
+- **The model dissolves the mouth problem:** water touches every tile's inward
+  edge (`BuildRim` forces the inward water bit — the ring water law), so any
+  river mouth connects anywhere, on any reroll, by construction. Mouth tiles
+  ceased to exist. Exits are bridge tiles (deck + gate posts + road off the
+  outward edge). The land grammar (banks/berms/knoll/adit/tunnel/pass/mouth
+  works) retired wholesale — setup_rim pruned 9 rows AND deleted their assets.
+- **Kit:** `water_a/b/c` meanders + `water_wide` (~85% water) + `bridge`,
+  Weight-pooled, seeded per destiny. Catalog = 29 rows.
+- **The plan-view gate earned its keep twice:** caught the gate tool's own
+  oversized circular town stand-in (fixed: hexagonal prism), then caught the
+  REAL flaw — the bankline pinched to ~2 m at seams and read as separate ponds.
+  Fix was geometric + architectural: the canonical crossing moved to 5.5 m of
+  shared edge (full-width seams), legal because **rim resolution now compares
+  the INWARD edge only** — full-mask equality was street-kit inheritance the
+  rim never needed (it would also have rejected the bridge's landing road).
+- The retired loop mesh + its actor + asset cleaned out of ShuffleLab;
+  scenery = the two Range rings only, from the shared table.
+- **verify_rim_b1 ALL PASS 30/30** (bridges == derived exits, 42/42, souls
+  120). Awaiting the director's walk; B3 (the sky) remains next.
+
 ## 2026-06-12 (the ×100 reckoning) — the towers were a units bug, both times
 
 The director opened take two and stood inside kilometer-tall geometry: every

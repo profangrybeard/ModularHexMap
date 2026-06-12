@@ -259,9 +259,15 @@ bool AHexShuffleGenerator::ResolveRimTile(int32 RoadBits, int32 WaterBits, int32
 		for (int32 k = 0; k < 6; ++k)
 		{
 			const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
-			if ((HexGrid::RotateMask6(Key, Rot) & (1 << InwardEdge)) != 0 &&
-				HexGrid::RotateMask6(Road, Rot) == RoadBits &&
-				HexGrid::RotateMask6(Water, Rot) == WaterBits)
+			// Rim stations constrain ONE edge — the inward one. Full-mask equality
+			// was street-kit inheritance the rim never needed: the Ringwater's
+			// water legitimately crosses SIDE edges (the seam contract), and a
+			// bridge's landing road exits the OUTWARD edge. Compare road/water
+			// state on the inward edge only; the key (single bit) fixes rotation.
+			const int32 Bit = (1 << InwardEdge);
+			if ((HexGrid::RotateMask6(Key, Rot) & Bit) != 0 &&
+				(HexGrid::RotateMask6(Road, Rot) & Bit) == (RoadBits & Bit) &&
+				(HexGrid::RotateMask6(Water, Rot) & Bit) == (WaterBits & Bit))
 			{
 				CandTile.Add(i);
 				CandYaw.Add(k);
@@ -322,10 +328,17 @@ void AHexShuffleGenerator::BuildRim(const FHexNetwork& Net)
 					if (((*Cell)->WaterMask & (1 << Toward)) != 0) { WaterBits |= (1 << e); }
 				}
 			}
-			// A marked edge IS the functional inward edge (a tunnel faces its road,
-			// a mouth faces its water); plain faces use the geometric inward pick.
+			// A marked edge IS the functional inward edge (a bridge faces its road,
+			// a mouth faces its water); plain stations use the geometric inward pick.
 			if (RoadBits)       { InwardEdge = FMath::CountTrailingZeros(RoadBits); }
 			else if (WaterBits) { InwardEdge = FMath::CountTrailingZeros(WaterBits); }
+
+			// THE RING WATER LAW (director, 2026-06-12): ring 7 IS the waterway.
+			// Every station carries water on its inward edge, so any river mouth
+			// connects anywhere by construction, and every rim tile is a water
+			// tile (Docs/Rim.md). River-mouth bits are subsumed; exits become
+			// bridge tiles (road + water on the same inward edge).
+			WaterBits |= (1 << InwardEdge);
 
 			// Same per-(seed, cell) determinism as the town: the destiny owns its rim.
 			const FRandomStream VariantStream(VariantSeedFor(Seed, S));
