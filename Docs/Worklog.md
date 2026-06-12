@@ -25,11 +25,12 @@ fog living in the depth between. Geometry landed same session:
   (`setup_scenery.py`, deterministic table, radius 300–400 m, two gaps reserved
   for B3's ray notches).
 - Contact tooling: `render_contact.py` now frames by bounds (20 m tiles).
-- **Pending one editor pass** (queued on the next editor close): reimport
-  (reworked rim glbs + M_Rock/M_RimKey master folds) → `setup_scenery` (places
-  loop + ridges, saves ShuffleLab) → `verify_rim_b1` re-gate → the director's
-  perimeter walk (waterway continuous, mouths open into the loop, bridges carry
-  the exits, hills sit low under the Range).
+- **Editor pass ran on the next close, all green:** reimport 18 tiles + 45 dupes
+  folded into masters → `setup_scenery` placed the loop + 9 ridges and SAVED
+  ShuffleLab → **`verify_rim_b1` ALL PASS 30/30** (the sunken RimKeys and hidden
+  water keys measure identically — the XY-only measurer honored its contract).
+  Remaining: the director's perimeter walk (waterway continuous, mouths open
+  into the loop, bridges carry the exits, hills low under the Range), then B3.
 
 ## 2026-06-11 (the bowl) — Rim B1: ring 7 closes, every destiny
 
