@@ -1,32 +1,37 @@
-"""Rim-tile generator — ring 7, the bowl that holds the town (Docs/Rim.md B1).
+"""Rim-tile generator — ring 7, take two: LOW AND BROKEN (Docs/Rim.md B2).
 
     blender --background Source_Art/Blender/HexBase.blend \
             --python Tools/blender/gen_rim_tiles.py
 
-Eight blockout tiles for the boundary ring: three foothill faces (+ a sealed mine
-adit), the artery tunnel portal + mountain pass, and the river outfall + intake.
-Street-kit canvas underneath; a ruled mountain FLANK rises from the inward apron
-to ~H_RIM at the outward edge; every tile carries side SKIRTS (vertical walls on
-all six hex sides) so neighbouring rim tiles can never show a see-through gap.
+The first B2 pass failed the only judge that matters: from street eye height,
+a continuous ring of hills occluded the Range entirely (reverted 9fcaaec; the
+sight-line lesson is in the worklog). Take two, per the director's "both"
+ruling: ring 7 is FLAT — waterway band + meadow/shingle banks — with sparse low
+BERM CLUSTERS (<= 2.8 m, broken, gaps everywhere) on a minority of stations.
+The parallax lives in the sky band instead: TWO Range rings at different radii
+(gen_range.py + setup_scenery.py). Sight-line math at eye 2.4 m: berms subtend
+~3 degrees at 15 m; the near Range ~13 degrees at 250 m; the far Range ~16
+degrees at 500 m — everything visible, far stacking above near, town-wide.
+The one tall thing is the tunnel KNOLL (6 m, a single station, locally walked
+around — a portal needs a hill to enter).
 
-THE RIM CONTRACT (B1 practical form): the flank height is a pure function f(t)
-of the inward->outward axis, identical across all rim tiles, with the inward
-APRON third held flat at pavement level. Side-edge profiles therefore agree
-between same-orientation neighbours; corner stations may crease — skirts + fog
-carry the blockout, and the vertex-class refinement is a B2 item if the walk
-objects. Variant masses stay inside the side margins.
+Kit (T_rim_<key>, Weight-pooled like the gardens):
+  bank_a   meadow bank: grass, footpath along the water        (1.0)
+  bank_b   shingle bank: gravel patches, boulders              (1.0)
+  berm_a   grassy mound cluster, rocky toes, side gaps         (0.5)
+  berm_b   one low diagonal ridge-let + boulders               (0.5)
+  adit     berm_a + sealed timber adit set into the big mound  (0.25)
+  tunnel   the knoll: 6 m mound, gated portal, gate bridge     (1.0)
+  pass     PARKED at Weight 0 (kept for a future ruling)       (0.0)
+  outfall  flat bank + spill steps + hidden water key          (1.0)
+  intake   flat bank + sill + grate bars + hidden water key    (1.0)
 
-ORIENTATION KEY: every rim tile embeds a small M_RimKey-material triangle inside
-the base slab at the INWARD edge (edge 0) midpoint. The engine measures it like
-the Road/Water layers (MeasureTileMask key 'RimKey') and rotates the tile so the
-key lands on each station's inward edge — mask-(0,0) faces are unorientable any
-other way. The name contains neither 'Road' nor 'Water'.
+Carried over from the proven first pass: the notched canvas (every tile leaves
+its inward BAND_W strip open — gen_waterway.py's single ring fills all 42), the
+gate bridge (M_Road deck = the edge-0 measure), the RimKey sunk below the bed
+(XY-only measurer), and the hidden underwater M_Water mouth keys.
 
-Water mouths mirror gen_river_tiles' channel cross-section exactly (5 m channel,
-surface -0.9, floor -2.0) so the rim meets the ring-6 river tile flush.
-
-Writes rim_kit.json (masks + weights + family) for Tools/setup_rim.py.
-NEVER saves the master. Idempotent. Manifest-aware.
+Writes rim_kit.json for Tools/setup_rim.py. NEVER saves the master. Idempotent.
 """
 
 import os
@@ -50,20 +55,23 @@ PAVE_TOP = _street.PAVE_TOP
 INR      = _street.INR
 HW       = _street.HW
 
-H_RIM    = 20.0      # flank height at the outward edge
-APRON_T  = 0.28      # inward fraction of the axis held flat (the walkable/works zone)
-ROCK_RGBA = (0.23, 0.205, 0.18, 1.0)   # light enough to take alpenglow later
+BAND_W   = 3.6                  # the waterway band (the loop mesh fills it)
+CUT_Y    = INR - BAND_W
+BERM_H   = 2.8                  # berms never exceed this (sight-line law)
+KNOLL_H  = 6.0                  # the tunnel's hill — one station, walked around
+ROCK_RGBA = (0.23, 0.205, 0.18, 1.0)
 
-# (name suffix, road_mask, water_mask, weight) — masks authored on edge 0 (inward).
+# (road_mask, water_mask, weight) — masks authored on edge 0 (inward).
 VARIANTS = {
-    "face_a":  (0, 0, 1.0),    # scree fan
-    "face_b":  (0, 0, 1.0),    # crag steps
-    "face_c":  (0, 0, 1.0),    # timber stand
-    "adit":    (0, 0, 0.25),   # sealed mine adit (the Pit is not the only hole)
-    "tunnel":  (1, 0, 1.0),    # artery exit: gated portal
-    "pass":    (1, 0, 0.5),    # artery exit: road into a fog notch (rarer)
-    "outfall": (0, 1, 1.0),    # river leaves town (weir + culvert basin)
-    "intake":  (0, 1, 1.0),    # river enters town (basin + lip)
+    "bank_a":  (0, 0, 1.0),
+    "bank_b":  (0, 0, 1.0),
+    "berm_a":  (0, 0, 0.5),
+    "berm_b":  (0, 0, 0.5),
+    "adit":    (0, 0, 0.25),
+    "tunnel":  (1, 0, 1.0),
+    "pass":    (1, 0, 0.0),    # PARKED: rim is flat now; a pass needs a ridge
+    "outfall": (0, 1, 1.0),
+    "intake":  (0, 1, 1.0),
 }
 
 
@@ -88,197 +96,185 @@ def rimkey_material():
 
 
 def _xmax(y):
-    """Hex half-width at height y (flat-top, vertices on the x axis)."""
     return R - abs(y) * (R - R * 0.5) / INR
 
 
-def _f(t, notch_u=None, u=0.0, crest_phase=0.0):
-    """The rim contract: flank height vs inward->outward fraction t in [0,1].
-    Identical for every tile AT THE SIDE EDGES (u = ±1): the crest ripple that
-    keeps the skyline from reading as a fortress wall fades to zero there, so
-    any rim tile still tiles with any other. Optional notch: a centred dip."""
-    if t <= APRON_T:
-        return 0.0
-    s = (t - APRON_T) / (1.0 - APRON_T)
-    h = H_RIM * (s * s * (3.0 - 2.0 * s)) ** 1.25      # smoothstep, biased steep
-    interior = max(0.0, 1.0 - u * u)                    # 0 at side edges (the contract)
-    h *= 1.0 + 0.16 * interior * s * math.sin(u * 5.2 + crest_phase)
-    if notch_u is not None:
-        g = math.exp(-((u - notch_u) ** 2) / (2.0 * 0.18 ** 2))
-        h *= (1.0 - 0.65 * g * min(1.0, s * 2.2))       # dip grows with altitude
-    return h
-
-
-def _flank(name, mat, notch=False, crest_phase=0.0):
-    """Ruled mountain flank over the hex + side skirts to z=0. Inward edge = +Y."""
-    NY, NU = 12, 8
+def _notched_prism(name, z0, z1, mat):
+    """The rim canvas: the hex with the inward waterway band cut away."""
+    pts = [(-_xmax(CUT_Y), CUT_Y), (_xmax(CUT_Y), CUT_Y), (R, 0.0),
+           (R * 0.5, -INR), (-R * 0.5, -INR), (-R, 0.0)]
+    me = bpy.data.meshes.new(name + "_m")
     bm = bmesh.new()
-    grid = []
-    for j in range(NY + 1):
-        t = j / NY
-        y = INR - 2.0 * INR * t
-        xm = _xmax(y)
-        row = []
-        for i in range(NU + 1):
-            u = -1.0 + 2.0 * i / NU
-            h = _f(t, notch_u=0.0 if notch else None, u=u, crest_phase=crest_phase)
-            row.append(bm.verts.new((u * xm, y, PAVE_TOP + h)))
-        grid.append(row)
-    for j in range(NY):
-        for i in range(NU):
-            bm.faces.new([grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]])
-    # skirts: drop every boundary vertex column/row to z=0 (gap armor at seams)
-    def skirt(va, vb):
-        a0 = bm.verts.new((va.co.x, va.co.y, 0.0))
-        b0 = bm.verts.new((vb.co.x, vb.co.y, 0.0))
-        bm.faces.new([va, vb, b0, a0])
-    for j in range(NY):
-        skirt(grid[j][0], grid[j + 1][0])
-        skirt(grid[j + 1][NU], grid[j][NU])
-    for i in range(NU):
-        skirt(grid[0][i + 1], grid[0][i])           # inward edge row (apron lip)
-        skirt(grid[NY][i], grid[NY][i + 1])         # outward edge row (back wall)
+    bot = [bm.verts.new((x, y, z0)) for x, y in pts]
+    top = [bm.verts.new((x, y, z1)) for x, y in pts]
+    bm.faces.new(list(reversed(bot)))
+    bm.faces.new(top)
+    for i in range(len(pts)):
+        j = (i + 1) % len(pts)
+        bm.faces.new([bot[i], bot[j], top[j], top[i]])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return _blank._new_obj(name, bm, mat)
+    bm.to_mesh(me)
+    bm.free()
+    for p in me.polygons:
+        p.use_smooth = False
+    o = bpy.data.objects.new(name, me)
+    o.data.materials.append(mat)
+    bpy.context.scene.collection.objects.link(o)
+    return o
 
 
 def _rimkey(name):
-    """Orientation marker: a small triangle INSIDE the base slab at the inward
-    (edge 0) midpoint. Enclosed by the solid slab -> never visible; its verts sit
-    well within the 250 uu measure radius of edge 0's midpoint and far from all
-    other edge midpoints."""
+    """Orientation marker at the inward (edge 0) midpoint, sunk below the
+    waterway bed (-2.1; the measurer is XY-only — depth is free invisibility)."""
     bm = bmesh.new()
-    v = [bm.verts.new(p) for p in ((-0.4, INR - 0.05, 0.10),
-                                   (0.4, INR - 0.05, 0.10),
-                                   (0.0, INR - 0.45, 0.10))]
+    v = [bm.verts.new(p) for p in ((-0.4, INR - 0.05, -2.1),
+                                   (0.4, INR - 0.05, -2.1),
+                                   (0.0, INR - 0.45, -2.1))]
     bm.faces.new(v)
     return _blank._new_obj(name, bm, rimkey_material())
 
 
-# ---- variant masses (on top of canvas + flank; m_* passed in) ----
-def _masses_face_a(objs, key, mats):   # scree fan
+def _hidden_water_key(name, mats):
+    """Mouth identity: an M_Water patch 3 cm under the loop's -0.9 surface."""
     bm = bmesh.new()
-    rs = [(0.0, -2.0, 0.9), (-2.6, -3.4, 0.7), (2.8, -3.0, 0.8), (-1.2, -5.2, 1.1),
-          (1.6, -5.8, 0.9), (-3.8, -5.6, 0.8), (3.6, -6.2, 1.0), (0.4, -7.2, 1.3)]
-    for x, y, r in rs:
-        t = (INR - y) / (2.0 * INR)
-        _blank._blob_into(bm, x, y, PAVE_TOP + _f(t) + 0.2, r, z_squash=0.7, segs=8)
-    objs.append(_blank._new_obj(key + "_scree", bm, mats["rock"]))
+    _blank._box_into(bm, 0.0, INR - 0.35, 1.0, 0.6, -0.96, -0.93)
+    return _blank._new_obj(name, bm, mats["water"])
 
 
-def _masses_face_b(objs, key, mats):   # crag steps
+def _mound_into(bm, cx, cy, r, h, segs=10):
+    """A grounded grassy mound: squashed blob whose underside stays inside the
+    slab (never pokes below z=0)."""
+    sq = max(0.18, h / r)
+    cz = PAVE_TOP + h - r * sq
+    if cz - r * sq < 0.05:                      # clamp: grounding law
+        sq = (PAVE_TOP + h - 0.05) / (2.0 * r)
+        cz = 0.05 + r * sq
+    _blank._blob_into(bm, cx, cy, cz, r, z_squash=sq, segs=segs)
+
+
+def _gate_bridge(objs, key, mats):
+    """The exit's crossing: M_Road deck over the band (the edge-0 measure) with
+    low parapets, inward edge to the far-bank walk."""
+    y0, y1 = INR + 0.3, CUT_Y - 0.2
     bm = bmesh.new()
-    for i, (w, d) in enumerate(((6.5, 2.2), (5.0, 1.8), (3.4, 1.5))):
-        y = -2.4 - 2.0 * i
-        t = (INR - y) / (2.0 * INR)
-        h0 = PAVE_TOP + _f(t)
-        _blank._box_into(bm, (-1) ** i * 1.2, y, w, d, h0 - 0.5, h0 + 2.2 + 0.8 * i,
-                         rot_deg=(-1) ** i * 9.0)
-    objs.append(_blank._new_obj(key + "_crags", bm, mats["rock"]))
-
-
-def _masses_face_c(objs, key, mats):   # timber stand on the lower slope
-    trunks = bmesh.new()
-    crowns = bmesh.new()
-    pts = [(-3.2, 1.2), (-1.0, 0.2), (1.8, 1.0), (3.4, -0.6), (0.2, -1.8),
-           (-2.4, -2.8), (2.6, -3.4)]
-    for x, y in pts:
-        t = (INR - y) / (2.0 * INR)
-        g = PAVE_TOP + _f(t)
-        _blank._box_into(trunks, x, y, 0.22, 0.22, g, g + 1.5)
-        _blank._blob_into(crowns, x, y, g + 2.3, 0.95, z_squash=1.35, segs=8)
-    objs.append(_blank._new_obj(key + "_trunks", trunks, mats["border"]))
-    objs.append(_blank._new_obj(key + "_crowns", crowns, mats["green"]))
-
-
-def _masses_adit(objs, key, mats):     # face_a base + sealed timber adit at the apron
-    _masses_face_a(objs, key, mats)
+    _street.sweep_into(bm, [(0.0, y0), (0.0, y1)], HW, TOP - _river.DECK_T, TOP + 0.01)
+    objs.append(_blank._new_obj(key + "_deck", bm, mats["road"]))
     bm = bmesh.new()
-    _blank._box_into(bm, -1.5, 2.6, 0.35, 0.35, PAVE_TOP, PAVE_TOP + 2.2)   # posts
-    _blank._box_into(bm, 1.5, 2.6, 0.35, 0.35, PAVE_TOP, PAVE_TOP + 2.2)
-    _blank._box_into(bm, 0.0, 2.6, 3.7, 0.4, PAVE_TOP + 2.0, PAVE_TOP + 2.5)  # lintel
-    _blank._box_into(bm, 0.0, 1.6, 2.4, 2.0, PAVE_TOP, PAVE_TOP + 1.9)        # dark seal
+    for side in (-1, 1):
+        _blank._box_into(bm, side * (HW + _river.PARAPET_W / 2), (y0 + y1) / 2,
+                         _river.PARAPET_W, y0 - y1, TOP, TOP + _river.PARAPET_H)
+    objs.append(_blank._new_obj(key + "_parapets", bm, mats["pave"]))
+
+
+# ---- the take-two masses (all low, all broken) ----
+def _masses_bank_a(objs, key, mats):    # meadow bank
+    bm = bmesh.new()
+    _blank._disc_into(bm, -1.8, 0.2, 4.6, PAVE_TOP - 0.02, PAVE_TOP + 0.06, segs=20)
+    _blank._disc_into(bm, 3.6, -3.0, 3.2, PAVE_TOP - 0.02, PAVE_TOP + 0.05, segs=16)
+    objs.append(_blank._new_obj(key + "_meadow", bm, mats["green"]))
+    bm = bmesh.new()                     # footpath along the water
+    _street.sweep_into(bm, [(-_xmax(CUT_Y) + 0.8, CUT_Y - 1.1), (0.6, CUT_Y - 1.5),
+                            (_xmax(CUT_Y) - 0.8, CUT_Y - 1.0)], 0.55,
+                       PAVE_TOP + 0.045, PAVE_TOP + 0.07)
+    objs.append(_blank._new_obj(key + "_path", bm, mats["pave"]))
+
+
+def _masses_bank_b(objs, key, mats):    # shingle bank
+    bm = bmesh.new()
+    _blank._disc_into(bm, 1.2, 1.0, 3.8, PAVE_TOP - 0.02, PAVE_TOP + 0.04, segs=18)
+    _blank._disc_into(bm, -3.4, -2.2, 2.6, PAVE_TOP - 0.02, PAVE_TOP + 0.035, segs=14)
+    objs.append(_blank._new_obj(key + "_shingle", bm, mats["pave"]))
+    bm = bmesh.new()
+    for x, y, r in ((-1.0, 0.8, 0.7), (2.6, -1.4, 0.9), (-4.2, -4.0, 0.6),
+                    (0.8, -5.0, 0.75)):
+        _blank._blob_into(bm, x, y, PAVE_TOP + r * 0.45, r, z_squash=0.7, segs=8)
+    objs.append(_blank._new_obj(key + "_boulders", bm, mats["rock"]))
+
+
+def _masses_berm_a(objs, key, mats):    # grassy mound cluster, gaps at the sides
+    bm = bmesh.new()
+    _mound_into(bm, -1.6, -2.6, 4.2, BERM_H)
+    _mound_into(bm, 2.8, -5.0, 3.0, 1.9)
+    _mound_into(bm, 1.4, -0.6, 2.2, 1.2)
+    objs.append(_blank._new_obj(key + "_mounds", bm, mats["green"]))
+    bm = bmesh.new()                     # rocky toes
+    for x, y, r in ((-4.6, -1.6, 0.6), (1.0, -7.4, 0.7), (4.6, -3.8, 0.5)):
+        _blank._blob_into(bm, x, y, PAVE_TOP + r * 0.4, r, z_squash=0.65, segs=8)
+    objs.append(_blank._new_obj(key + "_toes", bm, mats["rock"]))
+
+
+def _masses_berm_b(objs, key, mats):    # one low diagonal ridge-let
+    bm = bmesh.new()
+    for i in range(4):                   # overlapping lenses = a soft ridge line
+        t = i / 3.0
+        _mound_into(bm, -3.6 + 7.0 * t, -1.2 - 4.2 * t, 2.6, BERM_H * (0.75 + 0.25 * math.sin(t * 3.1)))
+    objs.append(_blank._new_obj(key + "_ridge", bm, mats["green"]))
+    bm = bmesh.new()
+    for x, y, r in ((2.2, -1.0, 0.8), (-2.0, -6.2, 0.65)):
+        _blank._blob_into(bm, x, y, PAVE_TOP + r * 0.4, r, z_squash=0.7, segs=8)
+    objs.append(_blank._new_obj(key + "_boulders", bm, mats["rock"]))
+
+
+def _masses_adit(objs, key, mats):      # berm cluster + the sealed adit in its face
+    _masses_berm_a(objs, key, mats)
+    bm = bmesh.new()
+    _blank._box_into(bm, -2.6, 0.4, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.9)   # posts
+    _blank._box_into(bm, -0.6, 0.4, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.9)
+    _blank._box_into(bm, -1.6, 0.4, 2.6, 0.35, PAVE_TOP + 1.7, PAVE_TOP + 2.1)  # lintel
+    _blank._box_into(bm, -1.6, -0.4, 1.9, 1.6, PAVE_TOP, PAVE_TOP + 1.65)       # seal
     objs.append(_blank._new_obj(key + "_adit", bm, mats["border"]))
 
 
 def _masses_tunnel(objs, key, mats):
-    # road apron: M_Road strip from the inward edge midpoint to the portal (the
-    # measurer reads Road at edge 0); then piers + lintel + dark throat + gateposts.
-    bm = bmesh.new()
-    _street.sweep_into(bm, [(0.0, INR + 0.3), (0.0, 1.6)], HW,
+    _gate_bridge(objs, key, mats)
+    bm = bmesh.new()                     # the knoll: one station's hill
+    _mound_into(bm, 0.0, -2.8, 6.2, KNOLL_H, segs=12)
+    objs.append(_blank._new_obj(key + "_knoll", bm, mats["green"]))
+    bm = bmesh.new()                     # far-bank road to the portal
+    _street.sweep_into(bm, [(0.0, CUT_Y - 0.1), (0.0, 1.0)], HW,
                        TOP - 0.02, TOP + 0.01)
     objs.append(_blank._new_obj(key + "_apron", bm, mats["road"]))
-    bm = bmesh.new()
-    _blank._box_into(bm, -2.2, 1.0, 1.2, 2.4, PAVE_TOP, PAVE_TOP + 4.6)      # piers
-    _blank._box_into(bm, 2.2, 1.0, 1.2, 2.4, PAVE_TOP, PAVE_TOP + 4.6)
-    _blank._box_into(bm, 0.0, 1.0, 5.6, 2.6, PAVE_TOP + 4.2, PAVE_TOP + 5.4) # lintel
+    bm = bmesh.new()                     # portal set into the knoll face
+    _blank._box_into(bm, -2.1, 0.6, 1.1, 2.0, PAVE_TOP, PAVE_TOP + 3.6)
+    _blank._box_into(bm, 2.1, 0.6, 1.1, 2.0, PAVE_TOP, PAVE_TOP + 3.6)
+    _blank._box_into(bm, 0.0, 0.6, 5.3, 2.2, PAVE_TOP + 3.3, PAVE_TOP + 4.3)
     objs.append(_blank._new_obj(key + "_portal", bm, mats["rock"]))
     bm = bmesh.new()
-    _blank._box_into(bm, 0.0, 0.4, 3.2, 1.6, TOP, PAVE_TOP + 4.0)            # throat
-    _blank._box_into(bm, -1.45, 2.4, 0.18, 0.18, TOP, TOP + 1.4)             # gateposts
-    _blank._box_into(bm, 1.45, 2.4, 0.18, 0.18, TOP, TOP + 1.4)
+    _blank._box_into(bm, 0.0, 0.1, 3.0, 1.5, TOP, PAVE_TOP + 3.1)         # throat
+    _blank._box_into(bm, -1.45, 2.6, 0.18, 0.18, TOP, TOP + 1.4)          # gateposts
+    _blank._box_into(bm, 1.45, 2.6, 0.18, 0.18, TOP, TOP + 1.4)
     objs.append(_blank._new_obj(key + "_throat", bm, mats["border"]))
 
 
-def _masses_pass(objs, key, mats):
-    # road climbs the flank into the notch and fades at the crest line
-    pts = _street._bezier3((0.0, INR + 0.3), (0.6, 2.0), (-0.8, -1.5), (0.0, -6.0), 18)
+def _masses_pass(objs, key, mats):      # parked (Weight 0) — minimal valid tile
+    _gate_bridge(objs, key, mats)
     bm = bmesh.new()
-    N = len(pts)
-    for i in range(N - 1):
-        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
-        t0 = (INR - y0) / (2.0 * INR)
-        t1 = (INR - y1) / (2.0 * INR)
-        z0 = PAVE_TOP + _f(t0, notch_u=0.0, u=x0 / max(0.1, _xmax(y0)))
-        z1 = PAVE_TOP + _f(t1, notch_u=0.0, u=x1 / max(0.1, _xmax(y1)))
-        seg = bmesh.new()
-        _street.sweep_into(seg, [(x0, y0), (x1, y1)], HW * 0.8, -0.02, 0.012)
-        for v in seg.verts:
-            v.co.z += (z0 + z1) * 0.5 + 0.02
-        me = bpy.data.meshes.new("tmp")
-        seg.to_mesh(me)
-        seg.free()
-        bm.from_mesh(me)
-        bpy.data.meshes.remove(me)
+    _street.sweep_into(bm, [(0.0, CUT_Y - 0.1), (0.0, -4.0)], HW * 0.8,
+                       TOP - 0.02, TOP + 0.01)
     objs.append(_blank._new_obj(key + "_trail", bm, mats["road"]))
 
 
 def _water_mouth(objs, key, mats, outfall):
-    """Channel from the inward edge (river cross-section: 5 m / -0.9 / -2.0) to a
-    basin; a weir step (outfall) or rock lip (intake); culvert arch under the flank."""
-    chw = _river.CH_HW
-    wz, fz = _river.WATER_Z, _river.FLOOR_Z
-    y0, y1 = INR + 0.3, 3.2                       # channel run (overshoots the edge)
-    bm = bmesh.new()                              # banks: pavement-level side slabs,
-    bank_y0, bank_y1 = INR - 0.1, y1              # clamped INSIDE the hex boundary
-    for side in (-1, 1):
-        cx = side * ((chw + 0.2 + 4.5) / 2)
-        _blank._box_into(bm, cx, (bank_y0 + bank_y1) / 2, 4.5 - (chw + 0.2),
-                         bank_y0 - bank_y1, TOP, PAVE_TOP)
-    objs.append(_blank._new_obj(key + "_banks", bm, mats["pave"]))
-    bm = bmesh.new()                              # channel floor + walls
-    _street.sweep_into(bm, [(0.0, y0), (0.0, y1)], chw, fz, fz + _river.FLOOR_T)
-    for side in (-1, 1):
-        _blank._box_into(bm, side * (chw + 0.15), (y0 + y1) / 2, 0.3, y0 - y1, fz, PAVE_TOP)
-    objs.append(_blank._new_obj(key + "_channel", bm, mats["grnd"]))
-    bm = bmesh.new()                              # water: channel surface + basin pool
-    _street.sweep_into(bm, [(0.0, y0), (0.0, y1 + 0.4)], chw - _river.WATER_INSET,
-                       wz - _river.WATER_T, wz)
-    bz = wz - (1.2 if outfall else 0.0)           # outfall pool sits below the weir
-    _blank._disc_into(bm, 0.0, y1 - 2.2, 2.6, bz - _river.WATER_T, bz, segs=24)
-    objs.append(_blank._new_obj(key + "_water", bm, mats["water"]))
-    bm = bmesh.new()                              # weir / lip + culvert arch + basin ring
+    objs.append(_hidden_water_key(key + "_wkey", mats))
+    bm = bmesh.new()
     if outfall:
-        _blank._box_into(bm, 0.0, y1 + 0.15, chw * 2 + 0.6, 0.5, fz, wz + 0.05)
+        for i in range(3):               # spill steps down toward the band
+            _blank._box_into(bm, 0.0, CUT_Y - 0.25 - 0.45 * i, 5.4 - 1.2 * i, 0.45,
+                             TOP - 0.55 - 0.35 * i, TOP + 0.05 - 0.30 * i)
     else:
-        _blank._box_into(bm, 0.0, y1 + 0.15, chw * 2 + 0.6, 0.5, fz, wz - 0.25)
-    _blank._disc_into(bm, 0.0, y1 - 2.2, 3.1, bz - 0.9, TOP + 0.4, segs=24)
-    _blank._box_into(bm, 0.0, y1 - 2.2, 3.4, 1.2, bz - 0.2, bz + 2.4)        # culvert block
+        _blank._box_into(bm, 0.0, CUT_Y - 0.35, 5.8, 0.7, TOP - 0.4, TOP + 0.25)
+        for i in range(5):
+            _blank._box_into(bm, -2.0 + i, CUT_Y - 0.3, 0.14, 0.5, TOP - 1.4, TOP + 0.2)
     objs.append(_blank._new_obj(key + "_works", bm, mats["rock"]))
+    bm = bmesh.new()
+    for side in (-1, 1):
+        _blank._box_into(bm, side * 3.3, CUT_Y - 0.5, 0.3, 0.3, PAVE_TOP, PAVE_TOP + 1.1)
+    objs.append(_blank._new_obj(key + "_posts", bm, mats["border"]))
 
 
 _MASSES = {
-    "face_a": _masses_face_a, "face_b": _masses_face_b, "face_c": _masses_face_c,
+    "bank_a": _masses_bank_a, "bank_b": _masses_bank_b,
+    "berm_a": _masses_berm_a, "berm_b": _masses_berm_b,
     "adit": _masses_adit, "tunnel": _masses_tunnel, "pass": _masses_pass,
     "outfall": lambda o, k, m: _water_mouth(o, k, m, True),
     "intake":  lambda o, k, m: _water_mouth(o, k, m, False),
@@ -297,19 +293,9 @@ def build_tile_obj(key, edges=None):
         "border": _street.border_material(),
     }
     name = "T_rim_" + key
-    base = _street.hex_prism(name, 0.0, TOP, mats["grnd"])
-    objs = [base, _street.hex_border(key + "_border", mats["border"]), _rimkey(key + "_key")]
-
-    # Water mouths build their own split apron around the channel; everyone else
-    # gets the full street-canvas pavement under the flank.
-    if key not in ("outfall", "intake"):
-        objs.append(_street.hex_prism(key + "_pave", TOP, PAVE_TOP, mats["pave"]))
-
-    # Per-variant crest phase: deterministic skyline variety, contract-safe
-    # (the ripple is zero at side edges).
-    phase = (sum(ord(c) for c in key) % 7) * 0.9
-    objs.append(_flank(key + "_flank", mats["rock"], notch=(key == "pass"),
-                       crest_phase=phase))
+    base = _notched_prism(name, 0.0, TOP, mats["grnd"])
+    objs = [base, _notched_prism(key + "_pave", TOP, PAVE_TOP, mats["pave"]),
+            _rimkey(key + "_key")]
     _MASSES[key](objs, key, mats)
 
     bpy.ops.object.select_all(action='DESELECT')
@@ -348,14 +334,19 @@ def write_kit_json():
     return path
 
 
-def main():
-    _street.reset()
+def _bespoke_names():
     try:
         import tile_common
-        bespoke = tile_common.bespoke_tile_names()
-    except Exception:
-        bespoke = set()
-    print("=== gen_rim_tiles: writing to %s ===" % _street.out_dir())
+        return tile_common.bespoke_tile_names()
+    except Exception as exc:
+        print("  (bespoke skip-list unavailable: %s)" % exc)
+        return set()
+
+
+def main():
+    _street.reset()
+    bespoke = _bespoke_names()
+    print("=== gen_rim_tiles (take two): writing to %s ===" % _street.out_dir())
     for key in VARIANTS:
         tile = "T_rim_%s" % key
         if tile in bespoke:

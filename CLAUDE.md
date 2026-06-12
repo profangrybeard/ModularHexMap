@@ -97,14 +97,17 @@ own bucket/row); **StraightDecay 0.33** is the canyon-killer ruling (multi-tile
 walled straights structurally dead; Baseline.csv anchored there: dry blank mean
 27.8 / p95 69, straights ≈ 9, bridges ≈ 2.2).
 Run [Docs/Testing.md](Docs/Testing.md) T0–T12 to verify everything. The **"too
-much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp —
-`junction 1–3 / tee_c 1–3 / blank 2–40` + plain-void Weight 0.4 — L3 garden
-variants). **The Rim is the ruled priority** ([Docs/Rim.md](Docs/Rim.md)): **B1
-landed** — ring 7 closes the bowl every destiny (42/42, artery exits 2–6 into
-gated tunnels/passes, 2 river mouths, catalog = 32, `StraightDecay` 0.33);
-**next: B2** (ring waterway + gate bridges) **→ B3** (Day Sequence day/night,
-river-axis sun, fog instruments, the Range) — six §8 rulings open, platform
-answers list (navmesh first) in Roadmap.md.
+much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp, L3 garden
+variants; `StraightDecay` 0.33). **The Rim is the ruled priority**
+([Docs/Rim.md](Docs/Rim.md)): **B1 + B2 landed** — ring 7 closes every destiny
+(42/42; artery exits over gate bridges into knoll tunnels; 2 river mouths
+opening into the **one-mesh waterway loop**; flat banks + low broken berms;
+**two Range rings** at 250/500 m carrying the parallax in the sky band; catalog
+= 33). First B2 build was reverted off the director's walk — **all scenery
+composition now passes the eye-height gate** (`Tools/blender/render_eyeline.py`)
+before the engine. **Next: B3** (Day Sequence day/night, river-axis sun, fog in
+the three depth gaps, ray notches) — five §8 rulings open; platform answers
+(navmesh first) in Roadmap.md.
 
 ## Architecture & file map
 

@@ -1,5 +1,31 @@
 # Worklog — session memory, newest first
 
+## 2026-06-12 — Rim B2 take two: flat and broken, mountains in the sky band
+
+Director ruled **"both"** on the re-brief (low-and-broken near layer + two-depth
+Range) and took the description miss graciously — the lesson stays ours: the
+sight-line gate now exists and ran FIRST. **`render_eyeline.py`** (new keeper
+tool) composites the whole world from staged glbs at true transforms — town
+stand-in, waterway loop, all 42 rim stations, both Range rings — and renders
+from eye height (2.4 m) at street positions. The composition passed the gate
+BEFORE the engine saw any of it: berms ~3°, near ring ~13°, far ring ~16°, far
+stacking above near from ring 4 and the town center alike.
+
+- **Kit take two** (gen_rim_tiles rewritten): flat `bank_a/b` (meadow+footpath /
+  shingle+boulders) majority, `berm_a/b` (≤2.8 m broken clusters, Weight 0.5),
+  adit set into a berm, tunnel = the 6 m KNOLL (one station, walked around),
+  `pass` PARKED at Weight 0 (flat rims have no ridge to notch), mouths = flat
+  bank works. Salvaged from the reverted pass: notched canvas, gate bridge,
+  sunken RimKey, hidden water keys, the waterway loop, the gaussian ridges.
+- **Two Range rings** (setup_scenery): near ~250 m ×8 (peaks 38–75 m), far
+  ~500 m ×6 (peaks 90–180 m, offset headings); two aligned gaps reserved for
+  B3's sun notches. Aerial perspective will tint the far ring in-engine free.
+- **Setup hygiene:** kit renames prune stale DA rows AND delete their orphaned
+  assets (face_a/b/c gone); catalog = 33 rows (pass parked at Weight 0).
+- **Chain all green:** setup_rim (9 imported, 4+5 rows, 3 pruned) →
+  setup_scenery (loop + 14 instances, ShuffleLab saved) → **verify_rim_b1
+  ALL PASS 30/30**. Awaiting the director's walk; B3 (the sky) is next.
+
 ## 2026-06-11 (reverted) — Rim B2 first attempt: the sandwich that blocked the view
 
 A full B2 pass landed and was **reverted same session on the director's walk**

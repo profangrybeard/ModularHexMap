@@ -34,29 +34,45 @@ night under a silhouette ridge.**
   town↔elsewhere junction remains the director's cross-project call. The rim is
   atmosphere with hooks, not exits.
 
-## 2. The three instruments
+## 2. The instruments (B2 take two — LANDED 2026-06-12)
 
-The scale problem decides the architecture: a "mountain" on a 10 m hex footprint
-is a tooth, not a range. So the rim is **two layers of theater plus the sky**:
+> History: the first B2 build (continuous 8.5 m hill ring + one Range ring,
+> `69a7e52`) was **reverted on the director's walk** — from street eye height the
+> near layer occluded the far one entirely. The law that came out of it: **all
+> scenery composition passes the eye-height gate (`render_eyeline.py`) before it
+> ships to the engine.** The orbit camera doesn't get a vote.
 
-1. **The Rim ring (hex-true near stage).** 42 ring-7 tiles on the normal grid —
-   foothill faces, tunnel portals, river mouths. Tile contract holds (R=10
-   flat-top, inward edge anchors, measure-and-rotate, manifest discipline).
-   Masses rise outward to ~18–25 m: scree, crag, timber, rock face. Parallax-true,
-   fog-rooted, walk-up-able where a road runs out.
-2. **The Range (backdrop ring, off-grid).** One authored silhouette-ridge mesh
-   family (2–3 ridgeline meshes, instanced/rotated/scaled around the bowl at
-   apparent 200–800 m, peaks 60–150 m apparent). NOT hex-gridded — placed once by
-   the lab setup script. This is the dawn/dusk instrument: the sun rises and sets
-   against it. **2–3 authored notches** (low passes) are deliberate gaps for
-   crepuscular rays — the skyline's landmark tiles, same medicine as the
-   street-level landmark ToDo, applied at altitude.
-3. **The sky stack (the engine's built-ins).** Directional sun + SkyAtmosphere +
-   SkyLight (real-time capture) + ExponentialHeightFog (volumetric) + optional
-   Volumetric Clouds, driven by a day cycle (§6). Lumen makes time-of-day GI free.
+The town sees its mountains the way a real valley town does: across water, over
+low ground, in the SKY BAND above the rooftops. Sight-line law at eye 2.4 m:
+berms ≤ 3°, near Range ~13°, far Range ~16° — everything visible, far stacking
+above near, from ring 6 and from the town's heart alike.
 
-A standing **fog seam** at the Rim/Range join hides the parallax lie. The fog is
-diegetically honest: cold ring water + warm valley floor = morning mist.
+1. **The Rim ring (hex-true, FLAT, broken).** 42 ring-7 tiles: the **waterway
+   band** (3.6 m, slab notched away — the loop mesh fills it) + flat **bank**
+   tiles (meadow with a waterside footpath / shingle with boulders) as the
+   majority, sparse **berm clusters** (≤ 2.8 m, gaps everywhere, ~⅓ of stations
+   by Weight) for near texture. The one tall thing is the tunnel **knoll**
+   (6 m, a single station — a portal needs a hill; the eye walks around it).
+   Exits cross the band on gate bridges; mouths are flat bank works (spill
+   steps / intake grate) + hidden underwater identity keys. The `pass` tile is
+   PARKED at Weight 0 (a flat rim has no ridge to notch).
+2. **The waterway loop (one mesh, in the seam).** Unchanged from the first
+   pass — it was sound: one closed ring through all 42 stations at the river's
+   exact cross-section; no near wall (ring 6's slabs are the town bank), so the
+   river's two mouths open into the loop flush on any destiny.
+3. **The Range, TWICE (the parallax that survived).** Two off-grid ridge rings:
+   **near ~250 m** (peaks ~38–75 m, 8 instances) and **far ~500 m** (peaks
+   ~90–180 m, 6 instances, headings offset so far peaks rise in near saddles).
+   Ring slides against ring as you walk — the depth lives where it can be seen.
+   Two aligned gaps (~120°/~300°) stay empty in BOTH rings for B3's sun-path
+   ray notches. In-engine, SkyAtmosphere's aerial perspective tints the far
+   ring for free — true atmospheric depth cueing without a second material.
+4. **The sky stack (B3).** Directional sun + SkyAtmosphere + SkyLight +
+   volumetric ExponentialHeightFog, driven by the day cycle (§6). Fog stacks in
+   the three gaps: water-to-berms, berms-to-near-ring, near-to-far.
+
+The fog is diegetically honest: cold ring water + warm valley floor = morning
+mist.
 
 ## 3. Derivation & engine architecture
 

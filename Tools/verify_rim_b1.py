@@ -34,8 +34,9 @@ def sf(s, n):
 def hexdist(q, r):
     return (abs(q) + abs(-q - r) + abs(r)) // 2
 
-RIM_MESHES = {"T_rim_face_a", "T_rim_face_b", "T_rim_face_c", "T_rim_adit",
-              "T_rim_tunnel", "T_rim_pass", "T_rim_outfall", "T_rim_intake"}
+RIM_MESHES = {"T_rim_bank_a", "T_rim_bank_b", "T_rim_berm_a", "T_rim_berm_b",
+              "T_rim_adit", "T_rim_tunnel", "T_rim_pass", "T_rim_outfall",
+              "T_rim_intake"}
 EXIT_MESHES = {"T_rim_tunnel", "T_rim_pass"}
 MOUTH_MESHES = {"T_rim_outfall", "T_rim_intake"}
 

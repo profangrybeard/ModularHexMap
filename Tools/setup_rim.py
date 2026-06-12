@@ -83,8 +83,30 @@ for tile, spec in kit.items():
         tiles.append(d)
         by_name[row_name] = len(tiles) - 1
         added += 1
+# 4) prune stale rim rows (kit renames must not leave ghost variants resolving)
+kit_rows = {t[2:] for t in kit}
+pruned = []
+kept = []
+for t in tiles:
+    fam = t.get_editor_property("family")
+    nm = str(t.get_editor_property("name"))
+    if fam == unreal.HexTileFamily.RIM and nm not in kit_rows:
+        pruned.append(nm)
+    else:
+        kept.append(t)
+tiles = kept
+
 asset.set_editor_property("tiles", tiles)
 ok = eal.save_loaded_asset(asset, only_if_is_dirty=False)
-log("[Rim] DA rows: %d added, %d updated, %d total (save=%s)"
-    % (added, updated, len(tiles), ok))
+log("[Rim] DA rows: %d added, %d updated, %d pruned (%s), %d total (save=%s)"
+    % (added, updated, len(pruned), ", ".join(pruned) or "none", len(tiles), ok))
+
+# 5) pruned rows take their orphaned assets with them (kit renames stay tidy)
+for nm in pruned:
+    folder = "%s/T_%s" % (DEST, nm)
+    if eal.does_directory_exist(folder):
+        if eal.delete_directory(folder):
+            log("[Rim] deleted orphaned %s" % folder)
+        else:
+            warn("[Rim] could not delete %s (references remain?)" % folder)
 warn("=== setup_rim: done — Recalibrate, then Randomize: the bowl should close ===")
