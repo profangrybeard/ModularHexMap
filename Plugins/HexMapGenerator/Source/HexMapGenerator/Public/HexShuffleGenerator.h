@@ -184,6 +184,12 @@ private:
 	// water layers can't orient (Docs/Rim.md §3). Street tiles measure 0 here.
 	UPROPERTY(Transient)
 	TArray<int32> TileRealRimKey;
+
+	// Readable by the gates (AllowPrivateAccess, the LastNetwork precedent):
+	// distrusted calibration silently falls back to authored-guess rotations —
+	// a gate that only counts instances can pass while every yaw is wrong
+	// (2026-06-12). verify_rim_b1 asserts this is true after Recalibrate.
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Hex Shuffle|Debug", meta = (AllowPrivateAccess = "true"))
 	bool bCalibrated = false;
 
 	// The last network Build() placed — what SaveRoll writes out and what Python's

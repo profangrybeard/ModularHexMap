@@ -1,5 +1,31 @@
 # Worklog — session memory, newest first
 
+## 2026-06-12 (the rotation mess) — distrusted calibration, the silent yaw killer
+
+The director opened the Ringwater and every rim tile sat at a garbage rotation
+("hopefully this is just a matter of everyone getting a bad rotation" — exactly
+right). Chain of causes, all mine:
+1. The 5.5 m seam crossing put water over the side-edge MIDPOINTS → measured
+   water = extra bits vs the authored mirror → **popcount mismatch → calibration
+   distrusted the WHOLE catalog → every rim tile silently fell back to
+   authored-guess rotations** (the exact failure measure-and-rotate exists to
+   prevent). Streets survived (valid authored masks).
+2. **The gate passed anyway** — instance counts can't see yaw. Fixed
+   structurally: `bCalibrated` is now reflection-readable
+   (AllowPrivateAccess, the LastNetwork precedent) and `verify_rim_b1`
+   HARD-ABORTS on distrusted calibration before placing anything.
+3. Repairing the mirror surfaced a second truth: the inward-edge water surface
+   sits at the 250 uu tolerance boundary post-import and does NOT register
+   (measured water = the two side crossings only, 0x14, all five tiles).
+   Rather than tune tolerances: **rim resolution drops the water condition
+   entirely** — under the ring water law every station is water by design, so
+   the check added nothing but fragility; the KEY orients, the ROAD bit
+   separates bridges. Authored water masks set to the measured truth (0x14).
+Calibration OK (29 tiles) + verify_rim_b1 ALL PASS 30/30 with the assertion
+live. Lesson for the Resistance doc someday: when a kit adds geometry near edge
+midpoints, the popcount mirror is part of the tile contract — and any gate that
+counts instances MUST also assert calibration trust.
+
 ## 2026-06-12 (the Ringwater) — ring 7 IS the water
 
 Director's ruling after the notched-band cuts failed ("only cut along one edge,

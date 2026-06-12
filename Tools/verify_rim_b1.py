@@ -26,6 +26,23 @@ if gen is None:
     raise SystemExit
 
 gen.recalibrate()
+# Distrusted calibration = authored-guess rotations = a level full of garbage
+# yaws that instance COUNTS can't see. Hard-fail immediately (2026-06-12).
+# (UE Python's name mapping for bool UPROPERTYs varies — try the spellings.)
+_cal = None
+for _n in ("b_calibrated", "bCalibrated", "calibrated"):
+    try:
+        _cal = gen.get_editor_property(_n)
+        break
+    except Exception:
+        continue
+if _cal is None:
+    unreal.log_error("[RimB1] cannot read bCalibrated (reflection name?) — ABORT.")
+    raise SystemExit
+if not _cal:
+    unreal.log_error("[RimB1] CALIBRATION DISTRUSTED — popcount mismatch somewhere "
+                     "in the catalog; every placement below would be a yaw guess. ABORT.")
+    raise SystemExit
 
 def sf(s, n):
     v = getattr(s, n, None)

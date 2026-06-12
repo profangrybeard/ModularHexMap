@@ -259,15 +259,16 @@ bool AHexShuffleGenerator::ResolveRimTile(int32 RoadBits, int32 WaterBits, int32
 		for (int32 k = 0; k < 6; ++k)
 		{
 			const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
-			// Rim stations constrain ONE edge — the inward one. Full-mask equality
-			// was street-kit inheritance the rim never needed: the Ringwater's
-			// water legitimately crosses SIDE edges (the seam contract), and a
-			// bridge's landing road exits the OUTWARD edge. Compare road/water
-			// state on the inward edge only; the key (single bit) fixes rotation.
+			// Rim stations constrain ONE edge — the inward one. The KEY fixes the
+			// rotation; the ROAD bit separates bridges from water tiles. There is
+			// deliberately NO water condition: under the ring water law every rim
+			// tile IS water and every station expects water — a per-station check
+			// adds nothing and ties resolution to exactly how much of the inward
+			// water surface survives the import within measure tolerance
+			// (2026-06-12: it didn't, and 42 stations went unresolvable).
 			const int32 Bit = (1 << InwardEdge);
 			if ((HexGrid::RotateMask6(Key, Rot) & Bit) != 0 &&
-				(HexGrid::RotateMask6(Road, Rot) & Bit) == (RoadBits & Bit) &&
-				(HexGrid::RotateMask6(Water, Rot) & Bit) == (WaterBits & Bit))
+				(HexGrid::RotateMask6(Road, Rot) & Bit) == (RoadBits & Bit))
 			{
 				CandTile.Add(i);
 				CandYaw.Add(k);

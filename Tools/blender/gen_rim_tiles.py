@@ -69,13 +69,19 @@ ROCK_RGBA = (0.23, 0.205, 0.18, 1.0)
 # Side edge runs (5, INR) -> (10, 0); unit (0.5, -0.866).
 CROSS = (5.0 + 5.5 * 0.5, INR - 5.5 * 0.86602540378)   # (7.75, 3.90)
 
-# (road_mask, water_mask, weight) — authored on edge 0 (inward).
+# (road_mask, water_mask, weight). The authored water mask is the HONEST mirror
+# of what calibration MEASURES in-engine (the popcount law): the two side-edge
+# seam crossings register (the inward surface sits at the tolerance boundary
+# post-import and does not), so measured water = 2 bits on every ring tile —
+# authored 0x14 to match. Rim resolution doesn't read the water mask at all
+# (key + road only; the ring water law makes every station water by design).
+# Bridge: deck + landing road = road on edges 0 and 3 (0b001001 = 9).
 VARIANTS = {
-    "water_a":    (0, 1, 1.0),    # gentle arc bank, boulders
-    "water_b":    (0, 1, 1.0),    # lazy S bank, reed posts
-    "water_c":    (0, 1, 0.7),    # double bulge, a worn jetty
-    "water_wide": (0, 1, 0.5),    # eats ~85% — a sliver of far bank
-    "bridge":     (1, 1, 1.0),    # artery exit: deck over the ring
+    "water_a":    (0, 20, 1.0),   # gentle arc bank, boulders
+    "water_b":    (0, 20, 1.0),   # lazy S bank, reed posts
+    "water_c":    (0, 20, 0.7),   # double bulge, a worn jetty
+    "water_wide": (0, 20, 0.5),   # eats ~85% — a sliver of far bank
+    "bridge":     (9, 20, 1.0),   # artery exit: deck over the ring
 }
 
 
@@ -136,7 +142,9 @@ def _bankline(key, x):
     elif key == "water_c":
         mid = 2.4 - 2.2 * math.cos(u * 3.4)       # double bulge
     elif key == "water_wide":
-        mid = -6.4                                # eats almost everything
+        mid = -5.9    # eats almost everything (clamped: the bankline must stay
+                      # >2.5 m from the OUTWARD edge midpoint or the measured
+                      # water gains a 4th bit and calibration distrusts again)
     else:                                          # bridge: generous, steady
         mid = 1.0
     return end_y + (mid - end_y) * t
