@@ -252,22 +252,45 @@ bool AHexShuffleGenerator::ResolveRimTile(int32 RoadBits, int32 WaterBits, int32
 	{
 		const FHexTileDef& T = TileSet->Tiles[i];
 		if (T.Family != EHexTileFamily::Rim) { continue; }
-		const int32 Key   = bMeasured ? TileRealRimKey[i]    : 1; // authored: edge 0
 		const int32 Road  = bMeasured ? TileRealMask[i]      : UHexTileSet::TileMask(T);
 		const int32 Water = bMeasured ? TileRealWaterMask[i] : (T.WaterMask & 0x3F);
-		if (Key == 0) { continue; } // un-keyed rim tile cannot orient (bad bake — calibration log shows it)
+
+		// THE FLANK RULE (2026-06-12, after the key marker placed a uniform-but-
+		// wrong ring): orientation comes from geometry that CANNOT lie. The
+		// Ringwater's two measured seam-crossing bits flank the tile's true
+		// inward edge by construction, and that relationship is invariant under
+		// ANY import transform — unlike the M_RimKey marker, whose measurement
+		// proved untrustworthy while remaining internally consistent (the gate
+		// agreed with the engine and both were 180 degrees off). The tile's own
+		// water is its orientation witness; the key remains only as a fallback
+		// for hypothetical waterless rim tiles.
+		int32 RefEdge = INDEX_NONE;
+		{
+			int32 BitsFound[2] = { -1, -1 };
+			int32 NumBits = 0;
+			for (int32 e = 0; e < 6 && NumBits <= 2; ++e)
+			{
+				if (Water & (1 << e)) { if (NumBits < 2) { BitsFound[NumBits] = e; } ++NumBits; }
+			}
+			if (NumBits == 2)
+			{
+				const int32 Gap = (BitsFound[1] - BitsFound[0] + 6) % 6;
+				if (Gap == 2)      { RefEdge = (BitsFound[0] + 1) % 6; }
+				else if (Gap == 4) { RefEdge = (BitsFound[1] + 1) % 6; }
+			}
+		}
+		if (RefEdge == INDEX_NONE)
+		{
+			const int32 Key = bMeasured ? TileRealRimKey[i] : 1;
+			if (Key != 0) { RefEdge = FMath::CountTrailingZeros((uint32)Key); }
+		}
+		if (RefEdge == INDEX_NONE) { continue; }
+
 		for (int32 k = 0; k < 6; ++k)
 		{
 			const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
-			// Rim stations constrain ONE edge — the inward one. The KEY fixes the
-			// rotation; the ROAD bit separates bridges from water tiles. There is
-			// deliberately NO water condition: under the ring water law every rim
-			// tile IS water and every station expects water — a per-station check
-			// adds nothing and ties resolution to exactly how much of the inward
-			// water surface survives the import within measure tolerance
-			// (2026-06-12: it didn't, and 42 stations went unresolvable).
 			const int32 Bit = (1 << InwardEdge);
-			if ((HexGrid::RotateMask6(Key, Rot) & Bit) != 0 &&
+			if ((HexGrid::RotateMask6(1 << RefEdge, Rot) & Bit) != 0 &&
 				(HexGrid::RotateMask6(Road, Rot) & Bit) == (RoadBits & Bit))
 			{
 				CandTile.Add(i);

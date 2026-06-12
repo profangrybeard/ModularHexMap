@@ -79,15 +79,30 @@ def inward_edge(q, r):
 radius = prop(gen.get_editor_property("growth"), ("radius", "Radius"))
 b_invert = bool(prop(gen, ("b_invert_yaw_shift", "bInvertYawShift"), False))
 
-# mesh name -> catalog index (for the measured-key lookup)
+# mesh name -> the tile's FLANK-RULE reference edge, derived from the catalog's
+# authored water mask (set to the measured pattern, so this matches what the
+# engine derives from TileRealWaterMask). The flank rule: two seam-crossing
+# water bits flank the true inward edge — transform-invariant ground truth,
+# unlike the key marker (which the engine and gate trusted in lockstep while
+# both were uniformly wrong).
 tile_set = gen.get_editor_property("tile_set")
-mesh_index = {}
-for i, t in enumerate(tile_set.get_editor_property("tiles")):
+mesh_ref = {}
+for t in tile_set.get_editor_property("tiles"):
     m = t.get_editor_property("mesh")
     mm = m.get_asset() if hasattr(m, "get_asset") else m
-    if mm:
-        mesh_index[mm.get_name()] = i
-rim_keys = list(prop(gen, ("tile_real_rim_key", "TileRealRimKey"), []))
+    if not mm:
+        continue
+    wm = int(t.get_editor_property("water_mask")) & 0x3F
+    bits = [e for e in range(6) if wm & (1 << e)]
+    ref = None
+    if len(bits) == 2:
+        gap = (bits[1] - bits[0]) % 6
+        if gap == 2:
+            ref = (bits[0] + 1) % 6
+        elif gap == 4:
+            ref = (bits[1] + 1) % 6
+    if ref is not None:
+        mesh_ref[mm.get_name()] = ref
 
 # ring stations + their inward edges (fixed geometry, destiny-independent)
 stations = {}
@@ -128,8 +143,7 @@ for i in range(N_SEEDS):
         if not m or m.get_name() not in RIM_MESHES:
             continue
         name = m.get_name()
-        idx = mesh_index.get(name, -1)
-        key = rim_keys[idx] if 0 <= idx < len(rim_keys) else 0
+        ref = mesh_ref.get(name)
         for j in range(comp.get_instance_count()):
             xf = comp.get_instance_transform(j, True)
             loc = xf.translation
@@ -142,11 +156,11 @@ for i in range(N_SEEDS):
             if name in EXIT_MESHES:
                 exits += 1
             # Bridges face their road; everyone else faces the geometric inward —
-            # the SAME rule BuildRim applies.
+            # the SAME rule BuildRim applies, checked via the flank-rule reference.
             expect = road_edge.get(wkey, st)
             k = int(round(((xf.rotation.rotator().yaw % 360) + 360) % 360 / 60.0)) % 6
             rot = (6 - k) % 6 if b_invert else k
-            if not (rot6(key, rot) & (1 << expect)):
+            if ref is None or not (rot6(1 << ref, rot) & (1 << expect)):
                 orient_bad += 1
 
     souls = gen.get_editor_property("souls")
