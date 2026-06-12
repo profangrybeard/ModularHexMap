@@ -1,5 +1,36 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (the sandwich) — Rim B2 geometry: waterway, low hills, the Range
+
+Director ruled B2's shape: **"depth and parallax and… distance"** — the ring
+waterway at ring 6's edge with LOW hills modeled into the rim tiles (first
+parallax layer), a second ring of varied-height mountains behind (second layer),
+fog living in the depth between. Geometry landed same session:
+- **Rim rework:** every rim tile notches its inward `BAND_W` 3.6 m strip away
+  (`_notched_prism`) — the waterway lives there; hills dropped 20 → **8.5 m**
+  (low is the point: the near layer must not eat the far one); exits cross the
+  band on **gate bridges** (river-kit deck + parapets, M_Road deck = the edge-0
+  measure); mouths became bank works (spill steps / intake grate) + a **hidden
+  water key** (M_Water patch 3 cm under the loop's surface — identity without
+  z-fighting); the **RimKey sank to −2.1** (below the bed — the band has no slab
+  to hide it in; the measurer is XY-only, depth is free invisibility).
+- **`gen_waterway.py`:** the water is ONE closed loop lofted through all 42
+  stations (floor −2.0 / far wall / surface −0.9 — the river's exact section).
+  Near wall deliberately absent: ring 6's slab faces are the town bank, so the
+  river mouths open into the loop flush on ANY destiny — zero per-roll scenery.
+  Per-tile water was rejected: six 60° ring corners would double the kit.
+- **`gen_range.py`:** first bake was a SAW BLADE (14 needle peaks) — rewritten
+  as 5 wide-based gaussian mountains per ridge, jittered rhythm, deterministic
+  per-seed, low tapered ends for overlap; 3 ridges × 9 placed instances
+  (`setup_scenery.py`, deterministic table, radius 300–400 m, two gaps reserved
+  for B3's ray notches).
+- Contact tooling: `render_contact.py` now frames by bounds (20 m tiles).
+- **Pending one editor pass** (queued on the next editor close): reimport
+  (reworked rim glbs + M_Rock/M_RimKey master folds) → `setup_scenery` (places
+  loop + ridges, saves ShuffleLab) → `verify_rim_b1` re-gate → the director's
+  perimeter walk (waterway continuous, mouths open into the loop, bridges carry
+  the exits, hills sit low under the Range).
+
 ## 2026-06-11 (the bowl) — Rim B1: ring 7 closes, every destiny
 
 Director ruled the Rim **the priority** (facades = his hands-on Blender pass,
