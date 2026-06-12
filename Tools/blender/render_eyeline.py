@@ -76,16 +76,15 @@ def inward_yaw(q, r):
     return math.atan2(ey - cy, ex - cx) - math.pi / 2.0
 
 
-# Two-ring Range table — keep in lockstep with Tools/setup_scenery.py (meters).
-RANGE_TABLE = [
-    ("T_range_a", 245.0,  12.0, 0.98), ("T_range_b", 262.0,  58.0, 1.10),
-    ("T_range_c", 250.0, 100.0, 0.92), ("T_range_a", 268.0, 152.0, 1.04),
-    ("T_range_c", 242.0, 196.0, 0.96), ("T_range_b", 256.0, 238.0, 1.00),
-    ("T_range_a", 260.0, 278.0, 1.08), ("T_range_c", 252.0, 336.0, 0.94),
-    ("T_range_b", 495.0,  35.0, 2.35), ("T_range_c", 528.0,  80.0, 2.60),
-    ("T_range_a", 504.0, 174.0, 2.45), ("T_range_b", 540.0, 218.0, 2.70),
-    ("T_range_c", 510.0, 258.0, 2.40), ("T_range_a", 532.0, 352.0, 2.55),
-]
+# Transforms come from Tools/scenery_table.json — the SAME file the editor
+# setup reads. One table, one set of units (meters + unitless scale): the gate
+# and the engine can no longer disagree (the 2026-06-12 x100 lesson).
+import json as _json
+with open(os.path.join(repo_root(), "Tools", "scenery_table.json")) as _f:
+    _table = _json.load(_f)
+RANGE_TABLE = [(r["mesh"], float(r["radius_m"]), float(r["heading_deg"]),
+                float(r["scale"])) for r in _table["range"]]
+WATERWAY_SCALE = float(_table["waterway"]["scale"])
 
 
 _proto = {}
@@ -134,7 +133,7 @@ def build_world():
     town = bpy.context.active_object
     town.data.materials.append(grey("M_TownStandin", (0.42, 0.40, 0.38, 1.0)))
 
-    place("T_waterway", 0.0, 0.0, 0.0)
+    place("T_waterway", 0.0, 0.0, 0.0, scale=WATERWAY_SCALE)
 
     # Rim ring: representative variant mix at true transforms. Tunnel parked at
     # station 0 (camera looks at it in shot 2); mouths at 10/31; berm clusters

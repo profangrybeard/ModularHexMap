@@ -1,5 +1,36 @@
 # Worklog — session memory, newest first
 
+## 2026-06-12 (the ×100 reckoning) — the towers were a units bug, both times
+
+The director opened take two and stood inside kilometer-tall geometry: every
+scenery actor at **scale 104** ("no sky… a huge hole created by towering set
+pieces"). Root cause: **double unit conversion.** The glTF importer already
+converts Blender meters → UE centimeters (every street tile proves it — scale
+1.0 = a perfect 10 m hex), and `setup_scenery.py` multiplied scale by 100 again
+("authored in meters → uu" — a wrong mental model committed as a comment). The
+ridges shipped ~17 km long with ~4 km peaks; the waterway ~24 km wide.
+
+**Three honest findings:**
+1. **This was the FIRST pass's real killer too** — same script, same ×100. The
+   director never saw 8.5 m hills; he saw 850 m ones. The post-revert
+   sight-line theory was real math but a misdiagnosis built without opening the
+   scene. (The flat-broken redesign survives on its own merits — the director
+   approved it knowingly — but the record now states the true cause.)
+2. **The eyeline gate passed while the engine failed** because the placement
+   table was DUPLICATED into two files with a "keep in lockstep" comment — the
+   gate read scale 0.98–2.7, the setup read 98–270. The drift the gate existed
+   to catch lived between the copies of its own inputs.
+3. **Fix is structural, not just numeric:** `Tools/scenery_table.json` is now
+   the ONE source of truth (meters + unitless scale); `setup_scenery.py`
+   converts positions m→uu and passes scale through UNTOUCHED;
+   `render_eyeline.py` reads the same file. The gate and the engine can no
+   longer disagree about units.
+
+Re-placed clean (editor closed, no-save discard of the broken-state delta):
+15 old actors removed, 1 waterway + 14 ridges respawned at 0.92–2.7,
+ShuffleLab saved. Rim tiles were never affected (engine ISM pass, no scale).
+Awaiting the director's walk — for real this time.
+
 ## 2026-06-12 — Rim B2 take two: flat and broken, mountains in the sky band
 
 Director ruled **"both"** on the re-brief (low-and-broken near layer + two-depth
