@@ -25,6 +25,7 @@ import gen_pit_core as _core
 import gen_buildings as _bldg
 import gen_river_tiles as _river
 import gen_blank_variants as _blank
+import gen_rim_tiles as _rim
 
 
 class TileEntry:
@@ -63,6 +64,13 @@ def _registry():
             name, "street",
             (lambda k=key: _blank.build_tile_obj(k)),
         )
+    # rim kit (ring 7 — the bowl; Docs/Rim.md)
+    for key in _rim.VARIANTS:
+        name = "T_rim_%s" % key
+        reg[name] = TileEntry(
+            name, "rim",
+            (lambda k=key: _rim.build_tile_obj(k)),
+        )
     # fixed core: core_specs() keys are already "T_core_*"
     for name, (road, _qr, is_pit) in _core.core_specs().items():
         reg[name] = TileEntry(
@@ -76,12 +84,13 @@ REGISTRY = _registry()
 
 
 def all_names():
-    """Stable display order: street kit, blank variants, buildings, then core tiles."""
+    """Stable display order: street kit, blank variants, rim, buildings, core."""
     street = ["T_street_%s" % k for k in _street.EDGE_SETS]
     blank  = ["T_blank_%s"  % k for k in _blank.VARIANTS]
+    rim    = ["T_rim_%s"    % k for k in _rim.VARIANTS]
     bldg   = ["T_bldg_%s"   % k for k in _bldg.EDGE_SETS]
     core   = [n for n in REGISTRY if n.startswith("T_core_")]
-    return street + blank + bldg + sorted(core)
+    return street + blank + rim + bldg + sorted(core)
 
 
 def get(name):

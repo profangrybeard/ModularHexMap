@@ -27,9 +27,11 @@ public:
 	 *  TargetWaterMask 0 = a dry cell, matched by dry tiles only.
 	 *  When several catalog tiles resolve to the same masks (blank variants),
 	 *  VariantStream picks among them by FHexTileDef::Weight and rolls a free heading
-	 *  for mask-0 tiles; null keeps the legacy first-match (tools, previews). */
+	 *  for mask-0 tiles; null keeps the legacy first-match (tools, previews).
+	 *  Family scopes the search (street cells must never resolve to rim faces). */
 	bool FindTileForMask(int32 TargetMask, int32 TargetWaterMask, int32& OutTileIndex, int32& OutRotation,
-		const FRandomStream* VariantStream = nullptr) const;
+		const FRandomStream* VariantStream = nullptr,
+		EHexTileFamily Family = EHexTileFamily::Street) const;
 
 	/** Shared weighted pick over parallel candidate arrays (used by both the authored
 	 *  resolver above and the generator's measured FindPlacement). Returns an index

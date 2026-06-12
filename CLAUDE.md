@@ -57,6 +57,8 @@ commands below run from the **repo root** and stay machine-neutral.
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_buildings.py"      # 12 building tiles
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
   ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_blank_variants.py" # 3 blank variants (gardens)
+& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background `
+  ".\Source_Art\Blender\HexBase.blend" --python ".\Tools\blender\gen_rim_tiles.py"      # 8 rim tiles (the bowl)
 
 # Contact-sheet renders of staged tiles (visual check after a bake; trailing args filter by substring)
 & "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background --factory-startup `
@@ -94,11 +96,15 @@ census + constraints speak **dry semantics** (blank = dry ground; `water` is its
 own bucket/row); **StraightDecay 0.33** is the canyon-killer ruling (multi-tile
 walled straights structurally dead; Baseline.csv anchored there: dry blank mean
 27.8 / p95 69, straights ≈ 9, bridges ≈ 2.2).
-Run [Docs/Testing.md](Docs/Testing.md) T0–T11 to verify everything. The **"too
+Run [Docs/Testing.md](Docs/Testing.md) T0–T12 to verify everything. The **"too
 much nothing" plan is complete** (L1 wave reseeding, L2 curated clamp —
-`junction 1–3 / tee_c 1–3 / blank 2–40` + plain-void Weight 0.4, proof seed 65 —
-L3 garden variants); **next:** yard/orchard variant siblings + Weight dialing,
-buildings facade continuity (Phase 5), landmark tiles — full queue in Roadmap.md.
+`junction 1–3 / tee_c 1–3 / blank 2–40` + plain-void Weight 0.4 — L3 garden
+variants). **The Rim is the ruled priority** ([Docs/Rim.md](Docs/Rim.md)): **B1
+landed** — ring 7 closes the bowl every destiny (42/42, artery exits 2–6 into
+gated tunnels/passes, 2 river mouths, catalog = 32, `StraightDecay` 0.33);
+**next: B2** (ring waterway + gate bridges) **→ B3** (Day Sequence day/night,
+river-axis sun, fog instruments, the Range) — six §8 rulings open, platform
+answers list (navmesh first) in Roadmap.md.
 
 ## Architecture & file map
 
@@ -119,6 +125,8 @@ buildings facade continuity (Phase 5), landmark tiles — full queue in Roadmap.
 | `Tools/blender/gen_pit_core.py` | pit-core generator (7-tile radial star; manifest-aware; writes `core_layout.json`) |
 | `Tools/blender/gen_buildings.py` | building-tile generator (walls/roof/interior/doors; manifest-aware) — see Docs/Buildings.md |
 | `Tools/blender/gen_blank_variants.py` | blank-variant generator (garden/green/allotment — tended open ground; manifest-aware; writes `blank_kit.json`) |
+| `Tools/blender/gen_rim_tiles.py` | rim-kit generator (ring-7 bowl: faces/adit/tunnel/pass/mouths on the shared flank contract; writes `rim_kit.json`) — see Docs/Rim.md |
+| `Tools/setup_rim.py` / `Tools/verify_rim_b1.py` | (GUI editor) rim import + catalog rows with Family / the B1 gate (30 seeds, bowl closes) |
 | `Tools/blender/render_contact.py` | headless contact-sheet renders of staged .glbs → `Docs/Images/ContactSheets/` |
 | `Tools/blender/tile_pipeline.py` | the "Hex Tiles" Blender addon (export toggles, preview, Promote to Bespoke) |
 | `Tools/blender/tile_registry.py` / `tile_common.py` | single tile list pulled from the generators / shared paths+export+manifest plumbing |

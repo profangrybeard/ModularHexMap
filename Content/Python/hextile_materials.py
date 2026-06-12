@@ -20,7 +20,9 @@ MASTER_DIR = "/Game/_project/HexTiles/Materials"
 CANON = ["M_Road", "M_Pavement", "M_HexGround", "M_TileBorder",
          "M_Water",   # river kit (2026-06-11: closes the per-mesh-dupe ToDo; engine
                       # measures the 'Water' KEY on slots, which the master keeps)
-         "M_Green"]   # blank-variant kit (lawns/beds/canopies — tended open ground)
+         "M_Green",   # blank-variant kit (lawns/beds/canopies — tended open ground)
+         "M_Rock",    # rim kit (the bowl's flanks/crags/portals — Docs/Rim.md)
+         "M_RimKey"]  # rim orientation marker (measured layer; name has no Road/Water)
 ORPHAN_PREFIXES = ("M_Walk", "M_Building")
 
 _eal = unreal.EditorAssetLibrary

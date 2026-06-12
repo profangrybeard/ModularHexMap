@@ -237,10 +237,31 @@ One-shot, editor closed, from the repo root — each prints PASS/FAIL lines and 
 | Restoration | `Tools/verify_restoration.py` | Pop 1 start, candidates, save/load progress, 120/120, reset |
 | River R4 | `Tools/verify_river_r4.py` | gates watered, chosen heading honored, arms reach boundary, banks |
 | Buildings | `Tools/_verify_buildings.py` | street/building ISM pairing |
+| Rim B1 | `Tools/verify_rim_b1.py` | 30 seeds: rim 42/42, exits == mask-derived (2–6), mouths == 2 distinct, souls 120 |
 | Census | `Tools/_census_run.py` | 200-roll sweep + water/bridge census vs `Baseline.csv` |
 
 Pattern: `& "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor.exe" "$PWD\ModularHexMap.uproject" -ExecutePythonScript="$PWD\Tools\<gate>.py" -unattended`
 then grep the log: `Select-String -Path Saved\Logs\ModularHexMap.log -Pattern "PASS|FAIL"`.
+
+## T12 — The Rim (ring 7)
+
+1. Randomize any seed.
+   **Expect:** log `rim 42 placed, 0 unresolved (ring 7), exits=N, water mouths=2`;
+   the town sits in a closed bowl of foothill flanks (~20 m, rippled crests, NOT a
+   flat fortress wall); the rim is SOLID even at Pop 1 (the bowl is eternal —
+   ghosts are town-only).
+2. Walk the ring-6 perimeter: every artery that reaches the rim runs into a
+   **gated tunnel portal** (dark throat, gateposts) or up a **pass trail into a
+   notch**; no road ever dead-ends into bare rock face.
+   **Expect:** 2–6 exits depending on destiny; a road CAN dead-end at the rim
+   where it yielded a gap to the river — that's law, not a bug.
+3. Find both river ends. **Expect:** the outflow pours over a weir into a culvert
+   basin; the intake draws from a basin under a rock lip; channel cross-section
+   meets the ring-6 river tile flush (5 m / −0.9 surface); the two mouths are
+   always at two different stations.
+4. Load an OLD roll (pre-rim save).
+   **Expect:** the bowl closes with faces only — zero tunnels (old rolls carry no
+   exit bits; graceful degradation, not a defect).
 
 ## Known-expected oddities (do NOT file as bugs)
 

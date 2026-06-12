@@ -142,6 +142,7 @@ void AHexShuffleGenerator::MeasureCalibration()
 	const int32 N = TileSet->Tiles.Num();
 	TileRealMask.Init(0, N);
 	TileRealWaterMask.Init(0, N);
+	TileRealRimKey.Init(0, N);
 	int32 PopMismatches = 0;
 
 	for (int32 i = 0; i < N; ++i)
@@ -151,6 +152,9 @@ void AHexShuffleGenerator::MeasureCalibration()
 		const int32 MeasuredW = MeasureTileMask(M, TEXT("Water"));
 		TileRealMask[i] = Measured;
 		TileRealWaterMask[i] = MeasuredW;
+		// Rim orientation key (no authored mirror to validate against — record only;
+		// rim tiles author it on edge 0, street tiles simply have no such section).
+		TileRealRimKey[i] = MeasureTileMask(M, TEXT("RimKey"));
 
 		const int32 Authored = UHexTileSet::TileMask(TileSet->Tiles[i]);
 		const int32 AuthoredW = TileSet->Tiles[i].WaterMask & 0x3F;
@@ -190,6 +194,10 @@ bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, in
 	TArray<float, TInlineAllocator<8>> CandWeight;
 	for (int32 i = 0; i < TileRealMask.Num(); ++i)
 	{
+		// Street resolution only — rim rows share street masks (a face is a blank,
+		// a tunnel is a deadend) and belong to the rim pass exclusively.
+		if (TileSet && TileSet->Tiles.IsValidIndex(i)
+			&& TileSet->Tiles[i].Family != EHexTileFamily::Street) { continue; }
 		for (int32 k = 0; k < 6; ++k)
 		{
 			// World mask of this tile placed at yaw 60*k is RotateLeft(real, k) for UE's
@@ -223,6 +231,130 @@ bool AHexShuffleGenerator::FindPlacement(int32 CellMask, int32 CellWaterMask, in
 		OutYawSteps = VariantStream->RandRange(0, 5);
 	}
 	return true;
+}
+
+bool AHexShuffleGenerator::ResolveRimTile(int32 RoadBits, int32 WaterBits, int32 InwardEdge,
+	const FRandomStream* VariantStream, int32& OutTile, int32& OutYawSteps) const
+{
+	// Rim resolution is a THREE-layer match under one rotation: the RimKey marker
+	// must land on the station's inward edge (orientation — mask-(0,0) faces have
+	// nothing else to orient them), and the road/water layers must equal the
+	// station's derived marks. Measured path mirrors FindPlacement's conventions;
+	// the authored fallback assumes the contract (key authored on edge 0).
+	const bool bMeasured = bCalibrated
+		&& TileRealMask.Num() == TileSet->Tiles.Num()
+		&& TileRealRimKey.Num() == TileSet->Tiles.Num();
+
+	TArray<int32, TInlineAllocator<8>> CandTile;
+	TArray<int32, TInlineAllocator<8>> CandYaw;
+	TArray<float, TInlineAllocator<8>> CandWeight;
+	for (int32 i = 0; i < TileSet->Tiles.Num(); ++i)
+	{
+		const FHexTileDef& T = TileSet->Tiles[i];
+		if (T.Family != EHexTileFamily::Rim) { continue; }
+		const int32 Key   = bMeasured ? TileRealRimKey[i]    : 1; // authored: edge 0
+		const int32 Road  = bMeasured ? TileRealMask[i]      : UHexTileSet::TileMask(T);
+		const int32 Water = bMeasured ? TileRealWaterMask[i] : (T.WaterMask & 0x3F);
+		if (Key == 0) { continue; } // un-keyed rim tile cannot orient (bad bake — calibration log shows it)
+		for (int32 k = 0; k < 6; ++k)
+		{
+			const int32 Rot = bInvertYawShift ? ((6 - k) % 6) : k;
+			if ((HexGrid::RotateMask6(Key, Rot) & (1 << InwardEdge)) != 0 &&
+				HexGrid::RotateMask6(Road, Rot) == RoadBits &&
+				HexGrid::RotateMask6(Water, Rot) == WaterBits)
+			{
+				CandTile.Add(i);
+				CandYaw.Add(k);
+				CandWeight.Add(T.Weight);
+				break;
+			}
+		}
+	}
+	if (CandTile.Num() == 0)
+	{
+		OutTile = INDEX_NONE;
+		OutYawSteps = 0;
+		return false;
+	}
+	const int32 C = UHexTileSet::PickWeightedCandidate(CandWeight, VariantStream);
+	OutTile = CandTile[C];
+	OutYawSteps = CandYaw[C];
+	return true;
+}
+
+void AHexShuffleGenerator::BuildRim(const FHexNetwork& Net)
+{
+	if (!TileSet) { return; }
+	bool bHasRim = false;
+	for (const FHexTileDef& T : TileSet->Tiles)
+	{
+		if (T.Family == EHexTileFamily::Rim) { bHasRim = true; break; }
+	}
+	if (!bHasRim) { return; } // pre-rim catalog: the bowl isn't authored yet — silent no-op
+
+	const int32 RimRing = Growth.Radius + 1;
+	TMap<FIntPoint, const FHexCellResult*> CellOf;
+	for (const FHexCellResult& C : Net.Cells) { CellOf.Add(C.Axial, &C); }
+
+	int32 Placed = 0, Unresolved = 0, Exits = 0, Mouths = 0;
+	// Bounding-box scan over the ring (tiny at this radius; simple and complete).
+	for (int32 q = -RimRing; q <= RimRing; ++q)
+	{
+		for (int32 r = -RimRing; r <= RimRing; ++r)
+		{
+			const FIntPoint S(q, r);
+			if (HexGrid::Distance(S) != RimRing) { continue; }
+
+			// Derive the station's marks from its in-town neighbors' outward bits
+			// (artery exits survive the prune; river arms always wrote theirs).
+			int32 RoadBits = 0, WaterBits = 0;
+			int32 InwardEdge = 0;
+			int32 BestDist = MAX_int32;
+			for (int32 e = 0; e < 6; ++e)
+			{
+				const FIntPoint N = HexGrid::Neighbor(S, e);
+				const int32 D = HexGrid::Distance(N);
+				if (D < BestDist) { BestDist = D; InwardEdge = e; }
+				if (const FHexCellResult* const* Cell = CellOf.Find(N))
+				{
+					const int32 Toward = (e + 3) % 6; // N's edge pointing at S
+					if (((*Cell)->RoadMask  & (1 << Toward)) != 0) { RoadBits  |= (1 << e); }
+					if (((*Cell)->WaterMask & (1 << Toward)) != 0) { WaterBits |= (1 << e); }
+				}
+			}
+			// A marked edge IS the functional inward edge (a tunnel faces its road,
+			// a mouth faces its water); plain faces use the geometric inward pick.
+			if (RoadBits)       { InwardEdge = FMath::CountTrailingZeros(RoadBits); }
+			else if (WaterBits) { InwardEdge = FMath::CountTrailingZeros(WaterBits); }
+
+			// Same per-(seed, cell) determinism as the town: the destiny owns its rim.
+			const FRandomStream VariantStream(VariantSeedFor(Seed, S));
+			int32 TileIdx = INDEX_NONE;
+			int32 YawSteps = 0;
+			if (!ResolveRimTile(RoadBits, WaterBits, InwardEdge, &VariantStream, TileIdx, YawSteps))
+			{
+				++Unresolved;
+				continue;
+			}
+			UStaticMesh* Mesh = TileSet->Tiles[TileIdx].Mesh.LoadSynchronous();
+			if (!Mesh) { ++Unresolved; continue; }
+
+			const FVector2D XY = HexGrid::WorldXY(S, HexCircumradiusUU);
+			FTransform X;
+			X.SetLocation(FVector(XY.X, XY.Y, 0.f));
+			X.SetRotation(FQuat(FRotator(0.f, 60.f * YawSteps, 0.f)));
+			// Always SOLID — the bowl is eternal: never ghosted, never restored.
+			if (UInstancedStaticMeshComponent* ISM = GetOrCreateISM(Mesh))
+			{
+				ISM->AddInstance(X, /*bWorldSpace=*/false);
+				++Placed;
+				if (RoadBits)  { ++Exits; }
+				if (WaterBits) { ++Mouths; }
+			}
+		}
+	}
+	UE_LOG(LogTemp, Display, TEXT("HexShuffle: rim %d placed, %d unresolved (ring %d), exits=%d, water mouths=%d."),
+		Placed, Unresolved, RimRing, Exits, Mouths);
 }
 
 UInstancedStaticMeshComponent* AHexShuffleGenerator::GetOrCreateISM(UStaticMesh* Mesh)
@@ -421,6 +553,9 @@ void AHexShuffleGenerator::Build(const FHexNetwork& Net)
 			}
 		}
 	}
+
+	// Close the bowl: ring-(Radius+1) rim derives from the boundary cells just placed.
+	BuildRim(Net);
 
 	Souls = SoulCount;
 	if (PopLabel)

@@ -40,7 +40,7 @@ int32 UHexTileSet::PickWeightedCandidate(TArrayView<const float> Weights, const 
 }
 
 bool UHexTileSet::FindTileForMask(int32 TargetMask, int32 TargetWaterMask, int32& OutTileIndex, int32& OutRotation,
-	const FRandomStream* VariantStream) const
+	const FRandomStream* VariantStream, EHexTileFamily Family) const
 {
 	// Collect every tile that can present the target masks, each at its first
 	// matching rotation. One candidate per necklace today; blank variants share
@@ -50,6 +50,7 @@ bool UHexTileSet::FindTileForMask(int32 TargetMask, int32 TargetWaterMask, int32
 	TArray<float, TInlineAllocator<8>> CandWeight;
 	for (int32 i = 0; i < Tiles.Num(); ++i)
 	{
+		if (Tiles[i].Family != Family) { continue; }
 		const int32 Base = TileMask(Tiles[i]);
 		const int32 BaseWater = Tiles[i].WaterMask & 0x3F;
 		for (int32 r = 0; r < 6; ++r)

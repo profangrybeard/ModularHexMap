@@ -115,6 +115,25 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 			const bool bIn  = bOut && GrowArm(Neighbor(CellX, InGate), (InGate + 3) % 6, InGate, Trial, OnPath);
 			if (bOut && bIn)
 			{
+				// The two arms must leave the valley through DIFFERENT rim gaps: a
+				// river exiting and re-entering one gap is a hydrological U-turn,
+				// and the shared station would carry two water edges — a rim cell
+				// no mouth tile can serve (Docs/Rim.md §3). Same-gap rolls retry.
+				FIntPoint StationA(MAX_int32, MAX_int32), StationB(MAX_int32, MAX_int32);
+				int32 Found = 0;
+				for (const TPair<FIntPoint, int32>& T : Trial)
+				{
+					if (!InR(T.Key)) { continue; }
+					for (int32 e = 0; e < 6; ++e)
+					{
+						if ((T.Value & (1 << e)) == 0) { continue; }
+						const FIntPoint S = Neighbor(T.Key, e);
+						if (InR(S)) { continue; }
+						(Found == 0 ? StationA : StationB) = S;
+						++Found;
+					}
+				}
+				if (Found == 2 && StationA == StationB) { continue; }   // same gap -> reroll
 				for (const TPair<FIntPoint, int32>& T : Trial) { Water[T.Key] |= T.Value; }
 				break;
 			}
@@ -143,6 +162,14 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 	struct FTip { FIntPoint Cell; int32 InEdge; int32 StraightRun = 0; };
 	TArray<FTip> Frontier;
 	int32 Budget = P.RoadBudget;
+
+	// Artery boundary exits: where a NAMED road reaches the map edge it keeps its
+	// outward edge through the prune — the road visibly leaves town (the Rim's tunnel
+	// portals pick it up; Docs/Rim.md §3). Ordinary streets still die at the edge.
+	// Keyed cell -> outward bit(s); exits are then derivable from the final masks
+	// (a ring-Radius cell with an out-of-region edge), so FHexNetwork/FHexRoll are
+	// untouched and old saved rolls simply load with no exits.
+	TMap<FIntPoint, int32> ArteryExitBits;
 
 	// 1. Cardinal arteries: a straight spine off the core along each chosen axis, then bend/divide
 	//    past ArteryStraightRadius out to the map edge. Cells along the way become branch seeds.
@@ -236,7 +263,30 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 				Seeds.AddUnique(C);
 				CurDir = StepDir;
 				const FIntPoint Nxt = Neighbor(C, StepDir);
-				if (!InR(Nxt)) { break; }
+				if (!InR(Nxt))
+				{
+					// The named road leaves town here: exempt this outward edge from
+					// the prune so the Rim can hang a tunnel portal on it — UNLESS the
+					// rim station is already claimed by the river (a mouth) or another
+					// artery (one gap, one tile). The road then yields exactly like the
+					// gate avenues yield to the river in town: it dead-ends at the rim.
+					bool bGapTaken = false;
+					for (int32 g = 0; g < 6 && !bGapTaken; ++g)
+					{
+						const FIntPoint M = Neighbor(Nxt, g);
+						if (!InR(M)) { continue; }
+						const int32 Toward = (g + 3) % 6;     // M's edge pointing at the station
+						const int32* W = Water.Find(M);
+						if (W && (*W & (1 << Toward)) != 0) { bGapTaken = true; }
+						const int32* X = ArteryExitBits.Find(M);
+						if (X && (*X & (1 << Toward)) != 0) { bGapTaken = true; }
+					}
+					if (!bGapTaken)
+					{
+						ArteryExitBits.FindOrAdd(C) |= (1 << StepDir);
+					}
+					break;
+				}
 				C = Nxt;
 			}
 		}
@@ -391,11 +441,13 @@ FHexNetwork UHexMapGrowthLibrary::GrowRoadNetwork(const FHexGrowthParams& P, con
 		{
 			if (InCore(C)) { continue; }
 			const int32 M = Snap[C];
+			const int32* ExitBits = ArteryExitBits.Find(C);
 			for (int32 e = 0; e < 6; ++e)
 			{
 				if ((M & (1 << e)) == 0) { continue; }
 				const FIntPoint N = Neighbor(C, e);
-				const bool bKeep = InR(N) && (Snap[N] & (1 << ((e + 3) % 6))) != 0;
+				const bool bKeep = (InR(N) && (Snap[N] & (1 << ((e + 3) % 6))) != 0)
+					|| (ExitBits && (*ExitBits & (1 << e)) != 0);   // artery boundary exit
 				if (!bKeep) { Mask[C] &= ~(1 << e); }
 			}
 		}

@@ -69,15 +69,25 @@ edge (and nothing else):
 | Water (a river arm) | **river mouth** — outfall or intake (§5) |
 | Pavement (everything else) | **foothill face** — weighted variant |
 
-- **Exits = artery mouths only.** `NumArteries = 3` (Main / 1st / Arapahoe), so
-  destinies carry ~3 exits (artery forks reaching the boundary may add a 4th —
-  clamp at 4, prune the rest exactly as today). The dangling-stub prune keeps
-  killing ordinary streets at the boundary — only the NAMED roads leave town.
-  Growth change is one rule: *an artery tip that reaches ring 6 keeps its outward
-  edge* (today it's pruned). Diegetic gift: the tunnels inherit the artery names
-  — the Main Gate, the 1st Street tunnel, the Arapahoe pass.
+- **Exits = artery mouths only.** `NumArteries = 3` (Main / 1st / Arapahoe), and
+  each avenue walks BOTH directions — so destinies carry **2–6 exits** (B1 census:
+  typically 3–4; bank-died arms reduce it). The dangling-stub prune keeps killing
+  ordinary streets at the boundary — only the NAMED roads leave town. Growth
+  change is one rule: *an artery tip that reaches ring 6 keeps its outward edge*
+  (the bit was always written; the prune now exempts it). Two laws found by the
+  B1 census (each was a real 1-in-30 roll):
+  - **The road yields the gap** — an artery may not claim a station the river (or
+    an earlier artery) already owns; it dead-ends at the rim like any street
+    (same philosophy as gate avenues yielding to the river in town).
+  - **The river leaves by two different gaps** — the arm walk retries any roll
+    whose two arms exit the same station (a hydrological U-turn no tile serves).
+  Diegetic gift: the tunnels inherit the artery names — the Main Gate, the 1st
+  Street tunnel, the Arapahoe pass.
 - **Water mouths = exactly 2** (the river is boundary-to-boundary through the
-  wound: one inflow, one outflow, at the destiny's chosen headings).
+  wound: one inflow, one outflow, at the destiny's chosen headings, always at two
+  distinct stations). Implementation gift discovered at B1: the arm walk ALWAYS
+  wrote its outward water bit at the boundary ("visibly flow off the map") — the
+  water side needed zero growth changes.
 - **Families in the catalog.** Rim tiles' inward edges carry road/water sockets
   that would collide with street necklaces (a tunnel tile reads as a deadend), so
   `FHexTileDef` gains `EHexTileFamily { Street, Rim }` and the resolver filters by
@@ -103,9 +113,11 @@ perpendicular"; the rim's law is:
 
 Any rim tile then tiles with any other, in any order, at any of the 42 stations.
 Notch/pass tiles dip in their *middle*, never at their side edges, so the
-profile holds. (Generator-enforced: `gen_rim_tiles.py` builds side skirts from
-one shared profile function; the contract goes in Source_Art/README.md beside
-the road-anchor law.)
+profile holds. **B1 implementation:** the flank is one shared height function
+`_f(t)` with an interior-only **crest ripple** (zero at side columns — the
+skyline stops reading as a fortress wall without breaking the contract) plus
+full-perimeter side SKIRTS to z=0 as gap armor at every seam; corner-station
+creases are accepted blockout debt for the B2 walk to judge.
 
 ## 5. The kit
 
@@ -192,14 +204,18 @@ at night before we decide; if bug, the ghost master gets a day-cycle dim param.
 
 ## 7. Phases & gates
 
-- **B1 — The bowl closes (geometry).** Engine: `EHexTileFamily` + rim derivation
-  + rim pass + artery-exit survival rule (growth's ONE change) + exit clamp.
-  Kit: `gen_rim_tiles.py` (shared shoulder-profile function; 8 blockout tiles) +
-  manifest/registry + `setup_rim.py` + contact sheets.
-  **Gate:** 200-roll census — 42/42 rim cells resolve on every roll; exits
-  2–4 == surviving artery mouths; water mouths == 2 at the destiny headings;
-  0 unresolved; souls == 120 untouched; constraints/census outputs byte-identical
-  on the town side (rim is invisible to them).
+- **B1 — The bowl closes (geometry).** ✅ **LANDED 2026-06-11.** Engine:
+  `EHexTileFamily` + family-filtered resolvers + the `M_RimKey` measured
+  orientation layer (third `MeasureTileMask` key — mask-(0,0) faces orient by
+  it) + `BuildRim` pass (derive 42 stations from boundary outward bits, resolve,
+  place always-solid) + artery-exit prune exemption + the two yield laws (above).
+  Kit: `gen_rim_tiles.py` (8 blockout tiles on the shared flank contract; river
+  channel cross-section mirrored exactly at the mouths) + manifest/registry +
+  `setup_rim.py` (catalog = 32 rows) + bounds-framed contact sheets.
+  **Gate: `verify_rim_b1.py` ALL PASS** — 30 seeds, rim 42/42 every roll, exits
+  == mask-derived expectation (2–6 observed), mouths == 2, souls == 120,
+  0 unresolved; expectations re-derive from LastNetwork masks in Python so the
+  gate cross-checks the C++ derivation rather than trusting it.
 - **B2 — The water answers.** The annulus waterway + outfall weir + intake lip +
   gate bridges at exits (+ the culvert grates).
   **Gate:** walk the ring-6 perimeter road: waterway continuous all the way

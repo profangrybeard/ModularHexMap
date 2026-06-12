@@ -99,7 +99,9 @@
 6. **Phase 5 — Buildings facade continuity + min-block-size rule** (per-edge
    `M_BuildingBack` variation, party-wall pilaster, landmark slots; growth-side block
    guarantee).
-7. **Phase 6 — The Rim (ring 7)** — **PLAN DELIVERED 2026-06-11 → [Rim.md](Rim.md)**.
+7. **Phase 6 — The Rim (ring 7)** — **RULED THE PRIORITY 2026-06-11** (ahead of
+   Phase 5 facades, which are "a Blender back-and-forth and myopically detailed" —
+   the director's hands-on pass, later). **PLAN → [Rim.md](Rim.md)**; B1 underway.
    The bowl that holds the town: 42-cell boundary ring (zero souls, eternal, derived
    from the network's boundary state — save format untouched), artery exits into
    gated mountain tunnels (the named roads leave town), the river closing its
@@ -110,6 +112,51 @@
    moments. Phases B1–B4 with census gates; **six open rulings in Rim.md §8**
    (waterway-vs-caves, sun anchor, Range lighting, night share, ghost-glow,
    names). Implementation slots on the director's priority call vs Phase 5.
+
+## Platform answers — sooner, not later (director's mandate 2026-06-11)
+
+> "Look for bigger-picture answers we want sooner rather than later." Things where
+> a wrong default now compounds into rework later. Each gets an early ANSWER (a
+> decision + a smoke test), not necessarily an early build-out.
+
+- [ ] **Navmesh (the named example).** The trap is restoration: ghost tiles have NO
+  collision, so every `RestoreCell` changes the walkable world at runtime — static
+  navmesh is dead on arrival. **Answer:** RuntimeGeneration = **Dynamic**, tile ISMs
+  flagged CanEverAffectNavigation (solid only — ghosts/rim faces excluded), navmesh
+  bounds sized to ring 6 + exit aprons; per-restore dirty area is one tile (~cheap).
+  Wrinkles the kit already created: garden rail GATES must admit nav (gaps are
+  authored ✓), the river is a nav barrier except bridges (matches healing law ✓),
+  waterway/rim never navigable. **Smoke test** (the gate): spawn a nav agent at the
+  Pit rim, RestoreNext ×20, agent must path to every restored cell — wire into
+  `verify_restoration.py`. Decide + test during Rim B1–B2 (souls walking the town
+  is the game's point; nav is its floor).
+- [ ] **Lighting is dynamic, forever.** Day/night = movable sun ⇒ **no baked
+  lighting, ever** (Lumen + dynamic shadows; no lightmap UV debt in any kit mesh).
+  State it as law now so no future mesh pays lightmap tax. (Rim plan §6 implies it;
+  this makes it explicit.)
+- [ ] **One persistent level, no streaming.** The playscape is a ~260 m diorama:
+  ShuffleLab stays a single always-loaded level; World Partition/streaming is
+  permanently out of scope. Origin shifting never needed.
+- [ ] **Nanite: not yet, decide at bespoke-promotion time.** Blockout kits are
+  trivial geometry; the call matters when bespoke detail passes start (affects
+  import settings + material choices on the masters). Capture the decision point,
+  don't pay it now.
+- [ ] **Soul embodiment architecture (answer the shape, defer the build).** 120
+  souls = lightweight actors spawned per restored tile, day-schedule driven off the
+  day-cycle clock (shops by day, lamps by night, home at dark). Decide actor-vs-
+  crowd now (recommend: plain actors — 120 is small), build at the souls phase.
+  Depends on: navmesh answer, `AHexDayCycle` time broadcast (Rim B3).
+- [ ] **Day-cycle event hooks ride along free.** `AHexDayCycle` (Rim B3) broadcasts
+  time-band delegates (Dawn/Day/Dusk/Night) from day one — audio beds, window
+  emissives, lamp posts, and soul schedules all subscribe later instead of
+  retrofitting a clock.
+- [ ] **The dungeon data envelope.** Define the town↔dungeon interface early (what
+  the town hands down: roll seed, restored set, which exit/door; what comes back:
+  rescued-soul records) — a one-page contract in Design.md when the director next
+  works the junction; interfaces calcify fastest.
+- [ ] **Traversal feel pin.** One T-step: walk speed vs 10 m tiles vs camera — the
+  street cross-section is locked law, so if traversal feels off the fix must be
+  controller-side. Verify once, pin numbers in Testing.md.
 
 ## Captured ToDos (do not lose)
 

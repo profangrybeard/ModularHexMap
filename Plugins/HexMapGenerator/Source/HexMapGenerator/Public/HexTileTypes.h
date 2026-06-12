@@ -16,6 +16,17 @@ enum class EHexEdgeSocket : uint8
 	Road
 };
 
+/** Which placement pass owns a catalog tile. Street tiles dress the 120 souls'
+ *  frontier; Rim tiles dress ring Radius+1 (the bowl — Docs/Rim.md). Families
+ *  never cross-resolve: a rim face shares the street blank's (0,0) masks and
+ *  would collide without the filter. */
+UENUM(BlueprintType)
+enum class EHexTileFamily : uint8
+{
+	Street,
+	Rim
+};
+
 /**
  * One tile type in the catalog. Edges are the 6 sockets at rotation 0;
  * edge 0 = +Y (forward), counter-clockwise 1..5 (matches the tile contract).
@@ -55,6 +66,11 @@ struct FHexTileDef
 	 *  (roll seed, cell), so a destiny keeps its gardens through save/load/healing. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile", meta = (ClampMin = "0.0"))
 	float Weight = 1.f;
+
+	/** Placement family (street frontier vs the ring-(Radius+1) Rim). Resolvers only
+	 *  ever match within one family. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hex Tile")
+	EHexTileFamily Family = EHexTileFamily::Street;
 
 	FHexTileDef()
 	{

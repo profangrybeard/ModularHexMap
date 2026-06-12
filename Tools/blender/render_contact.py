@@ -36,18 +36,38 @@ def clean_scene():
 
 
 def light_and_camera():
+    # Frame by the imported geometry's bounds so tall tiles (the rim's 20 m
+    # flanks) read as well as flat street tiles.
+    lo = [1e9, 1e9, 1e9]
+    hi = [-1e9, -1e9, -1e9]
+    for o in bpy.context.scene.objects:
+        if o.type != 'MESH':
+            continue
+        for c in o.bound_box:
+            w = o.matrix_world @ __import__('mathutils').Vector(c)
+            for k in range(3):
+                lo[k] = min(lo[k], w[k])
+                hi[k] = max(hi[k], w[k])
+    cx, cy, cz = [(lo[k] + hi[k]) / 2 for k in range(3)]
+    rad = max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) * 0.5 or 10.0
+
     sun = bpy.data.objects.new("Sun", bpy.data.lights.new("Sun", 'SUN'))
     sun.data.energy = 4.0
-    sun.rotation_euler = (math.radians(50), 0.0, math.radians(135))
+    sun.rotation_euler = (math.radians(50), 0.0, math.radians(55))   # lights the +Y face
     bpy.context.scene.collection.objects.link(sun)
+    fill = bpy.data.objects.new("Fill", bpy.data.lights.new("Fill", 'SUN'))
+    fill.data.energy = 1.4
+    fill.rotation_euler = (math.radians(60), 0.0, math.radians(-120))
+    bpy.context.scene.collection.objects.link(fill)
 
     cam = bpy.data.objects.new("Cam", bpy.data.cameras.new("Cam"))
-    # 3/4 orbit: high enough to read the plan, low enough to read the masses
-    dist, alt = 30.0, math.radians(38)
-    az = math.radians(-60)
-    cam.location = (dist * math.cos(alt) * math.cos(az),
-                    dist * math.cos(alt) * math.sin(az),
-                    dist * math.sin(alt) + 0.5)
+    # 3/4 view from the +Y side: street tiles author content around the forward
+    # (+Y) edge and rim tiles put their aprons/portals there too.
+    dist, alt = rad * 3.1, math.radians(34)
+    az = math.radians(64)
+    cam.location = (cx + dist * math.cos(alt) * math.cos(az),
+                    cy + dist * math.cos(alt) * math.sin(az),
+                    cz + dist * math.sin(alt))
     cam.rotation_euler = (math.radians(90) - alt, 0.0, az + math.radians(90))
     bpy.context.scene.collection.objects.link(cam)
     bpy.context.scene.camera = cam

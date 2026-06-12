@@ -36,6 +36,14 @@
     "T_core_ring_5": { "enabled": true, "bespoke": false, "blend": null },
     "T_blank_garden": { "enabled": true, "bespoke": false, "blend": null },
     "T_blank_green": { "enabled": true, "bespoke": false, "blend": null },
-    "T_blank_allotment": { "enabled": true, "bespoke": false, "blend": null }
+    "T_blank_allotment": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_face_a": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_face_b": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_face_c": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_adit": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_tunnel": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_pass": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_outfall": { "enabled": true, "bespoke": false, "blend": null },
+    "T_rim_intake": { "enabled": true, "bespoke": false, "blend": null }
   }
 }

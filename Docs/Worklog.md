@@ -1,5 +1,47 @@
 # Worklog — session memory, newest first
 
+## 2026-06-11 (the bowl) — Rim B1: ring 7 closes, every destiny
+
+Director ruled the Rim **the priority** (facades = his hands-on Blender pass,
+later) and mandated a "bigger answers sooner" list — now a Roadmap section
+(**Platform answers**): navmesh first (restoration changes the walkable world at
+runtime → RuntimeGeneration=Dynamic + a nav smoke test in the restoration gate),
+dynamic-lighting-forever (no lightmap debt ever), one-level-no-streaming, Nanite
+deferred to bespoke time, soul-embodiment shape, day-cycle event hooks, the
+dungeon data envelope, traversal-feel pin.
+
+**B1 landed same session** (plan → [Rim.md](Rim.md)):
+- **Engine:** `EHexTileFamily` (street cells can never resolve to rim faces and
+  vice versa — a face IS a blank by mask); the **M_RimKey orientation layer**
+  (third `MeasureTileMask` key: mask-(0,0) faces orient by a marker triangle
+  hidden inside the slab — measure-and-rotate law extended, never bent);
+  `BuildRim` (42 stations derived from boundary outward bits, weighted variant
+  picks via `VariantSeedFor`, always-solid ISMs — the bowl ignores restoration);
+  artery exits = a prune exemption (the bit was always written!) and river
+  mouths were FREE (arms always wrote their outward bit — "visibly flow off the
+  map").
+- **Two laws found by the gate, 1-in-30 each:** *the road yields the gap* (an
+  artery may not claim a station the river or an earlier artery owns — it
+  dead-ends at the rim like any street) and *the river leaves by two different
+  gaps* (same-station arm exits reroll: a hydrological U-turn no tile serves).
+- **Kit:** `gen_rim_tiles.py` — 8 blockouts on the shared flank contract
+  (`_f(t)` + interior-only crest ripple so the skyline isn't a fortress wall +
+  full-perimeter skirts as seam armor); mouths mirror the river channel
+  cross-section exactly; contact sheets (render_contact now frames by bounds —
+  needed for 20 m tiles). Catalog = **32 rows**.
+- **Gate `verify_rim_b1.py` ALL PASS:** 30 seeds — rim 42/42, exits == the
+  Python-re-derived mask expectation (2–6 observed; both directions of all 3
+  avenues), mouths == 2 distinct, souls == 120, 0 unresolved.
+- **Baseline re-anchored** (rim-era growth): the exit bits moved deadend→straight
+  exactly as predicted (8.2/9.5 vs 9.0/8.9); blank 27.4 / water 14.6 / bridges
+  2.27; sum(mean) = 120.0 exact; curated constraints unaffected.
+- Old saved rolls: load with a faces-only bowl (no exit bits in their masks) —
+  graceful, documented in T12.
+
+**Next: B2** (the ring waterway + gate bridges) → **B3** (Day Sequence, river-axis
+sun anchor, fog instruments, the Range + notches). Six §8 rulings still open for
+the director — waterway-vs-caves decides B2's shape.
+
 ## 2026-06-11 (close) — The landing: curated clamp wired, proven, shipped
 
 Director's picks arrived as a screenshot (junction 2/2, tee_c 2/2, blank 2/4) —

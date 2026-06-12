@@ -178,6 +178,12 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<int32> TileRealWaterMask;
+
+	// Third measured layer, rim tiles only: the M_RimKey marker triangle at the
+	// authored inward edge. Orientation for mask-(0,0) rim faces, which the road/
+	// water layers can't orient (Docs/Rim.md §3). Street tiles measure 0 here.
+	UPROPERTY(Transient)
+	TArray<int32> TileRealRimKey;
 	bool bCalibrated = false;
 
 	// The last network Build() placed — what SaveRoll writes out and what Python's
@@ -197,6 +203,13 @@ private:
 		const FRandomStream* VariantStream = nullptr) const;
 
 	void Build(const FHexNetwork& Net);
+	/** Ring-(Radius+1) pass: derive each rim station's inward road/water marks from
+	 *  the grown boundary cells' outward bits, resolve against the Rim family
+	 *  (key-oriented, Weight-picked), place solid (the bowl is eternal — never
+	 *  ghosted, never restored). No-op when the catalog has no Rim rows. */
+	void BuildRim(const FHexNetwork& Net);
+	bool ResolveRimTile(int32 RoadBits, int32 WaterBits, int32 InwardEdge,
+		const FRandomStream* VariantStream, int32& OutTile, int32& OutYawSteps) const;
 	void RefreshPresentation();
 	bool BuildRiverPath(TArray<FVector2D>& OutPts) const;
 	UInstancedStaticMeshComponent* GetOrCreateISM(UStaticMesh* Mesh);
