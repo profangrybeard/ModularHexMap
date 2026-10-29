@@ -92,3 +92,9 @@ When ready to move:
 
 We are intentionally **not** adopting 5.7-only experimental APIs, so this should
 stay cheap.
+
+## License
+
+Copyright (c) 2026 Tim Lindsey. All rights reserved.
+
+The code is public to read. It is not licensed for reuse.
